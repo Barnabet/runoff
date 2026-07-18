@@ -9,6 +9,16 @@ import { makeFakeClient } from "./fakeClient.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+/** Assert each `expected` type appears in `actual` strictly after the previous match (order + presence, not just membership). */
+function expectOrderedSubsequence(actual: string[], expected: string[]): void {
+  let cursor = 0;
+  for (const want of expected) {
+    const found = actual.indexOf(want, cursor);
+    expect(found, `expected "${want}" at/after index ${cursor} in ${JSON.stringify(actual)}`).toBeGreaterThanOrEqual(0);
+    cursor = found + 1;
+  }
+}
+
 const content: BlueprintContent = {
   title: "Q2 Report",
   clientName: "Acme",
@@ -53,14 +63,15 @@ describe("executeRun", () => {
     const { document, stats } = await executeRun({ client, content, files, io, blueprintRev: 3 });
 
     const types = events.map((e) => e.type);
-    expect(types).toEqual(
-      expect.arrayContaining([
-        "run_started", "source_read", "section_started", "section_completed", // fixed
-        "section_started", "check_failed", "retry_started", "section_completed", "check_passed",
-        "question_raised", "question_fallback_applied",
-        "render_started", "run_completed",
-      ]),
-    );
+    // Ordered subsequence a correct implementation actually satisfies: the retry's
+    // check_passed is pinned AFTER retry_started, and each check follows its section_started.
+    expectOrderedSubsequence(types, [
+      "run_started", "source_read",
+      "section_started", "section_completed",                       // fixed section
+      "section_started", "check_failed", "retry_started", "check_passed", "section_completed", // body: fail -> retry -> pass
+      "question_raised", "question_fallback_applied",               // outlook: ask -> fallback
+      "render_started", "run_completed",
+    ]);
 
     // Sanity: the run brackets its events.
     expect(types[0]).toBe("run_started");
