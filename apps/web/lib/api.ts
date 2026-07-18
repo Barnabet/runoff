@@ -1,4 +1,5 @@
-import type { BlueprintContent } from "@runoff/core";
+import type { BlueprintContent, RunEvent } from "@runoff/core";
+import type { ProposedEdit } from "@runoff/engine";
 
 // Client-side fetch helpers for the API routes. These run in the browser, so
 // this module must never import server-only code (db, node:*).
@@ -105,4 +106,89 @@ export function deleteSource(id: string): Promise<{ ok: true }> {
 
 export function refreshSource(id: string): Promise<{ ok: true; refreshedAt: string }> {
   return fetchJson(`/api/sources/${id}`, { method: "POST" });
+}
+
+// ---- Runs, flags, notes -----------------------------------------------------
+
+export interface RunRow {
+  id: string;
+  blueprintId: string;
+  blueprintRev: number;
+  triggerKind: string;
+  status: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  stats: string | null;
+  document: string | null;
+  createdAt: string;
+}
+
+export interface FlagRow {
+  id: string;
+  runId: string;
+  code: string;
+  sectionKey: string;
+  question: string;
+  options: string[];
+  status: string;
+  resolution: { option: string; note?: string } | null;
+  createdAt: string;
+}
+
+export interface SectionMeta {
+  key: string;
+  number: number;
+  heading: string;
+}
+
+export interface GetRunResponse {
+  run: RunRow;
+  events: RunEvent[];
+  flags: FlagRow[];
+  sectionMeta: SectionMeta[];
+  sourceLabels: Record<string, string>;
+  blueprint: { id: string; name: string; clientName: string };
+}
+
+export interface NoteRow {
+  id: string;
+  author: "user" | "agent";
+  body: string;
+  proposedEdit: ProposedEdit | null;
+  status: string;
+  createdAt: string;
+}
+
+export type RunInput = { kind: "pause" | "resume" | "steer" | "answer"; text?: string; questionId?: string };
+
+export function createRun(blueprintId: string): Promise<{ id: string }> {
+  return fetchJson("/api/runs", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ blueprintId }) });
+}
+
+export function getRun(id: string): Promise<GetRunResponse> {
+  return fetchJson(`/api/runs/${id}`);
+}
+
+export function postRunInput(id: string, input: RunInput): Promise<{ ok: true }> {
+  return fetchJson(`/api/runs/${id}/inputs`, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(input) });
+}
+
+export function resolveFlag(id: string, body: { option: string; note?: string }): Promise<{ remainingOpen: number }> {
+  return fetchJson(`/api/flags/${id}`, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+}
+
+export function getNotes(blueprintId: string, sectionKey: string): Promise<{ notes: NoteRow[] }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/notes?sectionKey=${encodeURIComponent(sectionKey)}`);
+}
+
+export function postNote(blueprintId: string, body: { sectionKey: string; body: string }): Promise<{ agentNote: NoteRow }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/notes`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+export function acceptNote(noteId: string): Promise<{ rev: number }> {
+  return fetchJson(`/api/notes/${noteId}/accept`, { method: "POST" });
 }
