@@ -1,12 +1,12 @@
-import { LibraryView } from "@/components/library/LibraryView";
+import { ProjectsView } from "@/components/projects/ProjectsView";
 import { getDb } from "@/lib/db";
-import { listBlueprintsWithRuns } from "@/lib/queries";
+import { listProjects } from "@/lib/queries";
 
-// The Library reads live from SQLite on every request; a run finishing must be
-// reflected without a rebuild.
+// The home screen reads live from SQLite on every request; a new project or a
+// run finishing must be reflected without a rebuild.
 export const dynamic = "force-dynamic";
 
 export default function Home() {
-  const blueprints = listBlueprintsWithRuns(getDb());
-  return <LibraryView blueprints={blueprints} />;
+  const projects = listProjects(getDb());
+  return <ProjectsView projects={projects} />;
 }

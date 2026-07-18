@@ -53,7 +53,7 @@ const rows: BlueprintListItem[] = [
 
 describe("LibraryView", () => {
   it("shows a review card only for the blueprint with open flags", () => {
-    const { getAllByText, getByText } = render(<LibraryView blueprints={rows} />);
+    const { getAllByText, getByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     const reviewLinks = getAllByText("Review");
     expect(reviewLinks).toHaveLength(1);
     expect(reviewLinks[0].getAttribute("href")).toBe("/runs/run_38");
@@ -62,24 +62,24 @@ describe("LibraryView", () => {
   });
 
   it("renders a DRAFT badge for draft rows only", () => {
-    const { getAllByText } = render(<LibraryView blueprints={rows} />);
+    const { getAllByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     expect(getAllByText("DRAFT")).toHaveLength(1);
   });
 
   it("renders the LAST RUN status: red flags for open, muted clean, dash for none", () => {
-    const { getByText } = render(<LibraryView blueprints={rows} />);
+    const { getByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     const flags = getByText("2 FLAGS");
     expect(flags.className).toContain("text-pencil");
     expect(getByText("✓ CLEAN")).toBeTruthy();
   });
 
   it("shows the heading count of active + await-review blueprints", () => {
-    const { getByText } = render(<LibraryView blueprints={rows} />);
+    const { getByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     expect(getByText("2 ACTIVE · 1 AWAIT REVIEW")).toBeTruthy();
   });
 
   it("filters the ledger to drafts when the Drafts pill is clicked", () => {
-    const { getByRole, getByText, queryByText } = render(<LibraryView blueprints={rows} />);
+    const { getByRole, getByText, queryByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     // All three rows present initially.
     expect(getByText("Monthly Performance Report")).toBeTruthy();
     expect(getByText("Weekly Trading Summary")).toBeTruthy();
@@ -92,7 +92,7 @@ describe("LibraryView", () => {
   });
 
   it("filters the ledger by search text across name and client", () => {
-    const { getByLabelText, getByText, queryByText } = render(<LibraryView blueprints={rows} />);
+    const { getByLabelText, getByText, queryByText } = render(<LibraryView blueprints={rows} projectId="proj_x" />);
     fireEvent.change(getByLabelText("Search blueprints"), { target: { value: "harbor" } });
     expect(getByText("Proposal — Harbor Logistics")).toBeTruthy();
     expect(queryByText("Monthly Performance Report")).toBeNull();

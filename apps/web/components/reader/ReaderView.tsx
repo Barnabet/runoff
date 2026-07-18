@@ -59,7 +59,7 @@ export function ReaderView({
   payload: GetRunResponse;
   projection?: RunProjection;
 }) {
-  const { run, blueprint, sourceLabels, content } = payload;
+  const { run, blueprint, project, sourceLabels, content } = payload;
 
   // The live surface hands its projection down; a run opened cold (or a test that
   // renders the Reader directly) has none, so derive it from the seeded events.
@@ -213,8 +213,8 @@ export function ReaderView({
 
   const center = (
     <div className="flex items-center gap-[16px]">
-      <Link href="/" className="font-sans text-[13px] text-ink/60">
-        ← Blueprints
+      <Link href={`/projects/${project.id}`} className="font-sans text-[13px] text-ink/60">
+        ← {project.name || "Project"}
       </Link>
       <span className="font-serif text-[15px] font-semibold text-ink">{title}</span>
       <button

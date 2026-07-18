@@ -6,10 +6,11 @@ import { createBlueprint } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 
 /**
- * The topbar "New blueprint" pill. Opens a minimal name + client modal, POSTs a
- * blueprint, and routes to its Builder. Scheduling/sources are set there later.
+ * The "New blueprint" pill. Opens a minimal name + client modal, POSTs a
+ * blueprint into the given project, and routes to its Builder. Scheduling/
+ * sources are set there later.
  */
-export function NewBlueprintButton() {
+export function NewBlueprintButton({ projectId }: { projectId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -32,7 +33,7 @@ export function NewBlueprintButton() {
     }
     setBusy(true);
     try {
-      const { id } = await createBlueprint({ name: trimmed, clientName: client.trim() });
+      const { id } = await createBlueprint({ name: trimmed, clientName: client.trim(), projectId });
       router.push(`/blueprints/${id}`);
     } catch {
       setBusy(false);

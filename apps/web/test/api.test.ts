@@ -13,11 +13,14 @@ import type { BlueprintContent } from "@runoff/core";
 
 // A fresh temp DB + files dir per test; clear the cached connection getDb()
 // memoises on globalThis so each test opens its own database.
+const PROJECT_ID = "proj_test";
+
 beforeEach(() => {
   const dir = mkdtempSync(join(tmpdir(), "runoff-web-"));
   process.env.RUNOFF_DB = join(dir, "runoff.db");
   process.env.RUNOFF_FILES_DIR = join(dir, "files");
   (globalThis as unknown as { __runoffDb?: unknown }).__runoffDb = undefined;
+  getDb().sqlite.prepare("INSERT INTO projects (id, name) VALUES (?, 'Test Project')").run(PROJECT_ID);
 });
 
 function jsonReq(body: unknown, method = "POST"): Request {
@@ -25,8 +28,13 @@ function jsonReq(body: unknown, method = "POST"): Request {
 }
 const ctx = (id: string) => ({ params: Promise.resolve({ id }) });
 
+/** GET /api/blueprints scoped to the fixture project. */
+function listBps(): Promise<Response> {
+  return listBlueprints(new Request(`http://x/api/blueprints?projectId=${PROJECT_ID}`));
+}
+
 async function makeBlueprint(name = "R", clientName = "C"): Promise<string> {
-  const res = await createBlueprint(jsonReq({ name, clientName }));
+  const res = await createBlueprint(jsonReq({ name, clientName, projectId: PROJECT_ID }));
   expect(res.status).toBe(200);
   return (await res.json()).id as string;
 }
@@ -56,7 +64,7 @@ describe("POST /api/blueprints + GET /api/blueprints", () => {
     const id = await makeBlueprint("R", "C");
     expect(id).toMatch(/^bp_[0-9a-f]{12}$/);
 
-    const { blueprints } = await (await listBlueprints()).json();
+    const { blueprints } = await (await listBps()).json();
     expect(blueprints).toHaveLength(1);
     const b = blueprints[0];
     expect(b.id).toBe(id);
@@ -88,7 +96,7 @@ describe("POST /api/blueprints + GET /api/blueprints", () => {
       .prepare("INSERT INTO flags (id, run_id, code, section_key, question, options, status) VALUES ('flag_b', ?, 'F2', 'body', 'q', '[]', 'resolved')")
       .run(runId);
 
-    const { blueprints } = await (await listBlueprints()).json();
+    const { blueprints } = await (await listBps()).json();
     const b = blueprints[0];
     expect(b.lastRun).not.toBeNull();
     expect(b.lastRun.id).toBe(runId);
@@ -166,7 +174,7 @@ describe("PATCH /api/blueprints/:id", () => {
 
     const list = await (await listSources()).json();
     expect(list.sources[0].usedBy).toBe(1);
-    const bpList = await (await listBlueprints()).json();
+    const bpList = await (await listBps()).json();
     expect(bpList.blueprints[0].sourceCount).toBe(1);
 
     // Replace with empty -> unbinds.

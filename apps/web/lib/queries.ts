@@ -19,20 +19,62 @@ interface BlueprintListRow {
   sourceCount: number;
 }
 
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  blueprintCount: number;
+  lastActivityAt: string | null;
+}
+
+/** Every project with its blueprint count and most recent activity (latest run or revision). */
+export function listProjects(db: RunoffDb): ProjectListItem[] {
+  return db.sqlite
+    .prepare(
+      `SELECT p.id, p.name,
+              (SELECT COUNT(*) FROM blueprints b WHERE b.project_id = p.id) AS blueprintCount,
+              (SELECT MAX(t) FROM (
+                 SELECT MAX(r.created_at) AS t FROM runs r JOIN blueprints b ON b.id = r.blueprint_id WHERE b.project_id = p.id
+                 UNION ALL
+                 SELECT MAX(br.created_at) FROM blueprint_revisions br JOIN blueprints b ON b.id = br.blueprint_id WHERE b.project_id = p.id
+               )) AS lastActivityAt
+       FROM projects p ORDER BY p.created_at DESC, p.id DESC`,
+    )
+    .all() as ProjectListItem[];
+}
+
+export interface ProjectPayload {
+  project: { id: string; name: string; createdAt: string };
+  blueprints: BlueprintListItem[];
+}
+
 /**
- * Every blueprint with its bound-source count, its latest run (by created_at),
- * and that run's open-flag count. Ordered newest-blueprint first.
+ * One project's header row plus its scoped blueprint ledger. Shared by
+ * GET /api/projects/:id and the server-rendered project page so the read lives
+ * in one place. Returns null when the project row is missing so callers 404.
  */
-export function listBlueprintsWithRuns(db: RunoffDb): BlueprintListItem[] {
+export function getProjectPayload(db: RunoffDb, id: string): ProjectPayload | null {
+  const project = db.sqlite
+    .prepare("SELECT id, name, created_at AS createdAt FROM projects WHERE id = ?")
+    .get(id) as { id: string; name: string; createdAt: string } | undefined;
+  if (!project) return null;
+  return { project, blueprints: listBlueprintsWithRuns(db, id) };
+}
+
+/**
+ * Every blueprint in one project with its bound-source count, its latest run (by
+ * created_at), and that run's open-flag count. Ordered newest-blueprint first.
+ */
+export function listBlueprintsWithRuns(db: RunoffDb, projectId: string): BlueprintListItem[] {
   const rows = db.sqlite
     .prepare(
       `SELECT b.id, b.name, b.client_name AS clientName, b.cadence_label AS cadenceLabel,
               b.status, b.current_rev AS currentRev,
               (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.blueprint_id = b.id) AS sourceCount
        FROM blueprints b
+       WHERE b.project_id = ?
        ORDER BY b.created_at DESC, b.id DESC`,
     )
-    .all() as BlueprintListRow[];
+    .all(projectId) as BlueprintListRow[];
 
   const lastRunStmt = db.sqlite.prepare(
     `SELECT id, finished_at AS finishedAt, status FROM runs
@@ -97,10 +139,20 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     .prepare("SELECT id, body FROM memories WHERE blueprint_id = ? ORDER BY rowid")
     .all(run.blueprintId) as { id: string; body: string }[];
 
-  const blueprint = db.sqlite
-    .prepare("SELECT id, name, client_name AS clientName FROM blueprints WHERE id = ?")
-    .get(run.blueprintId) as { id: string; name: string; clientName: string } | undefined;
-  if (!blueprint) return null;
+  const blueprintRow = db.sqlite
+    .prepare("SELECT id, name, client_name AS clientName, project_id AS projectId FROM blueprints WHERE id = ?")
+    .get(run.blueprintId) as
+    | { id: string; name: string; clientName: string; projectId: string }
+    | undefined;
+  if (!blueprintRow) return null;
+  const { projectId, ...blueprint } = blueprintRow;
+
+  // The owning project (for the Reader's back-link); LEFT-join semantics — a
+  // blueprint predating projects (project_id '') yields an empty stub.
+  const projectRow = db.sqlite
+    .prepare("SELECT id, name FROM projects WHERE id = ?")
+    .get(projectId) as { id: string; name: string } | undefined;
+  const project = projectRow ?? { id: projectId, name: "" };
 
   const events = (
     db.sqlite.prepare("SELECT payload FROM run_events WHERE run_id = ? ORDER BY seq").all(id) as {
@@ -166,7 +218,7 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     sourceRows.map((s) => [s.id, s.name]),
   );
 
-  return { run, events, flags, sectionMeta, sourceLabels, blueprint, content: masthead, previous, memories };
+  return { run, events, flags, sectionMeta, sourceLabels, blueprint, project, content: masthead, previous, memories };
 }
 
 /**

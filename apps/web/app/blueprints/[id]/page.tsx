@@ -16,6 +16,7 @@ interface BlueprintRow {
   clientName: string;
   status: string;
   currentRev: number;
+  projectId: string;
 }
 
 export default async function BlueprintPage({
@@ -28,11 +29,17 @@ export default async function BlueprintPage({
 
   const blueprint = db.sqlite
     .prepare(
-      `SELECT id, name, client_name AS clientName, status, current_rev AS currentRev
+      `SELECT id, name, client_name AS clientName, status, current_rev AS currentRev,
+              project_id AS projectId
        FROM blueprints WHERE id = ?`,
     )
     .get(id) as BlueprintRow | undefined;
   if (!blueprint) notFound();
+
+  const projectRow = db.sqlite
+    .prepare("SELECT id, name FROM projects WHERE id = ?")
+    .get(blueprint.projectId) as { id: string; name: string } | undefined;
+  const project = projectRow ?? { id: blueprint.projectId, name: "" };
 
   const revRow = db.sqlite
     .prepare("SELECT content FROM blueprint_revisions WHERE blueprint_id = ? AND rev = ?")
@@ -55,6 +62,8 @@ export default async function BlueprintPage({
       blueprintId={blueprint.id}
       name={blueprint.name}
       clientName={blueprint.clientName}
+      projectId={project.id}
+      projectName={project.name}
       initialStatus={blueprint.status}
       initialRev={blueprint.currentRev}
       initialContent={content}

@@ -10,10 +10,11 @@ interface BlueprintRow {
   status: string;
   currentRev: number;
   createdAt: string;
+  projectId: string;
 }
 
 // GET /api/blueprints/:id — the blueprint row, its current revision content
-// (parsed), and the sources bound to it.
+// (parsed), the sources bound to it, and its owning project (for a back-link).
 export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
   const db = getDb();
   const { id } = await ctx.params;
@@ -21,11 +22,17 @@ export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
   const blueprint = db.sqlite
     .prepare(
       `SELECT id, name, client_name AS clientName, cadence_label AS cadenceLabel,
-              status, current_rev AS currentRev, created_at AS createdAt
+              status, current_rev AS currentRev, created_at AS createdAt,
+              project_id AS projectId
        FROM blueprints WHERE id = ?`,
     )
     .get(id) as BlueprintRow | undefined;
   if (!blueprint) return Response.json({ error: "blueprint not found" }, { status: 404 });
+
+  const projectRow = db.sqlite
+    .prepare("SELECT id, name FROM projects WHERE id = ?")
+    .get(blueprint.projectId) as { id: string; name: string } | undefined;
+  const project = projectRow ?? { id: blueprint.projectId, name: "" };
 
   const revRow = db.sqlite
     .prepare("SELECT content FROM blueprint_revisions WHERE blueprint_id = ? AND rev = ?")
@@ -42,7 +49,7 @@ export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
     )
     .all(id);
 
-  return Response.json({ blueprint, content, sources });
+  return Response.json({ blueprint, content, sources, project });
 }
 
 // PATCH /api/blueprints/:id — update any of name/clientName/cadenceLabel/status

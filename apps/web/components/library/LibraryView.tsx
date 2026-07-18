@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Topbar } from "@/components/Topbar";
 import { showToast } from "@/components/Toast";
 import type { BlueprintListItem } from "@/lib/api";
 import { ReviewQueue } from "./ReviewQueue";
@@ -19,11 +18,19 @@ const FILTERS: [Filter, string][] = [
 ];
 
 /**
- * The Library home screen. Owns the search + cadence-filter state and composes
- * the review queue (all flagged blueprints) with the client-filtered ledger.
- * Rendered by the server `app/page.tsx`, which supplies the joined rows.
+ * The blueprint zone of a project page: owns the search + cadence-filter state
+ * and composes the review queue (all flagged blueprints in the project) with the
+ * client-filtered ledger. Embedded by `components/projects/ProjectPage.tsx`,
+ * which supplies the project-scoped rows and the `projectId` new blueprints are
+ * created under.
  */
-export function LibraryView({ blueprints }: { blueprints: BlueprintListItem[] }) {
+export function LibraryView({
+  blueprints,
+  projectId,
+}: {
+  blueprints: BlueprintListItem[];
+  projectId: string;
+}) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
 
@@ -48,65 +55,57 @@ export function LibraryView({ blueprints }: { blueprints: BlueprintListItem[] })
   }, [blueprints, search, filter]);
 
   return (
-    <>
-      <Topbar
-        tab="blueprints"
-        right={
-          <div className="flex items-center gap-3">
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search blueprints…"
-              aria-label="Search blueprints"
-              className="w-[200px] rounded-full border border-ink/25 px-4 py-[7px] font-serif text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink/45 focus:border-ink/40"
-            />
-            <NewBlueprintButton />
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-ink font-serif text-[13px] font-medium italic text-paper">
-              L
-            </div>
-          </div>
-        }
-      />
-
-      <main className="mx-auto w-full max-w-[1360px] px-10 pb-[34px] pt-7">
-        <div className="flex items-baseline gap-[14px]">
-          <h1 className="font-serif text-[30px] font-medium text-ink">Blueprints</h1>
-          <span className="font-mono text-[11px] text-ink/50">
-            {activeCount} ACTIVE · {awaitReview} AWAIT REVIEW
-          </span>
-          <div className="ml-auto flex gap-[7px] font-sans text-[11.5px] font-medium">
-            {FILTERS.map(([key, label]) => {
-              const on = filter === key;
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setFilter(key)}
-                  aria-pressed={on}
-                  className={
-                    on
-                      ? "rounded-full bg-ink px-[13px] py-[5px] text-paper"
-                      : "rounded-full border border-ink/25 px-[13px] py-1 text-ink/60"
-                  }
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+    <section className="mt-9">
+      <div className="flex items-baseline gap-[14px]">
+        <h2 className="font-mono text-[11px] font-semibold uppercase tracking-[2px] text-ink/50">
+          Blueprints
+        </h2>
+        <span className="font-mono text-[11px] text-ink/50">
+          {activeCount} ACTIVE · {awaitReview} AWAIT REVIEW
+        </span>
+        <div className="ml-auto flex items-center gap-3">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search blueprints…"
+            aria-label="Search blueprints"
+            className="w-[200px] rounded-full border border-ink/25 px-4 py-[7px] font-serif text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink/45 focus:border-ink/40"
+          />
+          <NewBlueprintButton projectId={projectId} />
         </div>
+      </div>
 
-        <ReviewQueue blueprints={blueprints} />
-        <BlueprintLedger blueprints={filtered} />
+      <div className="mt-[14px] flex gap-[7px] font-sans text-[11.5px] font-medium">
+        {FILTERS.map(([key, label]) => {
+          const on = filter === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
+              aria-pressed={on}
+              className={
+                on
+                  ? "rounded-full bg-ink px-[13px] py-[5px] text-paper"
+                  : "rounded-full border border-ink/25 px-[13px] py-1 text-ink/60"
+              }
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
 
-        <div
-          onClick={() => showToast("Blueprint import coming soon")}
-          className="mt-4 cursor-pointer font-serif text-[13px] italic text-ink/45"
-        >
-          Start from a past report — drop any PDF or DOCX here and the agent will
-          reverse-engineer it into a blueprint.
-        </div>
-      </main>
-    </>
+      <ReviewQueue blueprints={blueprints} />
+      <BlueprintLedger blueprints={filtered} />
+
+      <div
+        onClick={() => showToast("Blueprint import coming soon")}
+        className="mt-4 cursor-pointer font-serif text-[13px] italic text-ink/45"
+      >
+        Start from a past report — drop any PDF or DOCX here and the agent will
+        reverse-engineer it into a blueprint.
+      </div>
+    </section>
   );
 }

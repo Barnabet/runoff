@@ -61,18 +61,45 @@ export async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> 
   return res.json() as Promise<T>;
 }
 
-export function listBlueprints(): Promise<{ blueprints: BlueprintListItem[] }> {
-  return fetchJson("/api/blueprints");
+export function listBlueprints(projectId: string): Promise<{ blueprints: BlueprintListItem[] }> {
+  return fetchJson(`/api/blueprints?projectId=${encodeURIComponent(projectId)}`);
 }
 
-export function createBlueprint(body: { name: string; clientName: string }): Promise<{ id: string }> {
+export function createBlueprint(body: { name: string; clientName: string; projectId: string }): Promise<{ id: string }> {
   return fetchJson("/api/blueprints", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
 }
 
 export function getBlueprint(
   id: string,
-): Promise<{ blueprint: BlueprintRow; content: BlueprintContent; sources: SourceRow[] }> {
+): Promise<{ blueprint: BlueprintRow; content: BlueprintContent; sources: SourceRow[]; project: { id: string; name: string } }> {
   return fetchJson(`/api/blueprints/${id}`);
+}
+
+// ---- Projects ---------------------------------------------------------------
+
+export interface ProjectListItem {
+  id: string;
+  name: string;
+  blueprintCount: number;
+  lastActivityAt: string | null;
+}
+
+export function listProjectsApi(): Promise<{ projects: ProjectListItem[] }> {
+  return fetchJson("/api/projects");
+}
+
+export function createProject(body: { name: string }): Promise<{ id: string }> {
+  return fetchJson("/api/projects", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
+}
+
+export function patchProject(id: string, body: { name: string }): Promise<{ ok: true }> {
+  return fetchJson(`/api/projects/${id}`, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(body) });
+}
+
+export function getProject(
+  id: string,
+): Promise<{ project: { id: string; name: string; createdAt: string }; blueprints: BlueprintListItem[] }> {
+  return fetchJson(`/api/projects/${id}`);
 }
 
 export function patchBlueprint(id: string, body: PatchBlueprintBody): Promise<{ ok: true }> {
@@ -146,6 +173,8 @@ export interface GetRunResponse {
   sectionMeta: SectionMeta[];
   sourceLabels: Record<string, string>;
   blueprint: { id: string; name: string; clientName: string };
+  // The owning project, so the Reader can back-link to it.
+  project: { id: string; name: string };
   // The pinned revision's masthead, so the Live Run page can render the document
   // header before any section has been drafted; plus its delivery settings so the
   // Reader can render the status banner and DELIVERY card.

@@ -35,6 +35,8 @@ export interface BuilderProps {
   blueprintId: string;
   name: string;
   clientName: string;
+  projectId: string;
+  projectName: string;
   initialStatus: string;
   initialRev: number;
   initialContent: BlueprintContent;
@@ -53,6 +55,8 @@ export function Builder({
   blueprintId,
   name,
   clientName,
+  projectId,
+  projectName,
   initialStatus,
   initialRev,
   initialContent,
@@ -175,8 +179,8 @@ export function Builder({
 
   const center = (
     <div className="flex items-center gap-4">
-      <Link href="/" className="font-sans text-[13px] text-ink/60">
-        ← Blueprints
+      <Link href={`/projects/${projectId}`} className="font-sans text-[13px] text-ink/60">
+        ← {projectName || "Project"}
       </Link>
       <span className="text-[13px] text-ink">
         {clientName} — <b className="font-semibold">{name}</b>

@@ -13,7 +13,12 @@ import { POST as resolveFlag } from "../app/api/flags/[id]/route";
 import { POST as createBlueprint } from "../app/api/blueprints/route";
 import { POST as saveRevision } from "../app/api/blueprints/[id]/revisions/route";
 
-beforeEach(() => freshDb());
+const PROJECT_ID = "proj_test";
+
+beforeEach(() => {
+  freshDb();
+  getDb().sqlite.prepare("INSERT INTO projects (id, name) VALUES (?, 'Test Project')").run(PROJECT_ID);
+});
 
 const contentWithSections: BlueprintContent = {
   title: "R",
@@ -30,7 +35,7 @@ const contentWithSections: BlueprintContent = {
 };
 
 async function makeBlueprint(): Promise<string> {
-  const res = await createBlueprint(jsonReq({ name: "R", clientName: "C" }));
+  const res = await createBlueprint(jsonReq({ name: "R", clientName: "C", projectId: PROJECT_ID }));
   return (await res.json()).id as string;
 }
 

@@ -115,6 +115,7 @@ function payload(flags: FlagRow[], over: Partial<GetRunResponse> = {}): GetRunRe
     ],
     sourceLabels: { src_a: "GA4" },
     blueprint: { id: "bp_1", name: "Monthly Performance Report", clientName: "Meridian" },
+    project: { id: "proj_1", name: "Meridian Retail" },
     content: {
       title: "Monthly Performance Report",
       eyebrow: "PREPARED FOR MERIDIAN",

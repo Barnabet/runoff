@@ -74,6 +74,8 @@ function renderBuilder(overrides?: { content?: BlueprintContent }) {
       blueprintId="bp"
       name="Monthly Performance Report"
       clientName="Meridian Retail"
+      projectId="proj_1"
+      projectName="Meridian Retail"
       initialStatus="draft"
       initialRev={1}
       initialContent={content}
