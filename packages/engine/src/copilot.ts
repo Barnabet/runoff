@@ -52,9 +52,24 @@ export interface GoldenSummary {
   note: string | null;
 }
 
+export interface FamilyInfo {
+  id: string;
+  key: string;
+  label: string;
+  kind: "periodic" | "constant";
+  granularity: "quarter" | "month" | "year" | null;
+  filedPeriods: string[]; // ascending; [] for constant
+  hasLiveFile: boolean; // constant only
+  bound: boolean; // bound to this blueprint
+}
+
 /** Server-side data access handed in by the caller (the web copilot route). */
 export interface CopilotContext {
-  files: EngineFile[];
+  families: FamilyInfo[];
+  /** Bound families resolved to latest period + constants; id = family id. */
+  defaultFiles: EngineFile[];
+  /** Every filed periodic row of bound families; the pack keys them `${familyId}:${period}`. */
+  periodFiles: { familyId: string; period: string; file: EngineFile }[];
   listRuns(): RunSummary[];
   getRunSection(runId: string, key: string): RunSectionDetail | null;
   listGoldens(): GoldenSummary[];
@@ -129,10 +144,11 @@ const TOOLS = [
   fn("update_global_rules", "Replace the blueprint's global rules list.", {
     rules: { type: "array", items: { type: "string" } },
   }),
-  fn("query_sources", "Inspect the data sources bound to this blueprint. Without sourceId: one summary line per source. With sourceId: columns and the first rows of that source.", {
-    sourceId: { type: ["string", "null"] },
+  fn("query_sources", "Inspect the data families in this project. Without familyId: the family tree — one line per family with its kind, granularity, and filed periods. With familyId: columns and first rows of that family's latest file (or its constant reference file). With familyId and period: that specific period's file.", {
+    familyId: { type: ["string", "null"] },
+    period: { type: ["string", "null"] },
   }),
-  fn("compute", "Evaluate one aggregate over a bound table: agg(sourceId.column) or agg(sourceId.column where col=value), agg one of sum|avg|min|max|count.", {
+  fn("compute", "Evaluate one aggregate over a bound family's latest file: agg(familyId.column) or agg(familyId.column where col=value), agg one of sum|avg|min|max|count. To inspect an earlier period, use query_sources with that period instead.", {
     expression: { type: "string" },
   }),
   fn("list_runs", "List this blueprint's most recent runs with their stats.", {}),
@@ -169,21 +185,26 @@ the report output. Use your tools to inspect the bound data, past runs, and gold
 guessing; apply edits directly with the edit tools (the user sees each edit and can revert it); keep \
 instructions concrete and grounded in the actual source columns. Figures in generated reports are \
 audited against locator expressions like sum(src.amount where channel=search) — prefer assert rules \
-and instructions that reference real columns. When the user states a durable preference, save it \
-with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}
+and instructions that reference real columns. Data is organized into families (one file per period, or \
+constant reference files); query_sources shows what periods exist. When the user states a durable \
+preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}
 
 Current draft (JSON):
 ${JSON.stringify(draft)}${memoryBlock}`;
 }
 
-function activityLabel(name: string, args: any): string {
+function activityLabel(name: string, args: any, families: FamilyInfo[]): string {
   switch (name) {
     case "edit_section": return `editing §${args?.key ?? "?"}`;
     case "add_section": return `adding section "${args?.section?.heading ?? "?"}"`;
     case "remove_section": return `removing §${args?.key ?? "?"}`;
     case "update_masthead": return "editing masthead";
     case "update_global_rules": return "editing global rules";
-    case "query_sources": return args?.sourceId ? `reading source ${args.sourceId}` : "listing sources";
+    case "query_sources": {
+      if (!args?.familyId) return "listing data families";
+      const key = families.find((f) => f.id === args.familyId)?.key ?? args.familyId;
+      return `reading ${key}${args.period ? ` @ ${args.period}` : ""}`;
+    }
     case "compute": return `computing ${args?.expression ?? "?"}`;
     case "list_runs": return "listing recent runs";
     case "get_run_section": return `reading run ${args?.runId ?? "?"} §${args?.key ?? "?"}`;
@@ -209,7 +230,13 @@ export async function copilotTurn(opts: {
   const { client, ctx, io } = opts;
   let draft: BlueprintContent = structuredClone(opts.draft);
   const actions: CopilotAction[] = [];
-  const pack = await buildSourcePack(ctx.files);
+  // Two packs: the DEFAULT resolution (latest period / constant live file, keyed
+  // by family id) drives query_sources/compute; the PERIOD pack (keyed
+  // `${familyId}:${period}`) backs period-addressed inspection.
+  const defaultPack = await buildSourcePack(ctx.defaultFiles);
+  const periodPack = await buildSourcePack(
+    ctx.periodFiles.map((p) => ({ ...p.file, id: `${p.familyId}:${p.period}` })),
+  );
 
   const messages: any[] = [
     { role: "system", content: copilotSystemPrompt(draft, opts.selectedKey, opts.memories) },
@@ -288,11 +315,11 @@ export async function copilotTurn(opts: {
         messages.push({ role: "tool", tool_call_id: call.id, content: "Invalid tool arguments — ignored." });
         continue;
       }
-      io.emit({ type: "tool_activity", label: activityLabel(call.name, parsed) });
-      actions.push({ kind: "tool", tool: call.name, label: activityLabel(call.name, parsed) });
+      io.emit({ type: "tool_activity", label: activityLabel(call.name, parsed, ctx.families) });
+      actions.push({ kind: "tool", tool: call.name, label: activityLabel(call.name, parsed, ctx.families) });
       let result: string;
       try {
-        const out = executeTool(call.name, parsed, { draft, pack, ctx, io, actions });
+        const out = executeTool(call.name, parsed, { draft, defaultPack, periodPack, ctx, io, actions });
         draft = out.draft;
         result = out.result;
       } catch (err) {
@@ -316,12 +343,33 @@ function renumber(sections: BlueprintSection[]): BlueprintSection[] {
   return sections.map((s, i) => ({ ...s, number: i + 1 }));
 }
 
+/** One line per family: `key · kind · granularity · <data status>`. */
+function familyLine(f: FamilyInfo): string {
+  const gran = f.granularity ? ` · ${f.granularity}` : "";
+  const data = f.kind === "constant"
+    ? (f.hasLiveFile ? "live file ✓" : "no data yet")
+    : (f.filedPeriods.length ? `periods: ${f.filedPeriods.map((p) => `${p} ✓`).join(", ")}` : "no data yet");
+  return `${f.key} · ${f.kind}${gran} · ${data}`;
+}
+
+/** The family tree: bound families first, unbound families under a trailer line. */
+function familyTree(families: FamilyInfo[]): string {
+  if (!families.length) return "No data families in this project.";
+  const bound = families.filter((f) => f.bound);
+  const unbound = families.filter((f) => !f.bound);
+  const lines = bound.map(familyLine);
+  if (unbound.length) {
+    lines.push("Not bound to this blueprint:", ...unbound.map(familyLine));
+  }
+  return lines.join("\n");
+}
+
 function executeTool(
   name: string,
   args: any,
-  env: { draft: BlueprintContent; pack: SourcePack; ctx: CopilotContext; io: CopilotIO; actions: CopilotAction[] },
+  env: { draft: BlueprintContent; defaultPack: SourcePack; periodPack: SourcePack; ctx: CopilotContext; io: CopilotIO; actions: CopilotAction[] },
 ): { draft: BlueprintContent; result: string } {
-  const { pack, ctx, io, actions } = env;
+  const { defaultPack, periodPack, ctx, io, actions } = env;
   let draft = env.draft;
 
   /** Validate a candidate draft; on success commit it + emit the op. */
@@ -335,12 +383,23 @@ function executeTool(
     return { draft: parsed.data, result: "Edit applied." };
   };
 
+  /** Reject familyIds a patch/section would set that are not bound to this blueprint. */
+  const rejectUnbound = (familyIds: unknown): string | null => {
+    const boundIds = new Set(ctx.families.filter((f) => f.bound).map((f) => f.id));
+    const bad = (Array.isArray(familyIds) ? familyIds : []).filter((id: string) => !boundIds.has(id));
+    return bad.length ? `Tool error: family not bound to this blueprint: ${bad.join(", ")}` : null;
+  };
+
   switch (name) {
     case "edit_section": {
       const section = draft.sections.find((s) => s.key === args.key);
       if (!section) return { draft, result: `Tool error: no section with key ${args.key}` };
       const patch = compact(args.patch ?? {}) as Partial<BlueprintSection>;
       if (Object.keys(patch).length === 0) return { draft, result: "Tool error: empty patch" };
+      if ("familyIds" in patch) {
+        const err = rejectUnbound(patch.familyIds);
+        if (err) return { draft, result: err };
+      }
       const before: Partial<BlueprintSection> = {};
       for (const k of Object.keys(patch) as (keyof BlueprintSection)[]) (before as any)[k] = section[k];
       const candidate = { ...draft, sections: draft.sections.map((s) => (s.key === args.key ? { ...s, ...patch } : s)) };
@@ -350,6 +409,8 @@ function executeTool(
       if (draft.sections.some((s) => s.key === args.section?.key)) {
         return { draft, result: `Tool error: duplicate section key ${args.section?.key}` };
       }
+      const unboundErr = rejectUnbound(args.section?.familyIds);
+      if (unboundErr) return { draft, result: unboundErr };
       const section = { ...compact(args.section ?? {}), number: 0 } as BlueprintSection;
       const idx = args.afterKey === null || args.afterKey === undefined
         ? draft.sections.length
@@ -379,15 +440,22 @@ function executeTool(
       return commit({ ...draft, globalRules: rules }, { type: "update_global_rules", before: draft.globalRules, after: rules });
     }
     case "query_sources": {
-      if (args.sourceId) {
-        if (!pack.sources.some((s) => s.id === args.sourceId)) return { draft, result: `Tool error: no bound source ${args.sourceId}` };
-        return { draft, result: packForPrompt(pack, [args.sourceId], 20) };
+      if (!args.familyId) return { draft, result: familyTree(ctx.families) };
+      const key = ctx.families.find((f) => f.id === args.familyId)?.key ?? args.familyId;
+      if (args.period) {
+        const entryId = `${args.familyId}:${args.period}`;
+        if (!periodPack.sources.some((s) => s.id === entryId)) {
+          return { draft, result: `Tool error: no file for ${key} at ${args.period}` };
+        }
+        return { draft, result: packForPrompt(periodPack, [entryId], 20) };
       }
-      if (!pack.sources.length) return { draft, result: "No sources are bound to this blueprint." };
-      return { draft, result: pack.sources.map((s) => `${s.id}: ${s.summary}`).join("\n") };
+      if (!defaultPack.sources.some((s) => s.id === args.familyId)) {
+        return { draft, result: `Tool error: no file for ${key}` };
+      }
+      return { draft, result: packForPrompt(defaultPack, [args.familyId], 20) };
     }
     case "compute":
-      return { draft, result: String(computeLocator(String(args.expression ?? ""), pack)) };
+      return { draft, result: String(computeLocator(String(args.expression ?? ""), defaultPack)) };
     case "list_runs": {
       const runs = ctx.listRuns();
       if (!runs.length) return { draft, result: "No runs yet." };

@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { blocksToPlainText, newId, previousCompletedDocument } from "@runoff/core";
 import type { RunDocument, RunEvent, RunoffDb } from "@runoff/core";
-import type { CopilotContext, EngineFile, RunSummary, RunSectionDetail } from "@runoff/engine";
+import type { CopilotContext, EngineFile, FamilyInfo, RunSummary, RunSectionDetail } from "@runoff/engine";
 import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow } from "./api";
 import { listProjectSources, type FamilySummary } from "./sourceManager";
 import type { ProjectSourceRow } from "@runoff/core";
@@ -240,33 +240,85 @@ export function buildCopilotContext(
   goldenCache: Map<string, { description: string; text: string }>,
 ): CopilotContext {
   const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
-  // Resolve each bound family to its live file, mirroring resolveRunSources but
-  // without a run period: constants take their null-slot file, periodics take
-  // the latest filed period (lexicographic MAX). EngineFile.id is the FAMILY id.
-  // (Task 10 finishes the copilot taxonomy surface; this keeps it sane meanwhile.)
-  const fams = db.sqlite
-    .prepare(
-      `SELECT f.id, f.label, f.kind FROM blueprint_families bf
-       JOIN source_families f ON f.id = bf.family_id WHERE bf.blueprint_id = ? ORDER BY f.key`,
-    )
-    .all(blueprintId) as { id: string; label: string; kind: string }[];
+
+  // The full project taxonomy: every family (bound or not) with its filed
+  // periods / live-file status. `bound` marks the ones on this blueprint.
+  const projectId =
+    (db.sqlite.prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?").get(blueprintId) as
+      | { projectId: string }
+      | undefined)?.projectId ?? "";
+  const boundSet = new Set(
+    (db.sqlite
+      .prepare("SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?")
+      .all(blueprintId) as { familyId: string }[]).map((r) => r.familyId),
+  );
+  const famRows = db.sqlite
+    .prepare("SELECT id, key, label, kind, granularity FROM source_families WHERE project_id = ? ORDER BY key")
+    .all(projectId) as {
+    id: string;
+    key: string;
+    label: string;
+    kind: "periodic" | "constant";
+    granularity: FamilyInfo["granularity"];
+  }[];
+  const periodsStmt = db.sqlite.prepare(
+    "SELECT period FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+  );
+  const liveStmt = db.sqlite.prepare(
+    "SELECT 1 FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL LIMIT 1",
+  );
+  const families: FamilyInfo[] = famRows.map((f) => ({
+    id: f.id,
+    key: f.key,
+    label: f.label,
+    kind: f.kind,
+    granularity: f.granularity,
+    filedPeriods:
+      f.kind === "constant" ? [] : (periodsStmt.all(f.id) as { period: string }[]).map((r) => r.period),
+    hasLiveFile: f.kind === "constant" ? !!liveStmt.get(f.id) : false,
+    bound: boundSet.has(f.id),
+  }));
+
+  // defaultFiles: each bound family resolved to its live file — constants take
+  // their null-slot file, periodics the latest filed period (lexicographic MAX);
+  // mirrors resolveRunSources without a run period. EngineFile.id is the FAMILY id.
   const constantSlot = db.sqlite.prepare(
     "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL",
   );
   const latestSlot = db.sqlite.prepare(
     "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period DESC LIMIT 1",
   );
-  const files: EngineFile[] = [];
-  for (const f of fams) {
+  const defaultFiles: EngineFile[] = [];
+  for (const f of families) {
+    if (!f.bound) continue;
     const row = (f.kind === "constant" ? constantSlot : latestSlot).get(f.id) as
       | { mime: string; storedFilename: string }
       | undefined;
     if (!row) continue;
-    files.push({ id: f.id, name: f.label, mime: row.mime, path: join(filesDir, row.storedFilename) });
+    defaultFiles.push({ id: f.id, name: f.label, mime: row.mime, path: join(filesDir, row.storedFilename) });
+  }
+
+  // periodFiles: every filed periodic row of the bound families, so the copilot
+  // can inspect any historical period via query_sources {familyId, period}.
+  const periodRowsStmt = db.sqlite.prepare(
+    "SELECT period, mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+  );
+  const periodFiles: CopilotContext["periodFiles"] = [];
+  for (const f of families) {
+    if (!f.bound || f.kind !== "periodic") continue;
+    for (const row of periodRowsStmt.all(f.id) as { period: string; mime: string; storedFilename: string }[]) {
+      periodFiles.push({
+        familyId: f.id,
+        period: row.period,
+        file: { id: f.id, name: f.label, mime: row.mime, path: join(filesDir, row.storedFilename) },
+      });
+    }
   }
 
   return {
-    files,
+    families,
+    defaultFiles,
+    periodFiles,
     listRuns(): RunSummary[] {
       const rows = db.sqlite
         .prepare(

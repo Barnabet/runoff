@@ -33,19 +33,29 @@ const DRAFT: BlueprintContent = {
 let db: ReturnType<typeof getDb>;
 
 function seedBlueprint(id: string): void {
-  db.sqlite.prepare("INSERT INTO blueprints (id, name, client_name, current_rev) VALUES (?, 'R', 'C', 1)").run(id);
+  db.sqlite.prepare("INSERT INTO blueprints (id, name, client_name, project_id, current_rev) VALUES (?, 'R', 'C', 'proj_1', 1)").run(id);
   db.sqlite
     .prepare("INSERT INTO blueprint_revisions (id, blueprint_id, rev, content) VALUES (?, ?, 1, ?)")
     .run(`rev_${id}`, id, JSON.stringify(DRAFT));
+  // A bound constant family (fam_1, one live file), a bound periodic family
+  // (fam_rev, two filed quarters), and an unbound periodic family (fam_un).
   db.sqlite
     .prepare("INSERT INTO source_families (id, project_id, key, label, kind) VALUES ('fam_1', 'proj_1', 'src', 'Src', 'constant')")
     .run();
   db.sqlite
-    .prepare(
-      "INSERT INTO sources (id, project_id, family_id, period, name, kind, stored_filename, mime, size, status) VALUES ('src_1', 'proj_1', 'fam_1', NULL, 'Src', 'file', 'src_1.txt', 'text/plain', 5, 'filed')",
-    )
+    .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_rev', 'proj_1', 'revenue', 'Revenue', 'periodic', 'quarter')")
     .run();
+  db.sqlite
+    .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_un', 'proj_1', 'leftover', 'Leftover', 'periodic', 'month')")
+    .run();
+  const src = db.sqlite.prepare(
+    "INSERT INTO sources (id, project_id, family_id, period, name, kind, stored_filename, mime, size, status) VALUES (?, 'proj_1', ?, ?, ?, 'file', ?, 'text/plain', 5, 'filed')",
+  );
+  src.run("src_1", "fam_1", null, "Src", "src_1.txt");
+  src.run("src_q1", "fam_rev", "2026-Q1", "Revenue Q1", "src_q1.csv");
+  src.run("src_q2", "fam_rev", "2026-Q2", "Revenue Q2", "src_q2.csv");
   db.sqlite.prepare("INSERT INTO blueprint_families (blueprint_id, family_id) VALUES (?, 'fam_1')").run(id);
+  db.sqlite.prepare("INSERT INTO blueprint_families (blueprint_id, family_id) VALUES (?, 'fam_rev')").run(id);
 }
 
 beforeEach(() => {
@@ -156,6 +166,29 @@ describe("copilot API", () => {
 
     const sectionB = context.getRunSection("run_1", "b");
     expect(sectionB?.answers).toEqual([]);
+  });
+
+  it("buildCopilotContext exposes the family tree, default resolution, and per-period files", () => {
+    const context = buildCopilotContext(getDb(), "bp_1", new Map());
+
+    // Every project family appears; bound ones marked, filed periods ascending.
+    expect(context.families).toEqual([
+      { id: "fam_un", key: "leftover", label: "Leftover", kind: "periodic", granularity: "month", filedPeriods: [], hasLiveFile: false, bound: false },
+      { id: "fam_rev", key: "revenue", label: "Revenue", kind: "periodic", granularity: "quarter", filedPeriods: ["2026-Q1", "2026-Q2"], hasLiveFile: false, bound: true },
+      { id: "fam_1", key: "src", label: "Src", kind: "constant", granularity: null, filedPeriods: [], hasLiveFile: true, bound: true },
+    ]);
+
+    // defaultFiles: constant live file + periodic latest period (Q2). id = family id.
+    expect(context.defaultFiles.map((f) => f.id).sort()).toEqual(["fam_1", "fam_rev"]);
+    const rev = context.defaultFiles.find((f) => f.id === "fam_rev")!;
+    expect(rev.path).toContain("src_q2.csv");
+
+    // periodFiles: every filed periodic row of the bound families.
+    expect(context.periodFiles.map((p) => `${p.familyId}:${p.period}`)).toEqual([
+      "fam_rev:2026-Q1",
+      "fam_rev:2026-Q2",
+    ]);
+    expect(context.periodFiles.every((p) => p.file.id === p.familyId)).toBe(true);
   });
 
   it("memories: GET lists, PATCH toggles status, DELETE removes", async () => {

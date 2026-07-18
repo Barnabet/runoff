@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { BlueprintContent } from "@runoff/core";
-import { copilotTurn, type CopilotContext, type CopilotEvent } from "../src/copilot.js";
-import { makeFakeClient } from "./fakeClient.js";
+import { copilotTurn, type CopilotContext, type CopilotEvent, type FamilyInfo } from "../src/copilot.js";
+import { makeFakeClient, type FakeTurn } from "./fakeClient.js";
 
 const content: BlueprintContent = {
   title: "Monthly Performance Report",
@@ -18,7 +21,9 @@ const content: BlueprintContent = {
 
 function ctx(overrides: Partial<CopilotContext> = {}): CopilotContext {
   return {
-    files: [],
+    families: [],
+    defaultFiles: [],
+    periodFiles: [],
     listRuns: () => [],
     getRunSection: () => null,
     listGoldens: () => [],
@@ -31,6 +36,26 @@ function ctx(overrides: Partial<CopilotContext> = {}): CopilotContext {
 function collect() {
   const events: CopilotEvent[] = [];
   return { events, io: { emit: (e: CopilotEvent) => events.push(e) } };
+}
+
+/**
+ * Wrap the fake client so tests can read back the tool RESULT strings the loop
+ * feeds to the model. `messages` is mutated in place by copilotTurn, so
+ * capturing any `create` call's array reference exposes every `role: "tool"`
+ * message written before the turn ended.
+ */
+function recording(script: FakeTurn[][]): { client: any; toolResults: () => string[] } {
+  const base = makeFakeClient(script);
+  const inner = base.chat.completions.create;
+  let messages: any[] = [];
+  base.chat.completions.create = async (params: any) => {
+    messages = params.messages;
+    return inner(params);
+  };
+  return {
+    client: base,
+    toolResults: () => messages.filter((m) => m.role === "tool").map((m) => m.content as string),
+  };
 }
 
 describe("copilotTurn", () => {
@@ -157,5 +182,89 @@ describe("copilotTurn", () => {
     // Resolved (did not hang) with a bounded number of tool rounds.
     expect(res).toBeDefined();
     expect(events.filter((e) => e.type === "tool_activity").length).toBe(12);
+  });
+
+  const FAMILIES: FamilyInfo[] = [
+    { id: "fam_rev", key: "revenue", label: "Revenue", kind: "periodic", granularity: "quarter", filedPeriods: ["2026-Q1", "2026-Q2"], hasLiveFile: false, bound: true },
+    { id: "fam_ref", key: "pricebook", label: "Price book", kind: "constant", granularity: null, filedPeriods: [], hasLiveFile: true, bound: true },
+    { id: "fam_un", key: "leftover", label: "Leftover", kind: "periodic", granularity: "month", filedPeriods: [], hasLiveFile: false, bound: false },
+  ];
+
+  it("query_sources with no args returns the family tree; unbound families under a trailer", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "query_sources", input: {} } }],
+      [{ text: "There you go." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "what data is there",
+      thread: [], memories: [], ctx: ctx({ families: FAMILIES }), io,
+    });
+    const tree = toolResults()[0];
+    expect(tree).toContain("revenue · periodic · quarter · periods: 2026-Q1 ✓, 2026-Q2 ✓");
+    expect(tree).toContain("pricebook · constant · live file ✓");
+    expect(tree).toContain("Not bound to this blueprint:");
+    expect(tree).toContain("leftover · periodic · month · no data yet");
+    // Bound families precede the trailer, which precedes the unbound family.
+    expect(tree.indexOf("revenue")).toBeLessThan(tree.indexOf("Not bound to this blueprint:"));
+    expect(tree.indexOf("Not bound to this blueprint:")).toBeLessThan(tree.indexOf("leftover"));
+  });
+
+  it("query_sources inspects the default file by familyId, a period entry by {familyId, period}, and errors on an unknown period", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "copilot-src-"));
+    writeFileSync(join(dir, "q1.csv"), "channel,amount\nsearch,100\n");
+    writeFileSync(join(dir, "q2.csv"), "channel,amount\nsearch,250\n");
+    const defaultFiles = [{ id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") }];
+    const periodFiles = [
+      { familyId: "fam_rev", period: "2026-Q1", file: { id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q1.csv") } },
+      { familyId: "fam_rev", period: "2026-Q2", file: { id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") } },
+    ];
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "query_sources", input: { familyId: "fam_rev", period: null } } }],
+      [{ toolUse: { name: "query_sources", input: { familyId: "fam_rev", period: "2026-Q1" } } }],
+      [{ toolUse: { name: "query_sources", input: { familyId: "fam_rev", period: "2026-Q4" } } }],
+      [{ text: "Done inspecting." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "inspect revenue",
+      thread: [], memories: [], ctx: ctx({ families: FAMILIES, defaultFiles, periodFiles }), io,
+    });
+    const [def, q1, bad] = toolResults();
+    expect(def).toContain("250"); // default resolution = latest period (Q2)
+    expect(q1).toContain("100"); // period-addressed Q1
+    expect(q1).not.toContain("250");
+    expect(bad).toBe("Tool error: no file for revenue at 2026-Q4");
+  });
+
+  it("edit_section rejects familyIds not bound to the blueprint; the draft is unchanged", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "edit_section", input: { key: "budget", patch: { familyIds: ["fam_unbound"] } } } }],
+      [{ text: "That family is not bound." }],
+    ]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "bind leftover",
+      thread: [], memories: [], ctx: ctx({ families: FAMILIES }), io,
+    });
+    expect(toolResults()[0]).toBe("Tool error: family not bound to this blueprint: fam_unbound");
+    expect(events.some((e) => e.type === "edit")).toBe(false);
+    expect(res.draft.sections[1].familyIds).toEqual(["src_data"]); // unchanged
+  });
+
+  it("compute still evaluates over the default pack (ids = family ids)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "copilot-compute-"));
+    writeFileSync(join(dir, "q2.csv"), "channel,amount\nsearch,250\ndisplay,90\n");
+    const defaultFiles = [{ id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") }];
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "compute", input: { expression: "sum(fam_rev.amount)" } } }],
+      [{ text: "Computed." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "sum revenue",
+      thread: [], memories: [], ctx: ctx({ families: FAMILIES, defaultFiles }), io,
+    });
+    expect(toolResults()[0]).toBe("340");
   });
 });
