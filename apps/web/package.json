@@ -10,6 +10,7 @@
   "dependencies": {
     "@runoff/core": "workspace:*",
     "@runoff/engine": "workspace:*",
+    "better-sqlite3": "^11.7.0",
     "drizzle-orm": "^0.38.0",
     "next": "^15.1.0",
     "react": "^19.0.0",
