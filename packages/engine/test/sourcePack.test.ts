@@ -71,6 +71,39 @@ describe("buildSourcePack", () => {
     }
   });
 
+  it("maps xlsx columns by true index when a header cell is blank (spacer column)", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "runoff-xlsx-gap-"));
+    const path = join(dir, "gap.xlsx");
+    try {
+      const wb = new ExcelJS.Workbook();
+      const sheet = wb.addWorksheet("Data");
+      // Header: A1="month", B1 blank (spacer), C1="revenue".
+      sheet.getCell("A1").value = "month";
+      sheet.getCell("C1").value = "revenue";
+      // Data rows carry a value in the spacer column too, to prove it is skipped.
+      sheet.getCell("A2").value = "apr";
+      sheet.getCell("B2").value = "IGNORE_ME";
+      sheet.getCell("C2").value = 1000;
+      await wb.xlsx.writeFile(path);
+
+      const pack = await buildSourcePack([
+        {
+          id: "src_gap",
+          name: "gap.xlsx",
+          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          path,
+        },
+      ]);
+      const t = pack.sources[0].tables![0];
+      expect(t.columns).toEqual(["month", "revenue"]);
+      expect(t.rows[0]).toEqual({ month: "apr", revenue: 1000 });
+      // The blank-header spacer column must not leak into revenue's data.
+      expect(t.rows[0].revenue).toBe(1000);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it("extracts DOCX text via mammoth (dispatch by mime)", async () => {
     const pack = await buildSourcePack([
       {

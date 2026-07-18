@@ -108,19 +108,22 @@ async function buildXlsx(file: EngineFile): Promise<PackedSource> {
   const tables: ParsedTable[] = [];
 
   workbook.eachSheet((sheet) => {
-    const columns: string[] = [];
-    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell) => {
-      columns.push(cellText(cell.value));
+    // Capture each header's true column index so blank spacer columns (a gap in
+    // the header row) don't shift the data of every subsequent column.
+    const headers: { name: string; colNumber: number }[] = [];
+    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
+      headers.push({ name: cellText(cell.value), colNumber });
     });
+    const columns = headers.map((h) => h.name);
 
     const rows: Record<string, string | number>[] = [];
     for (let r = 2; r <= sheet.rowCount; r++) {
       const row = sheet.getRow(r);
       if (!row.hasValues) continue;
       const record: Record<string, string | number> = {};
-      columns.forEach((col, i) => {
-        record[col] = cellValue(row.getCell(i + 1).value);
-      });
+      for (const { name, colNumber } of headers) {
+        record[name] = cellValue(row.getCell(colNumber).value);
+      }
       rows.push(record);
     }
 
