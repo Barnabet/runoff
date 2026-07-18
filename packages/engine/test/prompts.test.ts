@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { sectionUserPrompt } from "../src/prompts.js";
+import { sectionUserPrompt, systemPrompt } from "../src/prompts.js";
 import type { SourcePack } from "../src/sourcePack.js";
-import type { BlueprintSection } from "@runoff/core";
+import type { BlueprintContent, BlueprintSection } from "@runoff/core";
 
 const emptyPack: SourcePack = { sources: [] };
 
@@ -57,5 +57,37 @@ describe("sectionUserPrompt — rules block", () => {
   it("emits no rules block when the section has no rules", () => {
     const prompt = sectionUserPrompt({ ...base, section: section([]) });
     expect(prompt).not.toContain("Rules for this section:");
+  });
+});
+
+describe("citation-marker wording", () => {
+  // A live run showed the model copying a "[[figure|…]]" template literally, rendering
+  // the word "figure" to the reader — the templates must never use it as the placeholder.
+  const content: BlueprintContent = {
+    title: "Monthly Performance Report",
+    clientName: "Meridian Retail",
+    eyebrow: "Marketing Performance",
+    dateline: "June 2026",
+    sections: [],
+    globalRules: [],
+    delivery: { recipient: "ops@example.com", autoDeliverOnClear: false },
+  };
+
+  it("the dialect contract shows a numeral placeholder and a concrete example", () => {
+    const prompt = systemPrompt(content);
+    expect(prompt).toContain("[[numeral|sourceId|locator]]");
+    expect(prompt).toContain("[[220,500|src_ab12|sum(src_ab12.amount)]]");
+    expect(prompt).not.toContain("[[figure|");
+  });
+
+  it("the retry feedback tells the model to wrap the numeral itself", () => {
+    const prompt = sectionUserPrompt({
+      ...base,
+      section: section([]),
+      retryFeedback: "uncited figure: 4",
+    });
+    expect(prompt).toContain("A previous draft failed checks: uncited figure: 4");
+    expect(prompt).toContain("the visible text must be the actual number");
+    expect(prompt).not.toContain("[[figure|");
   });
 });

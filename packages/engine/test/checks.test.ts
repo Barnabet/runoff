@@ -60,6 +60,24 @@ describe("auditCitations", () => {
     expect(r.failures[0]).toMatch(/^figure cites unbound source src_other: /);
   });
 
+  it("does not read digits embedded in identifiers like GA4 as figures", () => {
+    // "GA4 recorded…" flagged "uncited figure: 4" in a live run — the 4 belongs to the word.
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "GA4 recorded strong Q2 growth across channels." },
+    ]}];
+    expect(auditCitations(blocks, pack, ["src_spend"]).pass).toBe(true);
+  });
+
+  it("fails a cited span whose text carries no figure, with a pinned prefix", () => {
+    // A live retry produced [[figure|src|max]] — placeholder text rendered to the reader.
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "figure", citation: { sourceId: "src_spend", locator: "max" } },
+    ]}];
+    const r = auditCitations(blocks, pack, ["src_spend"]);
+    expect(r.pass).toBe(false);
+    expect(r.failures[0]).toMatch(/^cited span has no figure: /);
+  });
+
   it("audits citations inside table cells but not header columns", () => {
     // A digit in a header column ("Q2 Value") must NOT be flagged; a cell figure must be.
     const cited: Block[] = [{ type: "table", columns: ["Metric", "Q2 Value"], rows: [

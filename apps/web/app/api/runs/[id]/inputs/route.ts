@@ -29,6 +29,18 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
   if (typeof body.text === "string") payload.text = body.text;
   if (typeof body.questionId === "string") payload.questionId = body.questionId;
 
+  // Re-answering a question the worker has not yet consumed replaces the pending
+  // row — a re-click is a changed (or repeated) answer, never a second one.
+  if (kind === "answer" && payload.questionId) {
+    const updated = db.sqlite
+      .prepare(
+        "UPDATE run_inputs SET payload = ? WHERE run_id = ? AND kind = 'answer' " +
+          "AND consumed_at IS NULL AND json_extract(payload, '$.questionId') = ?",
+      )
+      .run(JSON.stringify(payload), id, payload.questionId);
+    if (updated.changes > 0) return Response.json({ ok: true });
+  }
+
   db.sqlite
     .prepare("INSERT INTO run_inputs (run_id, kind, payload) VALUES (?, ?, ?)")
     .run(id, kind, JSON.stringify(payload));

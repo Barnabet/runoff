@@ -16,7 +16,8 @@ const EXPR =
 const AGG_REF = /^(sum|avg|min|max|count)\((\w+)\.(\w+)\)$/;
 
 // A digit-bearing numeric figure: optional $, digits/commas, optional decimal, optional %.
-const FIGURE = /\$?\d[\d,]*(?:\.\d+)?%?/;
+// The lookbehind keeps digits embedded in identifiers ("GA4", "Q2") from reading as figures.
+const FIGURE = /(?<!\w)\$?\d[\d,]*(?:\.\d+)?%?/;
 
 /** Aggregate a source column. Throws if the source or column is missing. */
 function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack): number {
@@ -127,7 +128,14 @@ export function auditCitations(
 
   for (const span of allSpans(blocks)) {
     const fig = figureIn(span.text);
-    if (!fig) continue;
+    if (!fig) {
+      // The dialect cites figures; a cited span with no digits renders placeholder
+      // text to the reader verbatim (e.g. the literal word "figure").
+      if (span.citation && !/\d/.test(span.text)) {
+        failures.push(`cited span has no figure: "${span.text}"`);
+      }
+      continue;
+    }
 
     if (!span.citation) {
       failures.push(`uncited figure: ${fig}`);

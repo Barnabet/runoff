@@ -156,6 +156,18 @@ describe("Live Run — the agent's desk", () => {
     });
   });
 
+  it("acknowledges a sent answer on the question card immediately", () => {
+    // The agent only consumes answers at its next drafting step — without an
+    // immediate acknowledgment users re-click (4 duplicate rows in a live run).
+    const { getByText, getByTestId } = render(<RunView payload={basePayload(midRun)} />);
+    const card = () => getByTestId("question-card-q1");
+    expect(card().textContent).toContain("No answer by");
+
+    fireEvent.click(getByText("Cite them"));
+    expect(card().textContent).toContain("Answer sent");
+    expect(card().textContent).not.toContain("No answer by");
+  });
+
   it("optimistically appends a steer line and posts the steer", () => {
     const { getByLabelText, getByText } = render(<RunView payload={basePayload(midRun)} />);
     const input = getByLabelText("steer the run") as HTMLInputElement;

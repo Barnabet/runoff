@@ -160,6 +160,22 @@ describe("POST /api/runs/:id/inputs", () => {
     expect(row.kind).toBe("answer");
     expect(JSON.parse(row.payload)).toEqual({ text: "yes", questionId: "q1" });
   });
+
+  it("replaces a pending answer to the same question instead of queueing a duplicate", async () => {
+    // A live run recorded 4 identical rows per question from re-clicks (run_d899df901079).
+    const bpId = await makeBlueprint();
+    const runId = (await (await createRun(jsonReq({ blueprintId: bpId }))).json()).id as string;
+    await postInput(jsonReq({ kind: "answer", questionId: "q1", text: "yes" }), ctx(runId));
+    await postInput(jsonReq({ kind: "answer", questionId: "q1", text: "no" }), ctx(runId));
+    await postInput(jsonReq({ kind: "answer", questionId: "q2", text: "maybe" }), ctx(runId));
+
+    const rows = getDb()
+      .sqlite.prepare("SELECT payload FROM run_inputs WHERE run_id = ? ORDER BY id")
+      .all(runId) as { payload: string }[];
+    expect(rows).toHaveLength(2);
+    expect(JSON.parse(rows[0].payload)).toEqual({ text: "no", questionId: "q1" });
+    expect(JSON.parse(rows[1].payload)).toEqual({ text: "maybe", questionId: "q2" });
+  });
 });
 
 describe("POST /api/flags/:id", () => {

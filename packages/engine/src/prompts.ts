@@ -20,8 +20,10 @@ to this section; never invent figures.
 
 Dialect contract: write plain paragraphs separated by blank lines; NO markdown headings/bold/lists; \
 tables as GitHub markdown tables; every figure sourced from data must be written as \
-[[figure|sourceId|locator]] where locator is sum|avg|min|max|count(sourceId.column) when derived \
-from a table, else a short quote reference; only use sourceIds bound to this section.
+[[numeral|sourceId|locator]] — the first field is the exact text the reader sees, so it must be the \
+actual number (e.g. [[220,500|src_ab12|sum(src_ab12.amount)]]), never the word "figure" or any other \
+placeholder; locator is sum|avg|min|max|count(sourceId.column) when derived from a table, else a \
+short quote reference; only use sourceIds bound to this section.
 
 Tools: use ask_user only for genuine ambiguity; use raise_flag for judgment calls the rules mark as \
 needing review.${globalRules}`;
@@ -81,7 +83,12 @@ export function sectionUserPrompt(args: {
   }
 
   if (retryFeedback) {
-    parts.push(`\nA previous draft failed checks: ${retryFeedback}\nFix and redraft the full section.`);
+    parts.push(
+      `\nA previous draft failed checks: ${retryFeedback}\n` +
+        `Fix and redraft the full section. Cite a figure by wrapping the numeral itself in the ` +
+        `marker — [[220,500|sourceId|locator]] — the visible text must be the actual number, ` +
+        `never the word "figure".`,
+    );
   }
 
   parts.push(`\nWrite the section now.`);

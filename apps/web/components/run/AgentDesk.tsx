@@ -14,6 +14,9 @@ type LogLine = RunProjection["log"][number];
  * completion card once the run finishes, and a steer input pinned to the bottom.
  * Steering appends an optimistic user line immediately; the same line arrives
  * from the stream as a `steer_received` event and is de-duplicated on the way in.
+ * Answers are acknowledged optimistically too — the agent only consumes them at
+ * its next drafting step, so the card must confirm the click right away (and it
+ * stays clickable: re-answering replaces the pending answer server-side).
  */
 export function AgentDesk({
   runId,
@@ -32,6 +35,7 @@ export function AgentDesk({
 }) {
   const [steer, setSteer] = useState("");
   const [optimistic, setOptimistic] = useState<string[]>([]);
+  const [sentAnswers, setSentAnswers] = useState<Record<string, string>>({});
   const feedRef = useRef<HTMLDivElement>(null);
 
   const numberOf = (key: string): string => {
@@ -54,9 +58,17 @@ export function AgentDesk({
   }, [feed.length]);
 
   function answer(questionId: string, option: string) {
-    postRunInput(runId, { kind: "answer", questionId, text: option }).catch(() =>
-      showToast("Could not send your answer."),
-    );
+    const previous = sentAnswers[questionId];
+    setSentAnswers((prev) => ({ ...prev, [questionId]: option }));
+    postRunInput(runId, { kind: "answer", questionId, text: option }).catch(() => {
+      setSentAnswers((prev) => {
+        const next = { ...prev };
+        if (previous === undefined) delete next[questionId];
+        else next[questionId] = previous;
+        return next;
+      });
+      showToast("Could not send your answer.");
+    });
   }
 
   function sendSteer() {
@@ -99,34 +111,39 @@ export function AgentDesk({
         ))}
       </div>
 
-      {openQuestions.map(([qid, q]) => (
-        <div
-          key={qid}
-          data-testid={`question-card-${qid}`}
-          className="border border-t-2 border-ink/12 border-t-amber-accent bg-card p-[14px]"
-        >
-          <p className="font-serif text-[13px] leading-[1.5] text-ink">{q.question}</p>
-          <div className="mt-[10px] flex flex-wrap gap-[8px]">
-            {q.options.map((option, i) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => answer(qid, option)}
-                className={
-                  i === 0
-                    ? "rounded-full bg-ink px-[13px] py-[5px] font-sans text-[11px] font-medium text-paper"
-                    : "rounded-full border border-ink/30 px-[13px] py-[5px] font-sans text-[11px] font-medium text-ink"
-                }
-              >
-                {option}
-              </button>
-            ))}
+      {openQuestions.map(([qid, q]) => {
+        const sent = sentAnswers[qid];
+        return (
+          <div
+            key={qid}
+            data-testid={`question-card-${qid}`}
+            className="border border-t-2 border-ink/12 border-t-amber-accent bg-card p-[14px]"
+          >
+            <p className="font-serif text-[13px] leading-[1.5] text-ink">{q.question}</p>
+            <div className="mt-[10px] flex flex-wrap gap-[8px]">
+              {q.options.map((option, i) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => answer(qid, option)}
+                  className={
+                    (sent ? option === sent : i === 0)
+                      ? "rounded-full bg-ink px-[13px] py-[5px] font-sans text-[11px] font-medium text-paper"
+                      : "rounded-full border border-ink/30 px-[13px] py-[5px] font-sans text-[11px] font-medium text-ink"
+                  }
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+            <p className="mt-[10px] font-serif text-[11.5px] italic text-ink/55">
+              {sent
+                ? "Answer sent — the agent reads it at its next drafting step. Click another option to change it."
+                : `No answer by ${numberOf(q.deadlineSection)}? ${q.fallback}`}
+            </p>
           </div>
-          <p className="mt-[10px] font-serif text-[11.5px] italic text-ink/55">
-            No answer by {numberOf(q.deadlineSection)}? {q.fallback}
-          </p>
-        </div>
-      ))}
+        );
+      })}
 
       {resolvedQuestions.map(([qid, q]) => (
         <div
