@@ -76,16 +76,21 @@ export function ReaderView({
   const dateLabel = formatDate(run.finishedAt ?? run.createdAt);
 
   function handleResolve(flag: FlagRow, option: string) {
-    const previous = flags;
     setFlags((cur) =>
       cur.map((f) =>
         f.id === flag.id ? { ...f, status: "resolved", resolution: { option } } : f,
       ),
     );
     // The banner flips off the derived `openCount`; when this was the last open
-    // flag, `remainingOpen` from the server confirms the same.
+    // flag, `remainingOpen` from the server confirms the same. On failure, flip
+    // ONLY this flag back to open (a functional update, so a sibling flag
+    // resolved concurrently is not clobbered by a stale whole-array snapshot).
     resolveFlag(flag.id, { option }).catch(() => {
-      setFlags(previous);
+      setFlags((cur) =>
+        cur.map((f) =>
+          f.id === flag.id ? { ...f, status: "open", resolution: null } : f,
+        ),
+      );
       showToast("Could not save your judgment.");
     });
   }
@@ -185,7 +190,7 @@ export function ReaderView({
 
       <StatusBanner openCount={openCount} delivery={{ recipient: content.delivery.recipient, autoDeliverOnClear: autoDeliver }} />
 
-      <main className="mx-auto grid w-full max-w-[1360px] grid-cols-[1fr_322px] gap-6 px-[40px] py-[28px]">
+      <main className="print-doc-root mx-auto grid w-full max-w-[1360px] grid-cols-[1fr_322px] gap-6 px-[40px] py-[28px]">
         <div className="flex flex-col items-center">
           <DocumentPage eyebrow={eyebrow} title={title} dateline={dateline}>
             {sections.map((s) => (

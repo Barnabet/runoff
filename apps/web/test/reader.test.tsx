@@ -212,6 +212,23 @@ describe("Reader — flag highlights", () => {
   });
 });
 
+describe("Reader — print wiring", () => {
+  it("marks the chrome no-print and the document root print-doc-root", () => {
+    const { container, getByTestId } = render(
+      <ReaderView payload={payload([flag({})])} projection={projection} />,
+    );
+    // The reader `main` is the print root: under `@media print` its grid collapses
+    // to a plain full-width block (display:block, max-width:none, padding:0) so the
+    // document sheet is not squeezed into the now-empty 322px rail track.
+    const main = container.querySelector("main") as HTMLElement;
+    expect(main.className).toContain("print-doc-root");
+    // The right rail and status banner are chrome that drops out in print.
+    expect(getByTestId("status-banner").className).toContain("no-print");
+    const rail = getByTestId("run-report").closest("aside") as HTMLElement;
+    expect(rail.className).toContain("no-print");
+  });
+});
+
 describe("Reader — delivery toggle", () => {
   it("persists a toggle via getBlueprint + saveRevision on the current content", async () => {
     const { getByTestId } = render(<ReaderView payload={payload([flag({})])} projection={projection} />);

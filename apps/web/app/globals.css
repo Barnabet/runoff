@@ -35,6 +35,15 @@ body {
   .no-print {
     display: none !important;
   }
+  /* The reader `main` is a grid whose right-rail track survives even when the
+     rail itself is `display:none`, squeezing the document into the narrowed 1fr
+     column. Collapse the grid to a plain block with no width cap or padding so
+     the sheet spans the full printable width. */
+  .print-doc-root {
+    display: block !important;
+    max-width: none !important;
+    padding: 0 !important;
+  }
   .doc-page {
     box-shadow: none !important;
     width: auto !important;

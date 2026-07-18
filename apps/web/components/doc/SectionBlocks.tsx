@@ -8,8 +8,9 @@ import { CitationChip } from "./CitationChip";
  * replacement node to substitute — the caller owns composition, so it must
  * include `content` wherever it wants the text to appear (e.g.
  * `<mark>{content}<sup>F1</sup></mark>` keeps both the passage and the marker).
- * Return `null` to fall back to default rendering. Reader uses this to wrap
- * flagged passages in an amber highlight.
+ * Return `null` — or `false`, so the `cond && <mark>` idiom is safe — to fall
+ * back to default rendering. Reader uses this to wrap flagged passages in an
+ * amber highlight.
  */
 export type Annotate = (
   span: Span,
