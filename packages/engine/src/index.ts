@@ -14,3 +14,5 @@ export type { ProposedEdit, NoteTurn, MarginReply } from "./notesAgent.js";
 export { copilotTurn } from "./copilot.js";
 export type { CopilotIO, CopilotEvent, CopilotContext, CopilotTurnResult, RunSummary, RunSectionDetail, GoldenSummary } from "./copilot.js";
 export { computeLocator } from "./checks.js";
+export { distillRun } from "./distill.js";
+export type { RunInteractions } from "./distill.js";
