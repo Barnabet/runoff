@@ -304,6 +304,81 @@ describe("Reader — since last run", () => {
     expect(card.textContent).toContain("1 changed · 1 unchanged");
   });
 
+  it("badges only the changed figure — an unchanged cited figure stays bare", () => {
+    // s1's revenue moved (badge), s2's sessions held steady (no badge) in the same render.
+    const current: RunDocument = {
+      title: "Monthly Performance Report",
+      eyebrow: "PREPARED FOR MERIDIAN",
+      dateline: "July 2026",
+      sections: [
+        {
+          key: "s1",
+          heading: "Executive summary",
+          blocks: [{ type: "paragraph", spans: [
+            { text: "Revenue closed at " },
+            { text: "220,500", citation: { sourceId: "src_a", locator: "sum(src_a.amount)" } },
+            { text: " this month." },
+          ] }],
+        },
+        {
+          key: "s2",
+          heading: "Channels",
+          blocks: [{ type: "paragraph", spans: [
+            { text: "Sessions held steady at " },
+            { text: "48,000", citation: { sourceId: "src_a", locator: "sum(src_a.sessions)" } },
+            { text: " across channels." },
+          ] }],
+        },
+      ],
+    };
+    const prev: GetRunResponse["previous"] = {
+      runId: "run_prev",
+      completedAt: "2026-06-01 09:10:00",
+      document: {
+        title: "Monthly Performance Report",
+        eyebrow: "PREPARED FOR MERIDIAN",
+        dateline: "June 2026",
+        sections: [
+          {
+            key: "s1",
+            heading: "Executive summary",
+            blocks: [{ type: "paragraph", spans: [
+              { text: "Revenue closed at " },
+              { text: "208,200", citation: { sourceId: "src_a", locator: "sum(src_a.amount)" } },
+              { text: " this month." },
+            ] }],
+          },
+          {
+            key: "s2",
+            heading: "Channels",
+            blocks: [{ type: "paragraph", spans: [
+              { text: "Sessions held steady at " },
+              { text: "48,000", citation: { sourceId: "src_a", locator: "sum(src_a.sessions)" } },
+              { text: " across channels." },
+            ] }],
+          },
+        ],
+      },
+    };
+    const p = payload([], prev);
+    p.run.document = JSON.stringify(current);
+    const { container, getByText } = render(<ReaderView payload={p} projection={projection} />);
+
+    // Exactly one delta badge in the whole document — the changed figure's ▲ — and
+    // the badge element is screen-only chrome (no-print).
+    const badges = Array.from(container.querySelectorAll("span")).filter((el) =>
+      /^\s*[▲▼]/.test(el.textContent ?? ""),
+    );
+    expect(badges).toHaveLength(1);
+    expect(badges[0].textContent).toContain("▲ 12,300");
+    expect(badges[0].className).toContain("no-print");
+
+    // The unchanged section renders its cited figure but carries no badge glyph.
+    const channels = getByText("Channels").closest("section") as HTMLElement;
+    expect(channels.textContent).toContain("48,000");
+    expect(channels.textContent).not.toMatch(/[▲▼]/);
+  });
+
   it("renders neither badge nor card without a predecessor", () => {
     const { container, queryByTestId } = render(<ReaderView payload={payload([])} projection={projection} />);
     expect(queryByTestId("delta-card")).toBeNull();

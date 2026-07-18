@@ -145,6 +145,21 @@ describe("auditCitations", () => {
     expect(r2.failures[0]).toBe("unverifiable locator: sum(src_spend.amount where nope=search)");
   });
 
+  it("fails an aggregate locator whose bound source has no table, with a pinned prefix", () => {
+    // A doc/PDF source can be bound to the section but carries no table, so an
+    // aggregate locator over it can never be recomputed — verifiability fails.
+    const docPack: SourcePack = { sources: [{
+      id: "src_doc", label: "invoices.pdf", kind: "pdf", summary: "invoices.pdf — PDF",
+      text: "Q2 invoices totalling assorted amounts.",
+    }]};
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "src_doc", locator: "sum(src_doc.amount)" } },
+    ]}];
+    const r = auditCitations(blocks, docPack, ["src_doc"]);
+    expect(r.pass).toBe(false);
+    expect(r.failures[0]).toBe("unverifiable locator: sum(src_doc.amount)");
+  });
+
   it("still exempts quote-style locators from recomputation", () => {
     const blocks: Block[] = [{ type: "paragraph", spans: [
       { text: "$240,100", citation: { sourceId: "src_spend", locator: "invoice footnote 3" } },
