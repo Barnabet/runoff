@@ -95,7 +95,7 @@ The contract between Builder and engine (stored per revision):
 
 ## 5. Run engine
 
-**Model:** `claude-opus-4-8`, adaptive thinking (`thinking: {type: "adaptive"}`), `output_config: {effort: "high"}`, streaming. Anthropic client injected (testability). Credentials via standard SDK resolution (`ANTHROPIC_API_KEY` or `ant auth login` profile).
+**Model:** ~~`claude-opus-4-8` via Anthropic SDK~~ **Amended 2026-07-18 (user decision):** inference runs against a locally hosted **CLIProxyAPI** endpoint serving **GPT 5.6 Sol**, accessed through the **OpenAI-compatible SDK** (`openai` npm package). Configuration via env: `OPENAI_BASE_URL` (default `http://localhost:8317/v1`), `OPENAI_API_KEY` (default `local`), `RUNOFF_MODEL` (default `gpt-5.6-sol`). Streaming chat completions with function tools; structured outputs via `response_format: json_schema` (strict). LLM client still injected (testability). PDFs are text-extracted locally (`pdf-parse`) instead of passed as provider document blocks.
 
 ### Source ingestion (run start)
 
@@ -182,4 +182,4 @@ Next.js (App Router) + TypeScript + **Tailwind CSS v4** with the entire Manuscri
 | Agent behaviors in v1 | All four (cited drafting, checks & flags, mid-run questions, margin-note editing) |
 | Stack | Next.js + SQLite, local-first |
 | Architecture | App + worker (separate processes, SQLite-coordinated) |
-| Model | `claude-opus-4-8`, adaptive thinking, effort high, streaming |
+| Model | ~~`claude-opus-4-8`~~ Amended 2026-07-18: GPT 5.6 Sol via local CLIProxyAPI (OpenAI-compatible SDK), streaming |
