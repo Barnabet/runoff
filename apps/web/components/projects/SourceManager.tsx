@@ -155,7 +155,14 @@ export function SourceManager({
     const next = await getProjectSources(projectId);
     setFamilies(next.families);
     setUnfiled(next.unfiled);
-    setEdits({});
+    // Preserve in-progress chip edits; only prune ids that left the unfiled list
+    // (filed or deleted) so an unrelated refetch never wipes a mid-typed chip.
+    const live = new Set(next.unfiled.map((r) => r.id));
+    setEdits((prev) => {
+      const kept: Record<string, ChipEdit> = {};
+      for (const [id, edit] of Object.entries(prev)) if (live.has(id)) kept[id] = edit;
+      return kept;
+    });
   }
 
   function markClassifying(ids: string[], on: boolean) {

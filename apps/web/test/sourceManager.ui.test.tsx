@@ -126,6 +126,39 @@ describe("SourceManager", () => {
     await waitFor(() => expect(confirms).toBe(2));
   });
 
+  it("shows the mono classifying… note while a classify request is in flight, then clears it", async () => {
+    let resolveClassify!: (r: Response) => void;
+    const pending = new Promise<Response>((res) => { resolveClassify = res; });
+    mockFetch({
+      "/sources/classify": () => pending,
+      "/sources": () => Response.json({ families: [], unfiled: [row({ id: "src_c", proposal: null })] }),
+    });
+
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={[row({ id: "src_c", proposal: null })]} />);
+    expect(screen.queryByText(/classifying/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "reclassify" }));
+    expect(await screen.findByText(/classifying…/i)).toBeTruthy();
+
+    resolveClassify(Response.json({ sources: [{ id: "src_c", proposal: null }] }));
+    await waitFor(() => expect(screen.queryByText(/classifying/i)).toBeNull());
+  });
+
+  it("reclassify POSTs the source id to /sources/classify", async () => {
+    let classifyBody: Record<string, unknown> | null = null;
+    mockFetch({
+      "/sources/classify": (init) => {
+        classifyBody = JSON.parse(String(init!.body));
+        return Response.json({ sources: [{ id: "src_r", proposal: null }] });
+      },
+      "/sources": () => Response.json({ families: [], unfiled: [row({ id: "src_r", proposal: null })] }),
+    });
+
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={[row({ id: "src_r", proposal: null })]} />);
+    fireEvent.click(screen.getByRole("button", { name: "reclassify" }));
+    await waitFor(() => expect(classifyBody).toEqual({ sourceIds: ["src_r"] }));
+  });
+
   it("renders the family tree ascending and marks in-range gaps", () => {
     mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
     const families = [
