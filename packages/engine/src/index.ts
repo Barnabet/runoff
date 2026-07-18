@@ -14,3 +14,5 @@ export type { CopilotIO, CopilotEvent, CopilotContext, CopilotTurnResult, RunSum
 export { computeLocator } from "./checks.js";
 export { distillRun } from "./distill.js";
 export type { RunInteractions } from "./distill.js";
+export { classifySource } from "./classify.js";
+export type { ClassifyFamily } from "./classify.js";
