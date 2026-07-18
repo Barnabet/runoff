@@ -83,17 +83,26 @@ describe("CopilotRail", () => {
     expect(screen.getByText(/reverted/i)).toBeTruthy();
   });
 
-  it("shows a retry affordance when the stream reports an error", async () => {
+  it("shows a retry affordance when the stream reports an error, and Retry re-sends the message", async () => {
+    let posts = 0;
     mockFetch({
-      "/copilot": (init) =>
-        init?.method === "POST"
+      "/copilot": (init) => {
+        if (init?.method !== "POST") return Response.json({ messages: [] });
+        posts += 1;
+        return posts === 1
           ? sseResponse([{ type: "text_delta", text: "partial" }, { type: "error", message: "proxy died" }])
-          : Response.json({ messages: [] }),
+          : sseResponse([{ type: "text_delta", text: "recovered" }, { type: "done", messageId: "m9" }]);
+      },
     });
     render(<CopilotRail blueprintId="bp_1" selectedKey={null} selectedHeading="" getDraft={() => DRAFT} onEditOp={() => {}} />);
     fireEvent.change(await screen.findByPlaceholderText(/ask the copilot/i), { target: { value: "hi" } });
     fireEvent.submit(screen.getByTestId("copilot-composer"));
     expect(await screen.findByText(/proxy died/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /retry/i })).toBeTruthy();
+    expect(posts).toBe(1);
+
+    // Clicking Retry re-POSTs the failed message and streams a fresh turn.
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    await waitFor(() => expect(posts).toBe(2));
+    expect(await screen.findByText("recovered")).toBeTruthy();
   });
 });

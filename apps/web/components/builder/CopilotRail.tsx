@@ -98,7 +98,7 @@ export function CopilotRail({ blueprintId, selectedKey, selectedHeading, getDraf
   }, [messages, live]);
 
   async function send(message: string) {
-    if (!message.trim() || live) return;
+    if (!message.trim() || (live && !live.error)) return;
     setMessages((m) => [...m, { id: `tmp_${Date.now()}`, role: "user", body: message, actions: [], status: "ok", createdAt: "" }]);
     setInput("");
     const turn: LiveTurn = { text: "", activities: [], actions: [], error: null };
@@ -149,8 +149,7 @@ export function CopilotRail({ blueprintId, selectedKey, selectedHeading, getDraf
 
   function retry() {
     const msg = live?.failedMessage;
-    setLive(null);
-    // Drop the optimistic user row (the server also recorded it, but the retry re-sends).
+    // send() replaces the errored `live` turn with a fresh streaming turn and re-POSTs the message.
     if (msg) void send(msg);
   }
 
