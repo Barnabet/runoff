@@ -119,6 +119,38 @@ describe("auditCitations", () => {
     expect(r.pass).toBe(false);
     expect(r.failures[0]).toMatch(/^uncited figure: /);
   });
+
+  it("fails when the locator references a different source than the citation, with a pinned prefix", () => {
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_other.amount)" } },
+    ]}];
+    const r = auditCitations(blocks, pack, ["src_spend"]);
+    expect(r.pass).toBe(false);
+    expect(r.failures[0]).toBe("locator source mismatch: cites src_spend but locator references src_other");
+  });
+
+  it("fails aggregate locators it cannot recompute, with a pinned prefix", () => {
+    const unknownColumn: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.missing)" } },
+    ]}];
+    const r1 = auditCitations(unknownColumn, pack, ["src_spend"]);
+    expect(r1.pass).toBe(false);
+    expect(r1.failures[0]).toBe("unverifiable locator: sum(src_spend.missing)");
+
+    const unknownFilterColumn: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where nope=search)" } },
+    ]}];
+    const r2 = auditCitations(unknownFilterColumn, pack, ["src_spend"]);
+    expect(r2.pass).toBe(false);
+    expect(r2.failures[0]).toBe("unverifiable locator: sum(src_spend.amount where nope=search)");
+  });
+
+  it("still exempts quote-style locators from recomputation", () => {
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "src_spend", locator: "invoice footnote 3" } },
+    ]}];
+    expect(auditCitations(blocks, pack, ["src_spend"]).pass).toBe(true);
+  });
 });
 
 describe("aggregation type guard", () => {

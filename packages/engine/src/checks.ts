@@ -1,4 +1,4 @@
-import type { Block, Span } from "@runoff/core";
+import { parseFigure, type Block, type Span } from "@runoff/core";
 import type { SourcePack } from "./sourcePack.js";
 
 export interface CheckOutcome {
@@ -56,11 +56,6 @@ function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack
 
 function fmt(n: number): string {
   return n.toLocaleString("en-US");
-}
-
-/** Strip $, commas and % so a rendered figure can be compared numerically. */
-function stripNumeric(text: string): number {
-  return parseFloat(text.replace(/[$,%]/g, ""));
 }
 
 function compare(actual: number, op: string, target: number, pct?: number): boolean {
@@ -161,15 +156,23 @@ export function auditCitations(
     // When the locator itself is an aggregate reference, recompute and cross-check.
     const ref = span.citation.locator.trim().match(AGG_REF);
     if (ref) {
+      if (ref[2] !== span.citation.sourceId) {
+        failures.push(
+          `locator source mismatch: cites ${span.citation.sourceId} but locator references ${ref[2]}`,
+        );
+        continue;
+      }
       let computed: number;
       try {
         const filter = ref[4] ? { column: ref[4], value: ref[5] } : undefined;
         computed = computeAgg(ref[1] as Agg, ref[2], ref[3], pack, filter);
       } catch {
-        // Locator points at something we cannot recompute; leave the figure as-is.
+        // Aggregate-shaped but pointing at nothing we can recompute — the whole
+        // point of an aggregate locator is verifiability, so this is a failure.
+        failures.push(`unverifiable locator: ${span.citation.locator.trim()}`);
         continue;
       }
-      const actual = stripNumeric(fig);
+      const actual = parseFigure(fig);
       if (!Number.isNaN(actual) && Math.abs(actual - computed) > Math.abs(computed) * 0.005) {
         failures.push(`citation mismatch: ${fig} vs computed ${computed}`);
       }
