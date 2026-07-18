@@ -1,6 +1,9 @@
-import { previousCompletedDocument } from "@runoff/core";
-import type { RunEvent, RunoffDb } from "@runoff/core";
+import { join } from "node:path";
+import { blocksToPlainText, newId, previousCompletedDocument } from "@runoff/core";
+import type { RunDocument, RunEvent, RunoffDb } from "@runoff/core";
+import type { CopilotContext, EngineFile, RunSummary, RunSectionDetail } from "@runoff/engine";
 import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow, SourceRow } from "./api";
+import { listGoldenSummaries } from "./goldens";
 
 // Server-only db reads shared by the API route and the server-rendered Library
 // page so the blueprint+run join lives in exactly one place. Never import this
@@ -177,4 +180,93 @@ export function listSourcesWithUsage(db: RunoffDb): SourceRow[] {
        ORDER BY s.uploaded_at DESC, s.id DESC`,
     )
     .all() as SourceRow[];
+}
+
+/**
+ * Server-side data access for one copilot turn. Caps: 30 active memories,
+ * 500-char bodies. `goldenCache` is pre-resolved by the route (exemplar parsing
+ * is async; the engine context is synchronous).
+ */
+export function buildCopilotContext(
+  db: RunoffDb,
+  blueprintId: string,
+  goldenCache: Map<string, { description: string; text: string }>,
+): CopilotContext {
+  const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
+  const bound = db.sqlite
+    .prepare(
+      "SELECT s.id, s.name, s.mime, s.stored_filename AS storedFilename FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id WHERE bs.blueprint_id = ?",
+    )
+    .all(blueprintId) as { id: string; name: string; mime: string; storedFilename: string }[];
+  const files: EngineFile[] = bound.map((s) => ({ id: s.id, name: s.name, mime: s.mime, path: join(filesDir, s.storedFilename) }));
+
+  return {
+    files,
+    listRuns(): RunSummary[] {
+      const rows = db.sqlite
+        .prepare(
+          `SELECT r.id, r.created_at AS createdAt, r.status, r.stats, r.blueprint_rev AS rev,
+                  (SELECT COUNT(*) FROM flags f WHERE f.run_id = r.id) AS flagCount
+           FROM runs r WHERE r.blueprint_id = ? ORDER BY r.created_at DESC, r.id DESC LIMIT 10`,
+        )
+        .all(blueprintId) as { id: string; createdAt: string; status: string; stats: string | null; rev: number; flagCount: number }[];
+      return rows.map((r) => ({ ...r, stats: r.stats ? JSON.parse(r.stats) : null }));
+    },
+    getRunSection(runId: string, key: string): RunSectionDetail | null {
+      const run = db.sqlite
+        .prepare("SELECT blueprint_id AS blueprintId, document FROM runs WHERE id = ?")
+        .get(runId) as { blueprintId: string; document: string | null } | undefined;
+      if (!run || run.blueprintId !== blueprintId || !run.document) return null;
+      const doc = JSON.parse(run.document) as RunDocument;
+      const section = doc.sections.find((s) => s.key === key);
+      if (!section) return null;
+
+      const detail: RunSectionDetail = {
+        text: blocksToPlainText(section.blocks),
+        checkFailures: [],
+        retryReasons: [],
+        steers: [],
+        answers: [],
+        flags: [],
+      };
+      const events = db.sqlite
+        .prepare(
+          "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('check_failed','retry_started','steer_received','question_answered') ORDER BY seq",
+        )
+        .all(runId) as { type: string; payload: string }[];
+      for (const e of events) {
+        const p = JSON.parse(e.payload);
+        if (p.sectionKey && p.sectionKey !== key) continue;
+        if (e.type === "check_failed") detail.checkFailures.push(String(p.detail ?? ""));
+        if (e.type === "retry_started") detail.retryReasons.push(String(p.reason ?? ""));
+        if (e.type === "steer_received") detail.steers.push(String(p.text ?? ""));
+        if (e.type === "question_answered")
+          detail.answers.push({ question: String(p.question ?? ""), answer: String(p.answer ?? "") });
+      }
+      const flags = db.sqlite
+        .prepare("SELECT question, status, resolution FROM flags WHERE run_id = ? AND section_key = ?")
+        .all(runId, key) as { question: string; status: string; resolution: string | null }[];
+      detail.flags = flags;
+      return detail;
+    },
+    listGoldens: () => listGoldenSummaries(db, blueprintId),
+    getGolden: (id) => goldenCache.get(id) ?? null,
+    saveMemory(body: string): string {
+      const id = newId("mem");
+      const { n } = db.sqlite
+        .prepare("SELECT COUNT(*) AS n FROM memories WHERE blueprint_id = ? AND status = 'active'")
+        .get(blueprintId) as { n: number };
+      if (n >= 30) {
+        db.sqlite
+          .prepare(
+            "UPDATE memories SET status = 'disabled' WHERE id = (SELECT id FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid LIMIT 1)",
+          )
+          .run(blueprintId);
+      }
+      db.sqlite
+        .prepare("INSERT INTO memories (id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, 'copilot', NULL)")
+        .run(id, blueprintId, body.slice(0, 500));
+      return id;
+    },
+  };
 }
