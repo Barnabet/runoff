@@ -84,6 +84,7 @@ function basePayload(events: RunEvent[], status = "running"): GetRunResponse {
       dateline: "July 2026",
       delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: false },
     },
+    previous: null,
   };
 }
 

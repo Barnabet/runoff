@@ -3,6 +3,7 @@ import type { BlueprintContent } from "@runoff/core";
 
 import { freshDb, jsonReq, ctx } from "./helpers";
 import { getDb } from "../lib/db";
+import { getRunPayload } from "../lib/queries";
 
 import { POST as createRun } from "../app/api/runs/route";
 import { GET as getRun } from "../app/api/runs/[id]/route";
@@ -136,6 +137,26 @@ describe("GET /api/runs/:id", () => {
     ]);
     expect(sourceLabels).toEqual({ src_1: "Spend Data" });
     expect(blueprint).toEqual({ id: bpId, name: "R", clientName: "C" });
+  });
+});
+
+describe("getRunPayload.previous", () => {
+  it("is the latest completed predecessor for a second run, null for the first", async () => {
+    const bpId = await makeBlueprint();
+    const first = (await (await createRun(jsonReq({ blueprintId: bpId }))).json()).id as string;
+    getDb()
+      .sqlite.prepare(
+        "UPDATE runs SET status='complete', finished_at='2026-07-01 09:10:00', created_at='2026-07-01 09:00:00', document=? WHERE id = ?",
+      )
+      .run(JSON.stringify({ title: "Prev", eyebrow: "E", dateline: "D", sections: [] }), first);
+
+    const second = (await (await createRun(jsonReq({ blueprintId: bpId }))).json()).id as string;
+    getDb().sqlite.prepare("UPDATE runs SET created_at='2026-07-18 09:00:00' WHERE id = ?").run(second);
+
+    expect(getRunPayload(getDb(), first)!.previous).toBeNull();
+    const prev = getRunPayload(getDb(), second)!.previous;
+    expect(prev?.runId).toBe(first);
+    expect(prev?.document.title).toBe("Prev");
   });
 });
 

@@ -1,3 +1,4 @@
+import { previousCompletedDocument } from "@runoff/core";
 import type { RunEvent, RunoffDb } from "@runoff/core";
 import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow, SourceRow } from "./api";
 
@@ -84,6 +85,11 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     .get(id) as RunRow | undefined;
   if (!run) return null;
 
+  const previous = previousCompletedDocument(db.sqlite, run.blueprintId, {
+    runId: run.id,
+    createdAt: run.createdAt,
+  });
+
   const blueprint = db.sqlite
     .prepare("SELECT id, name, client_name AS clientName FROM blueprints WHERE id = ?")
     .get(run.blueprintId) as { id: string; name: string; clientName: string } | undefined;
@@ -153,7 +159,7 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     sourceRows.map((s) => [s.id, s.name]),
   );
 
-  return { run, events, flags, sectionMeta, sourceLabels, blueprint, content: masthead };
+  return { run, events, flags, sectionMeta, sourceLabels, blueprint, content: masthead, previous };
 }
 
 /**

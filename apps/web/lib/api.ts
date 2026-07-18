@@ -1,4 +1,4 @@
-import type { BlueprintContent, RunEvent } from "@runoff/core";
+import type { BlueprintContent, PreviousRun, RunEvent } from "@runoff/core";
 import type { ProposedEdit } from "@runoff/engine";
 
 // Client-side fetch helpers for the API routes. These run in the browser, so
@@ -157,6 +157,10 @@ export interface GetRunResponse {
     dateline: string;
     delivery: { recipient: string; autoDeliverOnClear: boolean };
   };
+  // The latest completed predecessor run of the same blueprint (document +
+  // completion date), or null for a first run. The Reader diffs against it;
+  // the Live page ignores it.
+  previous: PreviousRun | null;
 }
 
 export interface NoteRow {
