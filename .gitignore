@@ -4,3 +4,4 @@ data/
 *.tsbuildinfo
 .env*
 .superpowers/
+next-env.d.ts

@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #FAF6EE;
+  --color-card: #FFFDF8;
+  --color-wash: #F1EADC;
+  --color-ink: #201A15;
+  --color-pencil: #B3392B;
+  --color-amber: #8A5A22;
+  --color-amber-accent: #D8A13B;
+  --color-cite: #5B4A8A;
+  --font-serif: var(--font-newsreader), Georgia, serif;
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+  --font-mono: var(--font-plexmono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+@keyframes blink {
+  0%, 54% { opacity: 1 }
+  55%, 100% { opacity: 0 }
+}
+
+.blink {
+  animation: blink 1.1s steps(1) infinite;
+}
