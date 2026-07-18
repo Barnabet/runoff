@@ -17,6 +17,7 @@ export default async function Project({ params }: { params: Promise<{ id: string
       blueprints={payload.blueprints}
       families={payload.families}
       unfiled={payload.unfiled}
+      memories={payload.memories}
     />
   );
 }

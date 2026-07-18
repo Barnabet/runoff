@@ -22,6 +22,7 @@ export function MemoryGoldenDrawer({ blueprintId }: { blueprintId: string }) {
         <div key={m.id} className="mt-2 border-b border-ink/10 pb-2">
           <p className={`font-serif text-[12.5px] leading-[1.5] ${m.status === "disabled" ? "text-ink/35 line-through" : "text-ink"}`}>{m.body}</p>
           <div className="mt-1 flex items-center gap-3 font-mono text-[8.5px] uppercase tracking-[1px] text-ink/35">
+            <span className="border border-ink/20 px-1 py-[1px] text-ink/55">{m.scope}</span>
             <span>{m.source}</span>
             <button type="button" className="text-ink/60" onClick={() => patchMemory(m.id, m.status === "active" ? "disabled" : "active").then(reload)}>
               {m.status === "active" ? "disable" : "enable"}

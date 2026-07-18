@@ -118,14 +118,37 @@ describe("citation-marker wording", () => {
     expect(prompt).not.toContain("[[figure|");
   });
 
-  describe("standing-guidance block", () => {
-    it("pins the wording and lists each memory", () => {
-      const prompt = systemPrompt(content, ["Express deltas as percentages.", "Never mention competitors."]);
-      expect(prompt).toContain(
-        "Standing guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):",
-      );
-      expect(prompt).toContain("- Express deltas as percentages.");
-      expect(prompt).toContain("- Never mention competitors.");
+  const PROJECT_HEADING =
+    "Standing guidance for this project (applies to every document in this project — follow unless blueprint guidance or a section instruction contradicts it):";
+  const BLUEPRINT_HEADING =
+    "Standing guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):";
+
+  describe("standing-guidance blocks", () => {
+    it("renders the project block before the blueprint block, each memory under its own heading", () => {
+      const prompt = systemPrompt(content, [
+        { id: "m1", body: "GBP only", scope: "project" },
+        { id: "m2", body: "Lead with table", scope: "blueprint" },
+      ]);
+      expect(prompt).toContain(PROJECT_HEADING);
+      expect(prompt).toContain(BLUEPRINT_HEADING);
+      // Project block precedes the blueprint block.
+      expect(prompt.indexOf(PROJECT_HEADING)).toBeLessThan(prompt.indexOf(BLUEPRINT_HEADING));
+      // Each body sits under its own heading.
+      const projSeg = prompt.slice(prompt.indexOf(PROJECT_HEADING), prompt.indexOf(BLUEPRINT_HEADING));
+      const bpSeg = prompt.slice(prompt.indexOf(BLUEPRINT_HEADING));
+      expect(projSeg).toContain("- GBP only");
+      expect(projSeg).not.toContain("- Lead with table");
+      expect(bpSeg).toContain("- Lead with table");
+    });
+
+    it("omits the blueprint heading for project-only memories and vice versa", () => {
+      const projectOnly = systemPrompt(content, [{ id: "m1", body: "GBP only", scope: "project" }]);
+      expect(projectOnly).toContain(PROJECT_HEADING);
+      expect(projectOnly).not.toContain(BLUEPRINT_HEADING);
+
+      const blueprintOnly = systemPrompt(content, [{ id: "m2", body: "Lead with table", scope: "blueprint" }]);
+      expect(blueprintOnly).toContain(BLUEPRINT_HEADING);
+      expect(blueprintOnly).not.toContain(PROJECT_HEADING);
     });
 
     it("is absent without memories", () => {

@@ -146,8 +146,12 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
     });
 
     const memoryRows = db.sqlite
-      .prepare("SELECT id, body FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid")
-      .all(claimed.blueprintId) as { id: string; body: string }[];
+      .prepare(
+        `SELECT id, body, scope FROM memories
+         WHERE status='active' AND (blueprint_id = ? OR (scope='project' AND project_id = (SELECT project_id FROM blueprints WHERE id = ?)))
+         ORDER BY rowid`,
+      )
+      .all(claimed.blueprintId, claimed.blueprintId) as { id: string; body: string; scope: "blueprint" | "project" }[];
 
     await executeRun({
       client,
@@ -218,9 +222,18 @@ async function distillCompletedRun(
 
     if (!interactions.steers.length && !interactions.answers.length && !interactions.flagResolutions.length) return;
 
-    const existing = (
-      db.sqlite.prepare("SELECT body FROM memories WHERE blueprint_id = ?").all(blueprintId) as { body: string }[]
-    ).map((r) => r.body);
+    // This blueprint's project, so project-scoped memories land on the right row.
+    const projectId =
+      (db.sqlite.prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?").get(blueprintId) as
+        | { projectId: string }
+        | undefined)?.projectId ?? "";
+
+    // Dedup pool spans both scopes (dedup is on lowercased body, scope-agnostic).
+    const existing = db.sqlite
+      .prepare(
+        `SELECT body, scope FROM memories WHERE blueprint_id = ? OR (scope='project' AND project_id = ?)`,
+      )
+      .all(blueprintId, projectId) as { body: string; scope: string }[];
 
     const fresh = await distillRun({
       client,
@@ -231,27 +244,33 @@ async function distillCompletedRun(
     });
 
     const insert = db.sqlite.prepare(
-      "INSERT INTO memories (id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, 'distilled', ?)",
+      "INSERT INTO memories (id, scope, project_id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, ?, ?, 'distilled', ?)",
     );
-    for (const body of fresh) {
-      enforceMemoryCap(db, blueprintId);
-      insert.run(newId("mem"), blueprintId, body, runId);
+    for (const m of fresh) {
+      enforceMemoryCap(db, m.scope === "project" ? { projectId } : { blueprintId });
+      insert.run(newId("mem"), m.scope, projectId, m.scope === "blueprint" ? blueprintId : null, m.body, runId);
     }
   } catch (err) {
     console.error(`[worker] distillation failed for run ${runId}: ${err instanceof Error ? err.message : String(err)}`);
   }
 }
 
-/** Cap active memories at 30 per blueprint by disabling the oldest active row. */
-function enforceMemoryCap(db: RunoffDb, blueprintId: string): void {
+/**
+ * Cap active memories at 30 within one scope by disabling the oldest active row.
+ * Project scope keys on `project_id`; blueprint scope on `blueprint_id`.
+ */
+function enforceMemoryCap(db: RunoffDb, scope: { projectId: string } | { blueprintId: string }): void {
+  const clause =
+    "projectId" in scope ? "scope='project' AND project_id = ?" : "scope='blueprint' AND blueprint_id = ?";
+  const val = "projectId" in scope ? scope.projectId : scope.blueprintId;
   const { n } = db.sqlite
-    .prepare("SELECT COUNT(*) AS n FROM memories WHERE blueprint_id = ? AND status = 'active'")
-    .get(blueprintId) as { n: number };
+    .prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${clause} AND status='active'`)
+    .get(val) as { n: number };
   if (n >= 30) {
     db.sqlite
       .prepare(
-        "UPDATE memories SET status = 'disabled' WHERE id = (SELECT id FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid LIMIT 1)",
+        `UPDATE memories SET status='disabled' WHERE id = (SELECT id FROM memories WHERE ${clause} AND status='active' ORDER BY rowid LIMIT 1)`,
       )
-      .run(blueprintId);
+      .run(val);
   }
 }

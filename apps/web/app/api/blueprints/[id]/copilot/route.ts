@@ -49,11 +49,14 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
       .prepare("SELECT role, body FROM copilot_messages WHERE blueprint_id = ? AND status = 'ok' ORDER BY rowid")
       .all(id) as { role: "user" | "assistant"; body: string }[]
   ).map((r) => ({ role: r.role, body: r.body }));
-  const memories = (
-    db.sqlite
-      .prepare("SELECT body FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid")
-      .all(id) as { body: string }[]
-  ).map((r) => r.body);
+  const memories = db.sqlite
+    .prepare(
+      `SELECT id, body, scope FROM memories
+       WHERE (blueprint_id = ? OR (scope='project' AND project_id = (SELECT project_id FROM blueprints WHERE id = ?)))
+         AND status = 'active'
+       ORDER BY rowid`,
+    )
+    .all(id, id) as { id: string; body: string; scope: "blueprint" | "project" }[];
 
   db.sqlite
     .prepare("INSERT INTO copilot_messages (id, blueprint_id, role, body) VALUES (?, ?, 'user', ?)")

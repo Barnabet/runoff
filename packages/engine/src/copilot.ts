@@ -10,7 +10,7 @@ import {
 } from "@runoff/core";
 import { buildSourcePack, packForPrompt, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { computeLocator } from "./checks.js";
-import { MODEL } from "./prompts.js";
+import { MODEL, guidanceBlocks, type ScopedMemory } from "./prompts.js";
 
 const MAX_ITERATIONS = 12;
 const MAX_TOOL_RESULT_CHARS = 8_000;
@@ -74,7 +74,7 @@ export interface CopilotContext {
   getRunSection(runId: string, key: string): RunSectionDetail | null;
   listGoldens(): GoldenSummary[];
   getGolden(id: string): { description: string; text: string } | null;
-  saveMemory(body: string): string;
+  saveMemory(body: string, scope: "blueprint" | "project"): string;
 }
 
 export interface CopilotTurnResult {
@@ -157,8 +157,9 @@ const TOOLS = [
   }),
   fn("list_goldens", "List this blueprint's golden examples (starred runs/sections and uploaded exemplars).", {}),
   fn("get_golden", "Fetch one golden example's full text.", { id: { type: "string" } }),
-  fn("save_memory", "Save one durable, generalized preference for this blueprint (e.g. \"Always express spend deltas in percentages\"). Not for one-off facts.", {
+  fn("save_memory", "Save one durable, generalized preference. scope \"blueprint\" = about this document; scope \"project\" = about the client or its data, true for every document in the project.", {
     body: { type: "string" },
+    scope: { type: "string", enum: ["blueprint", "project"] },
   }),
 ] as const;
 
@@ -174,10 +175,8 @@ function fn(name: string, description: string, properties: Record<string, unknow
   };
 }
 
-function copilotSystemPrompt(draft: BlueprintContent, selectedKey: string | null, memories: string[]): string {
-  const memoryBlock = memories.length
-    ? `\n\nStanding guidance for this blueprint:\n${memories.map((m) => `- ${m}`).join("\n")}`
-    : "";
+function copilotSystemPrompt(draft: BlueprintContent, selectedKey: string | null, memories: ScopedMemory[]): string {
+  const memoryBlock = guidanceBlocks(memories);
   const selected = selectedKey ? `\nThe user currently has section "${selectedKey}" selected in the editor.` : "";
   return `You are the builder copilot for a Runoff blueprint — a template that generates a recurring, \
 fact-checked business report. You edit the blueprint itself (instructions, rules, structure), never \
@@ -223,7 +222,7 @@ export async function copilotTurn(opts: {
   selectedKey: string | null;
   message: string;
   thread: { role: "user" | "assistant"; body: string }[];
-  memories: string[];
+  memories: ScopedMemory[];
   ctx: CopilotContext;
   io: CopilotIO;
 }): Promise<CopilotTurnResult> {
@@ -491,7 +490,8 @@ function executeTool(
     case "save_memory": {
       const body = String(args.body ?? "").trim();
       if (!body) return { draft, result: "Tool error: empty memory body" };
-      const memoryId = ctx.saveMemory(body);
+      const scope = args.scope === "project" ? "project" : "blueprint";
+      const memoryId = ctx.saveMemory(body, scope);
       io.emit({ type: "memory_saved", memoryId, body });
       actions.push({ kind: "memory", memoryId, body });
       return { draft, result: "Memory saved." };

@@ -230,15 +230,20 @@ describe("executeRun — v1.1", () => {
     expect(json).not.toContain('"gaps"');
   });
 
-  it("threads memory bodies into the drafting system prompt and their ids onto run_started", async () => {
+  it("threads memory bodies into the drafting system prompt and orders their ids project-first on run_started", async () => {
     const { client, systemPrompts } = capturingSystemClient(makeFakeClient([[{ text: "Body text." }]]));
     const events: RunEvent[] = [];
     await executeRun({
       client, content, files, io: collectingIO(events), blueprintRev: 1,
-      memories: [{ id: "mem_1", body: "Express deltas as percentages." }],
+      memories: [
+        { id: "mem_b", body: "Lead with the table.", scope: "blueprint" },
+        { id: "mem_p", body: "Express deltas as percentages.", scope: "project" },
+      ],
     });
     expect(systemPrompts[0]).toContain("- Express deltas as percentages.");
+    expect(systemPrompts[0]).toContain("- Lead with the table.");
     const started = events.find((e) => e.type === "run_started");
-    expect(started && started.type === "run_started" ? started.memoryIds : []).toEqual(["mem_1"]);
+    // Project-scope ids precede blueprint-scope ids.
+    expect(started && started.type === "run_started" ? started.memoryIds : []).toEqual(["mem_p", "mem_b"]);
   });
 });

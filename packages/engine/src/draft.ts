@@ -2,7 +2,7 @@ import type OpenAI from "openai";
 import type { Block, BlueprintContent, BlueprintSection, DocSection } from "@runoff/core";
 import { parseSectionText } from "./dialect.js";
 import type { SourcePack } from "./sourcePack.js";
-import { MODEL, systemPrompt, sectionUserPrompt } from "./prompts.js";
+import { MODEL, systemPrompt, sectionUserPrompt, type ScopedMemory } from "./prompts.js";
 
 const tools = [
   {
@@ -85,7 +85,7 @@ export async function draftSection(opts: {
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
   previousSectionText?: string;
-  memories?: string[];
+  memories?: ScopedMemory[];
   cb: DraftCallbacks;
 }): Promise<DraftResult> {
   const { client, cb } = opts;

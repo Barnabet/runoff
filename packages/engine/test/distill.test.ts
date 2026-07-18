@@ -14,28 +14,62 @@ describe("distillRun", () => {
     expect(called).toBe(false);
   });
 
-  it("parses candidate memories from the model's JSON reply", async () => {
+  it("parses scoped candidate memories from the model's JSON reply", async () => {
     const client = makeFakeClient([
-      [{ text: JSON.stringify({ memories: ["Always express spend deltas in percentages."] }) }],
+      [{ text: JSON.stringify({ memories: [
+        { body: "Always use GBP", scope: "project" },
+        { body: "Shorter intro", scope: "blueprint" },
+      ] }) }],
     ]);
     const out = await distillRun({
       client, ...base,
       interactions: { steers: ["show deltas as percentages"], answers: [], flagResolutions: [] },
       existing: [],
     });
-    expect(out).toEqual(["Always express spend deltas in percentages."]);
+    expect(out).toEqual([
+      { body: "Always use GBP", scope: "project" },
+      { body: "Shorter intro", scope: "blueprint" },
+    ]);
   });
 
-  it("drops case-insensitive duplicates of existing memories and caps at 3", async () => {
+  it("drops entries with a missing or invalid scope", async () => {
     const client = makeFakeClient([
-      [{ text: JSON.stringify({ memories: ["ALWAYS express spend deltas in percentages.", "A", "B", "C", "D"] }) }],
+      [{ text: JSON.stringify({ memories: [
+        { body: "No scope here" },
+        { body: "Bad scope", scope: "global" },
+        { body: "Keeper", scope: "blueprint" },
+      ] }) }],
     ]);
     const out = await distillRun({
       client, ...base,
       interactions: { steers: ["x"], answers: [], flagResolutions: [] },
-      existing: ["Always express spend deltas in percentages."],
+      existing: [],
     });
-    expect(out).toEqual(["A", "B", "C"]);
+    expect(out).toEqual([{ body: "Keeper", scope: "blueprint" }]);
+  });
+
+  it("drops case-insensitive duplicates of existing memories (any scope) and caps at 3", async () => {
+    const client = makeFakeClient([
+      [{ text: JSON.stringify({ memories: [
+        { body: "ALWAYS express spend deltas in percentages.", scope: "blueprint" },
+        { body: "A", scope: "project" },
+        { body: "B", scope: "blueprint" },
+        { body: "C", scope: "project" },
+        { body: "D", scope: "blueprint" },
+      ] }) }],
+    ]);
+    const out = await distillRun({
+      client, ...base,
+      interactions: { steers: ["x"], answers: [], flagResolutions: [] },
+      // Dedup is on lowercased body regardless of scope: the existing project row
+      // still knocks out the blueprint-scoped duplicate.
+      existing: [{ body: "Always express spend deltas in percentages.", scope: "project" }],
+    });
+    expect(out).toEqual([
+      { body: "A", scope: "project" },
+      { body: "B", scope: "blueprint" },
+      { body: "C", scope: "project" },
+    ]);
   });
 
   it("returns [] on unparseable model output instead of throwing", async () => {

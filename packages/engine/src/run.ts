@@ -13,6 +13,7 @@ import { parseSectionText } from "./dialect.js";
 import { buildSourcePack, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { evaluateAssert, auditCitations, countCitations } from "./checks.js";
 import { draftSection, RefusalError, type DraftCallbacks } from "./draft.js";
+import type { ScopedMemory } from "./prompts.js";
 
 /** A message a paused/steering worker feeds into a live run. */
 export interface RunInputMsg {
@@ -54,11 +55,17 @@ export async function executeRun(opts: {
   io: EngineIO;
   blueprintRev: number;
   previousDocument?: RunDocument;
-  memories?: { id: string; body: string }[];
+  memories?: ScopedMemory[];
   period?: string | null;
   gaps?: string[];
 }): Promise<ExecuteRunResult> {
   const { client, content, files, io, blueprintRev, previousDocument, memories = [], period, gaps } = opts;
+  // Project-scope memories are listed first (they set standing context), then
+  // blueprint-scope; this order is what run_started.memoryIds records.
+  const orderedMemories = [
+    ...memories.filter((m) => m.scope === "project"),
+    ...memories.filter((m) => m.scope === "blueprint"),
+  ];
   const emit = (e: RunEvent) => io.emit(e);
   const runStart = Date.now();
 
@@ -200,7 +207,7 @@ export async function executeRun(opts: {
       type: "run_started",
       sectionKeys: content.sections.map((s) => s.key),
       blueprintRev,
-      ...(memories.length ? { memoryIds: memories.map((m) => m.id) } : {}),
+      ...(orderedMemories.length ? { memoryIds: orderedMemories.map((m) => m.id) } : {}),
       ...(period ? { period } : {}),
       ...(gaps && gaps.length ? { gaps } : {}),
     });
@@ -236,7 +243,7 @@ export async function executeRun(opts: {
       const prevSection = previousDocument?.sections.find((s) => s.key === section.key);
       const previousSectionText = prevSection ? blocksToPlainText(prevSection.blocks) : undefined;
       try {
-        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, memories: memories.map((m) => m.body), cb });
+        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, memories, cb });
         let blocks = draft.blocks;
         // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
         applyFallbacks(section.key);
@@ -251,7 +258,7 @@ export async function executeRun(opts: {
           // An answer or steer posted while the first draft was being written or
           // checked must reach the redraft (v1.1 spec §4b).
           await drainInputs();
-          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, memories: memories.map((m) => m.body), cb });
+          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, memories, cb });
           blocks = draft.blocks;
           applyFallbacks(section.key);
           failures = runChecks(section, blocks, pack);

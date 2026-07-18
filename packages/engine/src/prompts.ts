@@ -4,19 +4,41 @@ import { packForPrompt, type SourcePack } from "./sourcePack.js";
 
 export const MODEL = process.env.RUNOFF_MODEL ?? "gpt-5.6-sol";
 
+/** A memory carrying its scope so prompts can render project- and blueprint-level guidance separately. */
+export interface ScopedMemory {
+  id: string;
+  body: string;
+  scope: "blueprint" | "project";
+}
+
+/**
+ * The two standing-guidance blocks — PROJECT then BLUEPRINT — the single source
+ * of truth for both the drafting system prompt and the copilot system prompt.
+ * Either block is omitted when its scope has no memories; returns "" for none.
+ */
+export function guidanceBlocks(memories: ScopedMemory[]): string {
+  const project = memories.filter((m) => m.scope === "project");
+  const blueprint = memories.filter((m) => m.scope === "blueprint");
+  const projectBlock = project.length
+    ? `\n\nStanding guidance for this project (applies to every document in this project — follow unless blueprint guidance or a section instruction contradicts it):\n${project.map((m) => `- ${m.body}`).join("\n")}`
+    : "";
+  const blueprintBlock = blueprint.length
+    ? `\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n${blueprint.map((m) => `- ${m.body}`).join("\n")}`
+    : "";
+  return `${projectBlock}${blueprintBlock}`;
+}
+
 /**
  * Global rules + dialect contract. STABLE per blueprint — no timestamps or
  * per-section content — so it is byte-identical across every section of a run.
  * Per-section content goes in the user turn.
  */
-export function systemPrompt(content: BlueprintContent, memories: string[] = []): string {
+export function systemPrompt(content: BlueprintContent, memories: ScopedMemory[] = []): string {
   const globalRules = content.globalRules.length
     ? `\n\nGlobal rules for this report:\n${content.globalRules.map((r) => `- ${r}`).join("\n")}`
     : "";
 
-  const guidance = memories.length
-    ? `\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n${memories.map((m) => `- ${m}`).join("\n")}`
-    : "";
+  const guidance = guidanceBlocks(memories);
 
   return `You are drafting one section of a formal business report for ${content.clientName}. \
 Write in the report's dialect exactly as specified below. Ground every claim in the sources bound \

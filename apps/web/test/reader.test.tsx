@@ -407,7 +407,7 @@ describe("Reader — memory line + stars", () => {
     render(
       <ReaderView
         payload={payload([], {
-          memories: [{ id: "mem_1", body: "Express deltas as percentages." }, { id: "mem_2", body: "Unused." }],
+          memories: [{ id: "mem_1", body: "Express deltas as percentages.", scope: "blueprint" }, { id: "mem_2", body: "Unused.", scope: "project" }],
           events: [
             { type: "run_started", blueprintRev: 1, sectionKeys: ["s1", "s2"], memoryIds: ["mem_1"] },
             ...baseEvents,

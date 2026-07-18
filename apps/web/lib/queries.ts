@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { blocksToPlainText, newId, previousCompletedDocument } from "@runoff/core";
-import type { RunDocument, RunEvent, RunoffDb } from "@runoff/core";
+import type { MemoryRow, RunDocument, RunEvent, RunoffDb } from "@runoff/core";
 import type { CopilotContext, EngineFile, FamilyInfo, RunSummary, RunSectionDetail } from "@runoff/engine";
 import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow } from "./api";
 import { listProjectSources, type FamilySummary } from "./sourceManager";
@@ -49,6 +49,7 @@ export interface ProjectPayload {
   blueprints: BlueprintListItem[];
   families: FamilySummary[];
   unfiled: ProjectSourceRow[];
+  memories: MemoryRow[];
 }
 
 /**
@@ -63,7 +64,14 @@ export function getProjectPayload(db: RunoffDb, id: string): ProjectPayload | nu
     .get(id) as { id: string; name: string; createdAt: string } | undefined;
   if (!project) return null;
   const { families, unfiled } = listProjectSources(db, id);
-  return { project, blueprints: listBlueprintsWithRuns(db, id), families, unfiled };
+  const memories = db.sqlite
+    .prepare(
+      `SELECT id, scope, project_id AS projectId, blueprint_id AS blueprintId, body, source,
+              origin_id AS originId, status, created_at AS createdAt
+       FROM memories WHERE scope='project' AND project_id = ? ORDER BY rowid DESC`,
+    )
+    .all(id) as MemoryRow[];
+  return { project, blueprints: listBlueprintsWithRuns(db, id), families, unfiled, memories };
 }
 
 /**
@@ -142,8 +150,12 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
   });
 
   const memories = db.sqlite
-    .prepare("SELECT id, body FROM memories WHERE blueprint_id = ? ORDER BY rowid")
-    .all(run.blueprintId) as { id: string; body: string }[];
+    .prepare(
+      `SELECT id, body, scope FROM memories
+       WHERE blueprint_id = ? OR (scope='project' AND project_id = (SELECT project_id FROM blueprints WHERE id = ?))
+       ORDER BY rowid`,
+    )
+    .all(run.blueprintId, run.blueprintId) as { id: string; body: string; scope: "blueprint" | "project" }[];
 
   const blueprintRow = db.sqlite
     .prepare("SELECT id, name, client_name AS clientName, project_id AS projectId FROM blueprints WHERE id = ?")
@@ -383,21 +395,27 @@ export function buildCopilotContext(
     },
     listGoldens: () => listGoldenSummaries(db, blueprintId),
     getGolden: (id) => goldenCache.get(id) ?? null,
-    saveMemory(body: string): string {
+    saveMemory(body: string, scope: "blueprint" | "project"): string {
       const id = newId("mem");
+      // Cap 30 active per scope; project keys on project_id, blueprint on blueprint_id.
+      const clause =
+        scope === "project" ? "scope='project' AND project_id = ?" : "scope='blueprint' AND blueprint_id = ?";
+      const val = scope === "project" ? projectId : blueprintId;
       const { n } = db.sqlite
-        .prepare("SELECT COUNT(*) AS n FROM memories WHERE blueprint_id = ? AND status = 'active'")
-        .get(blueprintId) as { n: number };
+        .prepare(`SELECT COUNT(*) AS n FROM memories WHERE ${clause} AND status='active'`)
+        .get(val) as { n: number };
       if (n >= 30) {
         db.sqlite
           .prepare(
-            "UPDATE memories SET status = 'disabled' WHERE id = (SELECT id FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid LIMIT 1)",
+            `UPDATE memories SET status='disabled' WHERE id = (SELECT id FROM memories WHERE ${clause} AND status='active' ORDER BY rowid LIMIT 1)`,
           )
-          .run(blueprintId);
+          .run(val);
       }
       db.sqlite
-        .prepare("INSERT INTO memories (id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, 'copilot', NULL)")
-        .run(id, blueprintId, body.slice(0, 500));
+        .prepare(
+          "INSERT INTO memories (id, scope, project_id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, ?, ?, 'copilot', NULL)",
+        )
+        .run(id, scope, projectId, scope === "blueprint" ? blueprintId : null, body.slice(0, 500));
       return id;
     },
   };

@@ -127,7 +127,7 @@ describe("copilot API", () => {
         .run(id, `mem ${i}`);
     }
     copilotTurn.mockImplementation(async (opts: any) => {
-      opts.ctx.saveMemory("new one");
+      opts.ctx.saveMemory("new one", "blueprint");
       return { reply: "ok", actions: [], draft: DRAFT };
     });
     await (await POST(jsonReq({ message: "hi", draft: DRAFT, selectedKey: null }), ctx("bp_1"))).text();

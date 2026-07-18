@@ -132,22 +132,40 @@ describe("copilotTurn", () => {
     }
   });
 
-  it("save_memory calls ctx and emits memory_saved", async () => {
+  it("save_memory passes the chosen scope to ctx and emits memory_saved", async () => {
     let saved = "";
+    let savedScope = "";
     const client = makeFakeClient([
-      [{ toolUse: { name: "save_memory", input: { body: "Always express deltas as percentages." } } }],
+      [{ toolUse: { name: "save_memory", input: { body: "Always use GBP.", scope: "project" } } }],
       [{ text: "Noted." }],
     ]);
     const { events, io } = collect();
     await copilotTurn({
       client, draft: content, selectedKey: null, message: "remember that",
       thread: [], memories: [],
-      ctx: ctx({ saveMemory: (b) => { saved = b; return "mem_42"; } }), io,
+      ctx: ctx({ saveMemory: (b, s) => { saved = b; savedScope = s; return "mem_42"; } }), io,
     });
-    expect(saved).toBe("Always express deltas as percentages.");
+    expect(saved).toBe("Always use GBP.");
+    expect(savedScope).toBe("project");
     expect(events.find((e) => e.type === "memory_saved")).toEqual({
-      type: "memory_saved", memoryId: "mem_42", body: "Always express deltas as percentages.",
+      type: "memory_saved", memoryId: "mem_42", body: "Always use GBP.",
     });
+  });
+
+  it("save_memory defaults a missing or invalid scope to blueprint", async () => {
+    const scopes: string[] = [];
+    const client = makeFakeClient([
+      [{ toolUse: { name: "save_memory", input: { body: "No scope." } } }],
+      [{ toolUse: { name: "save_memory", input: { body: "Bad scope.", scope: "global" } } }],
+      [{ text: "Noted." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "remember that",
+      thread: [], memories: [],
+      ctx: ctx({ saveMemory: (_b, s) => { scopes.push(s); return "mem_1"; } }), io,
+    });
+    expect(scopes).toEqual(["blueprint", "blueprint"]);
   });
 
   it("streams text deltas and caps the tool loop at 12 iterations with a wrap-up", async () => {

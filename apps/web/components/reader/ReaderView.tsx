@@ -317,6 +317,7 @@ export function ReaderView({
                   {memoriesOpen
                     ? usedMemories.map((m) => (
                         <p key={m.id} className="mt-1 font-serif text-[12px] leading-[1.5] text-ink/70">
+                          <span className="mr-1.5 font-mono text-[8px] uppercase tracking-[1px] text-ink/40">{m.scope}</span>
                           {m.body}
                         </p>
                       ))
