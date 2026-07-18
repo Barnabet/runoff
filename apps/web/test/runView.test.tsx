@@ -77,6 +77,7 @@ function basePayload(events: RunEvent[], status = "running"): GetRunResponse {
       blueprintRev: 15,
       triggerKind: "manual",
       status,
+      period: null,
       startedAt: "2026-07-18 09:00:00",
       finishedAt: null,
       stats: null,
@@ -355,7 +356,7 @@ describe("Live Run — failed", () => {
     const banner = getByTestId("failed-banner");
     expect(banner.textContent).toContain("model timeout after 3 retries");
     fireEvent.click(within(banner).getByText("Run it again"));
-    expect(createRun).toHaveBeenCalledWith("bp_1");
+    expect(createRun).toHaveBeenCalledWith("bp_1", null);
   });
 
   it("renders a failed section as a pencil note, not a typing caret", () => {

@@ -14,6 +14,21 @@ import { RunRail } from "./RunRail";
 import { AgentDesk } from "./AgentDesk";
 import { LiveSection } from "./LiveSection";
 
+/** The server's `{ error }` string out of a rejected fetchJson promise. */
+function errMsg(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const m = raw.match(/\{.*\}/);
+  if (m) {
+    try {
+      const parsed = JSON.parse(m[0]) as { error?: unknown };
+      if (typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // fall through
+    }
+  }
+  return "Could not start a new run.";
+}
+
 /** Parse a SQLite/ISO timestamp to epoch ms; SQLite's `datetime` has no T/Z. */
 function tsToMs(iso: string | null): number | null {
   if (!iso) return null;
@@ -82,10 +97,12 @@ export function LiveRunView({
     postRunInput(run.id, { kind }).catch(() => showToast("Could not reach the run."));
   }
 
+  // "Run again" reruns the same period as the finished run; the server
+  // re-validates it, so a period that has since gone stale surfaces inline.
   function runAgain() {
-    createRun(blueprint.id)
+    createRun(blueprint.id, run.period ?? null)
       .then(({ id }) => router.push(`/runs/${id}`))
-      .catch(() => showToast("Could not start a new run."));
+      .catch((err) => showToast(errMsg(err)));
   }
 
   const completedFraction = (() => {

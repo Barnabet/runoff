@@ -9,6 +9,7 @@ const {
   saveRevision,
   patchBlueprint,
   createRun,
+  getRunOptionsApi,
   getBlueprint,
   getCopilotThread,
   push,
@@ -17,6 +18,7 @@ const {
   saveRevision: vi.fn(async () => ({ rev: 2 })),
   patchBlueprint: vi.fn(async () => ({ ok: true })),
   createRun: vi.fn(async () => ({ id: "run_x" })),
+  getRunOptionsApi: vi.fn(async () => ({ granularity: null, periods: [], constants: [] })),
   getBlueprint: vi.fn(),
   getCopilotThread: vi.fn(async () => ({ messages: [] })),
   push: vi.fn(),
@@ -35,6 +37,7 @@ vi.mock("@/lib/api", () => ({
   saveRevision,
   patchBlueprint,
   createRun,
+  getRunOptionsApi,
   getBlueprint,
   getCopilotThread,
 }));
@@ -138,12 +141,17 @@ describe("save flow", () => {
     await waitFor(() => expect(showToast).toHaveBeenCalledWith("Saved as REV 2"));
   });
 
-  it("saves before previewing a run and pushes to the new run", async () => {
-    const { getByLabelText, getByText } = renderBuilder();
+  it("saves before opening the run dialog, then runs and pushes to the new run", async () => {
+    // Preview run saves the draft and opens the RunDialog; the dialog itself
+    // POSTs the run. This blueprint is constants-only (no period), so the dialog
+    // runs with period null.
+    const { getByLabelText, getByText, findByText } = renderBuilder();
     fireEvent.change(getByLabelText("title"), { target: { value: "Edited" } });
     fireEvent.click(getByText("Preview run"));
     await waitFor(() => expect(saveRevision).toHaveBeenCalled());
-    await waitFor(() => expect(createRun).toHaveBeenCalledWith("bp"));
+
+    fireEvent.click(await findByText("Run"));
+    await waitFor(() => expect(createRun).toHaveBeenCalledWith("bp", null));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/run_x"));
   });
 });

@@ -129,7 +129,7 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
   const run = db.sqlite
     .prepare(
       `SELECT id, blueprint_id AS blueprintId, blueprint_rev AS blueprintRev,
-              trigger_kind AS triggerKind, status, started_at AS startedAt,
+              trigger_kind AS triggerKind, status, period, started_at AS startedAt,
               finished_at AS finishedAt, stats, document, created_at AS createdAt
        FROM runs WHERE id = ?`,
     )

@@ -2,12 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { BlueprintContent, BlueprintSection, EditOp } from "@runoff/core";
 import { Topbar } from "@/components/Topbar";
 import { showToast } from "@/components/Toast";
 import {
-  createRun,
   patchBlueprint,
   saveRevision,
   type FamilySummary,
@@ -16,6 +14,7 @@ import { applyEditOp } from "@/lib/editOps";
 import { ContentsRail } from "./ContentsRail";
 import { SectionEditor } from "./SectionEditor";
 import { CopilotRail } from "./CopilotRail";
+import { RunDialog } from "./RunDialog";
 
 /** Best-effort human message from a rejected API promise. */
 function errMsg(err: unknown): string {
@@ -79,7 +78,6 @@ export function Builder({
   initialBoundIds,
   initialSectionKey,
 }: BuilderProps) {
-  const router = useRouter();
   const [content, setContent] = useState<BlueprintContent>(initialContent);
   const [selectedKey, setSelectedKey] = useState(initialSectionKey);
   const [dirty, setDirty] = useState(false);
@@ -88,6 +86,7 @@ export function Builder({
   const [boundIds, setBoundIds] = useState<string[]>(initialBoundIds);
   const [bindError, setBindError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [runDialogOpen, setRunDialogOpen] = useState(false);
 
   // Refs keep the stable Cmd/Ctrl+S handler reading the latest draft.
   const contentRef = useRef(content);
@@ -141,11 +140,12 @@ export function Builder({
     save().catch((err) => showToast(`Save failed — ${errMsg(err)}`));
   }
 
+  // Saves any pending draft, then opens the run dialog (period select + source
+  // gap checklist); the dialog itself POSTs the run and routes to it.
   async function previewRun() {
     try {
       if (dirtyRef.current) await save();
-      const { id } = await createRun(blueprintId);
-      router.push(`/runs/${id}`);
+      setRunDialogOpen(true);
     } catch (err) {
       showToast(`Could not start preview run — ${errMsg(err)}`);
     }
@@ -292,6 +292,10 @@ export function Builder({
           onEditOp={handleEditOp}
         />
       </main>
+
+      {runDialogOpen ? (
+        <RunDialog blueprintId={blueprintId} onClose={() => setRunDialogOpen(false)} />
+      ) : null}
     </>
   );
 }

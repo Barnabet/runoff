@@ -212,6 +212,7 @@ export interface RunRow {
   blueprintRev: number;
   triggerKind: string;
   status: string;
+  period: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   stats: string | null;
@@ -266,8 +267,24 @@ export interface GetRunResponse {
 
 export type RunInput = { kind: "pause" | "resume" | "steer" | "answer"; text?: string; questionId?: string };
 
-export function createRun(blueprintId: string): Promise<{ id: string }> {
-  return fetchJson("/api/runs", { method: "POST", headers: JSON_HEADERS, body: JSON.stringify({ blueprintId }) });
+// Client-safe copy of lib/runOptions.ts's RunOptions (plain types only — never
+// import that server module, which touches the SQLite handle).
+export interface RunOptions {
+  granularity: Granularity | null;
+  periods: { period: string; families: { key: string; label: string; present: boolean }[] }[];
+  constants: { key: string; label: string; present: boolean }[];
+}
+
+export function getRunOptionsApi(blueprintId: string): Promise<RunOptions> {
+  return fetchJson(`/api/blueprints/${blueprintId}/run-options`);
+}
+
+export function createRun(blueprintId: string, period: string | null): Promise<{ id: string }> {
+  return fetchJson("/api/runs", {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ blueprintId, period }),
+  });
 }
 
 export function getRun(id: string): Promise<GetRunResponse> {
