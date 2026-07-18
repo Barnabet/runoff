@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { BlueprintContent, CopilotAction, EditOp } from "@runoff/core";
 import { getCopilotThread, type CopilotMessage } from "@/lib/api";
 import { invertEditOp } from "@/lib/editOps";
+import { CopilotMarkdown } from "./CopilotMarkdown";
 import { MemoryGoldenDrawer } from "./MemoryGoldenDrawer";
 
 type StreamEvent =
@@ -171,7 +172,11 @@ export function CopilotRail({ blueprintId, selectedKey, selectedHeading, getDraf
           {messages.map((m) => (
             <div key={m.id} className="mb-4">
               <div className="font-mono text-[8.5px] uppercase tracking-[1px] text-ink/35">{m.role === "user" ? "You" : "Copilot"}</div>
-              <p className="mt-1 font-serif text-[13.5px] leading-[1.55] text-ink">{m.body}</p>
+              {m.role === "user" ? (
+                <p className="mt-1 font-serif text-[13.5px] leading-[1.55] text-ink">{m.body}</p>
+              ) : (
+                <CopilotMarkdown>{m.body}</CopilotMarkdown>
+              )}
               {m.actions.filter((a) => a.kind === "edit").map((a, i) =>
                 a.kind === "edit" ? <EditCard key={i} op={a.op} draft={draft} onRevert={onEditOp} /> : null,
               )}
@@ -183,7 +188,7 @@ export function CopilotRail({ blueprintId, selectedKey, selectedHeading, getDraf
               {live.activities.map((a, i) => (
                 <div key={i} className="mt-1 font-mono text-[10px] text-ink/45">· {a}</div>
               ))}
-              {live.text ? <p className="mt-1 font-serif text-[13.5px] leading-[1.55] text-ink">{live.text}</p> : null}
+              {live.text ? <CopilotMarkdown>{live.text}</CopilotMarkdown> : null}
               {live.actions.filter((a) => a.kind === "edit").map((a, i) =>
                 a.kind === "edit" ? <EditCard key={i} op={a.op} draft={draft} onRevert={onEditOp} /> : null,
               )}

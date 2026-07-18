@@ -58,6 +58,23 @@ describe("CopilotRail", () => {
     expect(screen.getByText(/§1 Exec · instruction/i)).toBeTruthy(); // edit card title
   });
 
+  it("renders copilot markdown (bold, code, lists); user bodies stay plain", async () => {
+    mockFetch({
+      "/copilot": () => Response.json({ messages: [
+        { id: "m1", role: "user", body: "what **sources**?", actions: [], status: "ok", createdAt: "" },
+        { id: "m2", role: "assistant", body: "Two sources:\n\n- **June Spend** with `amount`\n- GA4 export", actions: [], status: "ok", createdAt: "" },
+      ] }),
+    });
+    render(<CopilotRail blueprintId="bp_1" selectedKey="exec" selectedHeading="Exec" getDraft={() => DRAFT} onEditOp={() => {}} />);
+    const bold = await screen.findByText("June Spend");
+    expect(bold.tagName).toBe("STRONG");
+    const code = screen.getByText("amount");
+    expect(code.tagName).toBe("CODE");
+    expect(screen.getAllByRole("listitem")).toHaveLength(2);
+    // The user's literal markdown is untouched — no <strong> is created from it.
+    expect(screen.getByText("what **sources**?").tagName).toBe("P");
+  });
+
   it("streams a turn: applies edit ops via onEditOp and shows the edit card with Revert", async () => {
     const onEditOp = vi.fn();
     mockFetch({
