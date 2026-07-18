@@ -87,3 +87,36 @@ export const notes = sqliteTable("notes", {
   status: text("status").notNull().default("open"),
   createdAt: text("created_at").notNull().default(""),
 });
+
+export const copilotMessages = sqliteTable("copilot_messages", {
+  id: text("id").primaryKey(),
+  blueprintId: text("blueprint_id").notNull(),
+  role: text("role").notNull(),
+  body: text("body").notNull(),
+  actions: text("actions"), // CopilotAction[] JSON
+  status: text("status").notNull().default("ok"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+export const memories = sqliteTable("memories", {
+  id: text("id").primaryKey(),
+  blueprintId: text("blueprint_id").notNull(),
+  body: text("body").notNull(),
+  source: text("source").notNull(), // copilot | distilled
+  originId: text("origin_id"),
+  status: text("status").notNull().default("active"), // active | disabled
+  createdAt: text("created_at").notNull().default(""),
+});
+
+export const goldens = sqliteTable("goldens", {
+  id: text("id").primaryKey(),
+  blueprintId: text("blueprint_id").notNull(),
+  kind: text("kind").notNull(), // run | section | exemplar
+  runId: text("run_id"),
+  sectionKey: text("section_key"),
+  name: text("name"),
+  mime: text("mime"),
+  storedFilename: text("stored_filename"),
+  note: text("note"),
+  createdAt: text("created_at").notNull().default(""),
+});

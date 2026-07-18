@@ -42,6 +42,18 @@ CREATE TABLE IF NOT EXISTS notes (
   id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, section_key TEXT NOT NULL,
   author TEXT NOT NULL, body TEXT NOT NULL, proposed_edit TEXT,
   status TEXT NOT NULL DEFAULT 'open', created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS copilot_messages (
+  id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, role TEXT NOT NULL,
+  body TEXT NOT NULL, actions TEXT, status TEXT NOT NULL DEFAULT 'ok',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS memories (
+  id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, body TEXT NOT NULL,
+  source TEXT NOT NULL, origin_id TEXT, status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE IF NOT EXISTS goldens (
+  id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, kind TEXT NOT NULL,
+  run_id TEXT, section_key TEXT, name TEXT, mime TEXT, stored_filename TEXT,
+  note TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 `;
 
 export function openDb(path: string): RunoffDb {
