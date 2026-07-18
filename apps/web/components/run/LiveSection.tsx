@@ -1,12 +1,14 @@
 import type { Block } from "@runoff/core";
 import type { SectionRunState } from "@runoff/core";
+import { parseSectionText } from "@runoff/core";
 import { SectionBlocks } from "@/components/doc/SectionBlocks";
 
 /**
  * One section on the page as the run writes it. Queued sections render nothing;
- * a writing section streams its typed text as plain serif paragraphs with a
- * blinking block caret trailing the last one; a done section renders its final
- * block AST through the shared `<SectionBlocks>`.
+ * a writing section parses its streamed text through the shared dialect parser
+ * on every delta, so tables and citation chips render progressively instead of
+ * as raw markers — a blinking block caret trails the writing edge; a done
+ * section renders its final block AST the same way.
  *
  * Presentational only — no hooks; safe to render inside the client run tree.
  */
@@ -31,36 +33,27 @@ export function LiveSection({
       {state === "done" ? (
         <SectionBlocks blocks={blocks} sourceLabels={sourceLabels} />
       ) : (
-        <TypingBody text={typedText} />
+        <SectionBlocks
+          blocks={parseSectionText(streamVisible(typedText))}
+          sourceLabels={sourceLabels}
+          caret
+        />
       )}
     </section>
   );
 }
 
-/** Split the streamed text on blank lines into paragraphs; the last one carries the caret. */
-function TypingBody({ text }: { text: string }) {
-  const paragraphs = text.split(/\n{2,}/);
-  return (
-    <>
-      {paragraphs.map((para, i) => (
-        <p
-          key={i}
-          className={`font-serif text-[14.5px] leading-[1.8] text-ink${i === 0 ? "" : " mt-[12px]"}`}
-        >
-          {para}
-          {i === paragraphs.length - 1 ? <Caret /> : null}
-        </p>
-      ))}
-    </>
-  );
-}
-
-/** The 8×15px ink block caret that blinks at the writing edge. */
-function Caret() {
-  return (
-    <span
-      aria-hidden
-      className="blink ml-[1px] inline-block h-[15px] w-[8px] translate-y-[2px] bg-ink"
-    />
-  );
+/**
+ * The streamed prefix that is safe to render: hold back an unterminated
+ * [[citation marker and an in-progress table line (rows appear whole, and a
+ * lone header line never flashes as raw pipes) so dialect syntax never
+ * reaches the page.
+ */
+function streamVisible(text: string): string {
+  let t = text;
+  const open = t.lastIndexOf("[[");
+  if (open > t.lastIndexOf("]]")) t = t.slice(0, open);
+  const nl = t.lastIndexOf("\n");
+  if (t.slice(nl + 1).trimStart().startsWith("|")) t = nl === -1 ? "" : t.slice(0, nl);
+  return t;
 }

@@ -10,7 +10,7 @@ const tools = [
     function: {
       name: "ask_user",
       description:
-        "Ask the user a blocking-with-fallback question when the sources are genuinely ambiguous. Continue drafting using the fallback unless an answer arrives.",
+        "Ask the user a blocking-with-fallback question when the source data or its business framing is genuinely ambiguous. Never ask about report mechanics (the dialect, citation markers, locator grammar) — the user never sees those; resolve them yourself and raise_flag if precision suffers. Continue drafting using the fallback unless an answer arrives.",
       strict: true,
       parameters: {
         type: "object",

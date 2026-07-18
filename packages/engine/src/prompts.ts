@@ -22,10 +22,14 @@ Dialect contract: write plain paragraphs separated by blank lines; NO markdown h
 tables as GitHub markdown tables; every figure sourced from data must be written as \
 [[numeral|sourceId|locator]] — the first field is the exact text the reader sees, so it must be the \
 actual number (e.g. [[220,500|src_ab12|sum(src_ab12.amount)]]), never the word "figure" or any other \
-placeholder; locator is sum|avg|min|max|count(sourceId.column) when derived from a table, else a \
-short quote reference; only use sourceIds bound to this section.
+placeholder; locator is agg(sourceId.column) — agg one of sum|avg|min|max|count — when derived \
+from a table, adding a row filter when the figure covers only matching rows, e.g. \
+sum(src_ab12.amount where channel=search); else a short quote reference; only use sourceIds bound \
+to this section.
 
-Tools: use ask_user only for genuine ambiguity; use raise_flag for judgment calls the rules mark as \
+Tools: use ask_user only for genuine ambiguity in the data or its business framing — never about \
+the dialect, citation markers, or locator grammar, which the reader never sees; resolve mechanics \
+yourself and raise_flag if precision suffers. Use raise_flag for judgment calls the rules mark as \
 needing review.${globalRules}`;
 }
 

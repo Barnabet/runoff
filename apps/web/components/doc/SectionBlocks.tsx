@@ -23,6 +23,8 @@ export type Annotate = (
  * editorial typography from the design handoff. Cited spans get a
  * `<CitationChip/>` appended; negative table deltas (leading "▼" or "-") render
  * in red pencil. Optional `annotate` lets a client parent wrap specific spans.
+ * With `caret`, a blinking block caret trails the last block's writing edge —
+ * the Live Run page streams drafts through this same AST as they type.
  *
  * Server-safe: pure presentational, no hooks / no "use client". Passing a
  * client-defined `annotate` from a client parent forces client rendering there.
@@ -31,11 +33,20 @@ export function SectionBlocks({
   blocks,
   sourceLabels = {},
   annotate,
+  caret = false,
 }: {
   blocks: Block[];
   sourceLabels?: Record<string, string>;
   annotate?: Annotate;
+  caret?: boolean;
 }) {
+  if (!blocks.length && caret) {
+    return (
+      <p className="font-serif text-[14.5px] leading-[1.8] text-ink">
+        <Caret />
+      </p>
+    );
+  }
   return (
     <div>
       {blocks.map((block, i) =>
@@ -47,6 +58,7 @@ export function SectionBlocks({
             index={i}
             sourceLabels={sourceLabels}
             annotate={annotate}
+            caret={caret && i === blocks.length - 1}
           />
         ) : (
           <Table
@@ -56,10 +68,21 @@ export function SectionBlocks({
             index={i}
             sourceLabels={sourceLabels}
             annotate={annotate}
+            caret={caret && i === blocks.length - 1}
           />
         )
       )}
     </div>
+  );
+}
+
+/** The 8×15px ink block caret that blinks at the writing edge. */
+function Caret() {
+  return (
+    <span
+      aria-hidden
+      className="blink ml-[1px] inline-block h-[15px] w-[8px] translate-y-[2px] bg-ink"
+    />
   );
 }
 
@@ -103,12 +126,14 @@ function Paragraph({
   index,
   sourceLabels,
   annotate,
+  caret = false,
 }: {
   block: Extract<Block, { type: "paragraph" }>;
   first: boolean;
   index: number;
   sourceLabels: Record<string, string>;
   annotate?: Annotate;
+  caret?: boolean;
 }) {
   return (
     <p
@@ -117,6 +142,7 @@ function Paragraph({
       {block.spans.map((span, i) =>
         renderSpan(span, `${index}-${i}`, sourceLabels, annotate)
       )}
+      {caret ? <Caret /> : null}
     </p>
   );
 }
@@ -137,12 +163,14 @@ function Table({
   index,
   sourceLabels,
   annotate,
+  caret = false,
 }: {
   block: Extract<Block, { type: "table" }>;
   first: boolean;
   index: number;
   sourceLabels: Record<string, string>;
   annotate?: Annotate;
+  caret?: boolean;
 }) {
   return (
     <div className={`border-y border-ink/20${first ? "" : " mt-[22px]"}`}>
@@ -174,6 +202,11 @@ function Table({
           })}
         </div>
       ))}
+      {caret ? (
+        <div className="border-t border-ink/10 px-[2px] py-[8px]">
+          <Caret />
+        </div>
+      ) : null}
     </div>
   );
 }

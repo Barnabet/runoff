@@ -131,6 +131,34 @@ describe("Live Run — rails and center", () => {
     expect(getByText(/Revenue closed at \$2\.41M/)).toBeTruthy();
   });
 
+  it("renders streamed dialect as blocks — chips and whole table rows, raw syntax held back", () => {
+    // A live run showed raw [[…]] markers and pipe rows on the page until the
+    // section completed; the stream must parse progressively instead.
+    const streaming: RunEvent[] = [
+      ...midRun,
+      {
+        type: "text_delta",
+        sectionKey: "s2",
+        text:
+          ", spending [[220,500|src_a|sum(src_a.amount)]] overall.\n\n" +
+          "| Channel | Spend |\n| --- | --- |\n" +
+          "| Search | [[100,200|src_a|sum(src_a.amount where channel=search)]] |\n" +
+          "| Social | [[67,4",
+      },
+    ];
+    const { container } = render(<RunView payload={basePayload(streaming)} />);
+    const text = container.textContent ?? "";
+
+    // Complete markers render as text + chip; complete table rows render as rows.
+    expect(text).toContain("220,500");
+    expect(text).toContain("Search");
+    expect(text).toContain("100,200");
+    // No raw dialect syntax on the page; the in-progress row is held back whole.
+    expect(text).not.toContain("[[");
+    expect(text).not.toContain("src_a|");
+    expect(text).not.toContain("67,4");
+  });
+
   it("shows the live phase badge and the source ledger", () => {
     const { getByText } = render(<RunView payload={basePayload(midRun)} />);
     // Phase after the last section_started is DRAFTING §02.

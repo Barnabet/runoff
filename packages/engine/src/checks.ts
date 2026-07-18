@@ -8,25 +8,35 @@ export interface CheckOutcome {
 
 type Agg = "sum" | "avg" | "min" | "max" | "count";
 
-// Full assert grammar: <agg>(<sourceId>.<column>) <op> <number> ["within" <pct> "%"]
+// Full assert grammar: <agg>(<sourceId>.<column> [where <col>=<value>]) <op> <number> ["within" <pct> "%"]
 const EXPR =
-  /^(sum|avg|min|max|count)\((\w+)\.(\w+)\)\s*(==|<=|>=|<|>)\s*([\d.]+)(?:\s+within\s+([\d.]+)%)?$/;
+  /^(sum|avg|min|max|count)\((\w+)\.(\w+)(?:\s+where\s+(\w+)\s*=\s*([^)]+?))?\)\s*(==|<=|>=|<|>)\s*([\d.]+)(?:\s+within\s+([\d.]+)%)?$/;
 
-// Left side of the grammar on its own — how citation locators reference a source column.
-const AGG_REF = /^(sum|avg|min|max|count)\((\w+)\.(\w+)\)$/;
+// Left side of the grammar on its own — how citation locators reference a source
+// column, optionally row-filtered: sum(src.amount where channel=search).
+const AGG_REF = /^(sum|avg|min|max|count)\((\w+)\.(\w+)(?:\s+where\s+(\w+)\s*=\s*([^)]+?))?\)$/;
+
+type Filter = { column: string; value: string };
 
 // A digit-bearing numeric figure: optional $, digits/commas, optional decimal, optional %.
 // The lookbehind keeps digits embedded in identifiers ("GA4", "Q2") from reading as figures.
 const FIGURE = /(?<!\w)\$?\d[\d,]*(?:\.\d+)?%?/;
 
-/** Aggregate a source column. Throws if the source or column is missing. */
-function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack): number {
+/** Aggregate a source column, optionally over rows matching a filter. Throws if the source or column is missing. */
+function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack, filter?: Filter): number {
   const source = pack.sources.find((s) => s.id === sourceId);
   if (!source || !source.tables) throw new Error(`unknown source ${sourceId}`);
-  const table = source.tables.find((t) => t.columns.includes(column));
+  const table = source.tables.find(
+    (t) => t.columns.includes(column) && (!filter || t.columns.includes(filter.column)),
+  );
   if (!table) throw new Error(`unknown column ${sourceId}.${column}`);
 
-  const cells = table.rows.map((r) => r[column]);
+  const rows = filter
+    ? table.rows.filter(
+        (r) => String(r[filter.column]).trim().toLowerCase() === filter.value.trim().toLowerCase(),
+      )
+    : table.rows;
+  const cells = rows.map((r) => r[column]);
   // CSV/XLSX parsing can leak null/boolean; only real numbers feed numeric aggregates.
   const nums = cells.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
 
@@ -78,22 +88,24 @@ export function evaluateAssert(expression: string, pack: SourcePack): CheckOutco
   const m = expression.trim().match(EXPR);
   if (!m) return { pass: false, detail: `unparseable expression: ${expression}` };
 
-  const [, agg, sourceId, column, op, targetStr, pctStr] = m;
+  const [, agg, sourceId, column, filterCol, filterVal, op, targetStr, pctStr] = m;
   const target = parseFloat(targetStr);
   const pct = pctStr !== undefined ? parseFloat(pctStr) : undefined;
+  const filter = filterCol ? { column: filterCol, value: filterVal } : undefined;
 
   let actual: number;
   try {
-    actual = computeAgg(agg as Agg, sourceId, column, pack);
+    actual = computeAgg(agg as Agg, sourceId, column, pack, filter);
   } catch (e) {
     return { pass: false, detail: (e as Error).message };
   }
 
   const pass = compare(actual, op, target, pct);
   const expected = `${op} ${fmt(target)}${pct !== undefined ? ` within ${pctStr}%` : ""}`;
+  const where = filter ? ` where ${filter.column}=${filter.value.trim()}` : "";
   return {
     pass,
-    detail: `${agg}(${sourceId}.${column}) = ${fmt(actual)} (expected ${expected}) — ${pass ? "pass" : "fail"}`,
+    detail: `${agg}(${sourceId}.${column}${where}) = ${fmt(actual)} (expected ${expected}) — ${pass ? "pass" : "fail"}`,
   };
 }
 
@@ -151,7 +163,8 @@ export function auditCitations(
     if (ref) {
       let computed: number;
       try {
-        computed = computeAgg(ref[1] as Agg, ref[2], ref[3], pack);
+        const filter = ref[4] ? { column: ref[4], value: ref[5] } : undefined;
+        computed = computeAgg(ref[1] as Agg, ref[2], ref[3], pack, filter);
       } catch {
         // Locator points at something we cannot recompute; leave the figure as-is.
         continue;

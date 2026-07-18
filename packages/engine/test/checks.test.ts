@@ -21,6 +21,13 @@ describe("evaluateAssert", () => {
     expect(r.pass).toBe(false);
     expect(r.detail).toContain("unparseable");
   });
+
+  it("filters rows with a where clause, matching values case-insensitively", () => {
+    expect(evaluateAssert("sum(src_spend.amount where channel=search) == 120050", pack).pass).toBe(true);
+    expect(evaluateAssert("sum(src_spend.amount where channel=SEARCH) == 120050", pack).pass).toBe(true);
+    // No matching rows aggregates over nothing.
+    expect(evaluateAssert("sum(src_spend.amount where channel=video) == 0", pack).pass).toBe(true);
+  });
 });
 
 describe("auditCitations", () => {
@@ -58,6 +65,22 @@ describe("auditCitations", () => {
     const r = auditCitations(unbound, pack, ["src_spend"]);
     expect(r.pass).toBe(false);
     expect(r.failures[0]).toMatch(/^figure cites unbound source src_other: /);
+  });
+
+  it("recomputes row-filtered locators", () => {
+    // Per-channel figures cite filtered sums — a live run's model asked permission
+    // to use this form because the grammar could not express it.
+    const good: Block[] = [{ type: "paragraph", spans: [
+      { text: "120,050", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where channel=search)" } },
+    ]}];
+    expect(auditCitations(good, pack, ["src_spend"]).pass).toBe(true);
+
+    const bad: Block[] = [{ type: "paragraph", spans: [
+      { text: "240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where channel=search)" } },
+    ]}];
+    const r = auditCitations(bad, pack, ["src_spend"]);
+    expect(r.pass).toBe(false);
+    expect(r.failures[0]).toMatch(/^citation mismatch: /);
   });
 
   it("does not read digits embedded in identifiers like GA4 as figures", () => {

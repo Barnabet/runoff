@@ -80,6 +80,14 @@ describe("citation-marker wording", () => {
     expect(prompt).not.toContain("[[figure|");
   });
 
+  it("advertises row-filtered locators and bans internal-mechanics questions", () => {
+    // A live run asked the user for permission to use filtered locators — a
+    // question about engine internals the reader should never see.
+    const prompt = systemPrompt(content);
+    expect(prompt).toContain("sum(src_ab12.amount where channel=search)");
+    expect(prompt).toContain("never about the dialect, citation markers, or locator grammar");
+  });
+
   it("the retry feedback tells the model to wrap the numeral itself", () => {
     const prompt = sectionUserPrompt({
       ...base,
