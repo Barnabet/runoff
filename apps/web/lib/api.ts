@@ -1,4 +1,14 @@
-import type { BlueprintContent, CopilotAction, GoldenRow, MemoryRow, PreviousRun, RunEvent } from "@runoff/core";
+import type {
+  BlueprintContent,
+  ClassifyProposal,
+  CopilotAction,
+  Granularity,
+  GoldenRow,
+  MemoryRow,
+  PreviousRun,
+  ProjectSourceRow,
+  RunEvent,
+} from "@runoff/core";
 
 // Client-side fetch helpers for the API routes. These run in the browser, so
 // this module must never import server-only code (db, node:*).
@@ -96,10 +106,94 @@ export function patchProject(id: string, body: { name: string }): Promise<{ ok: 
   return fetchJson(`/api/projects/${id}`, { method: "PATCH", headers: JSON_HEADERS, body: JSON.stringify(body) });
 }
 
-export function getProject(
-  id: string,
-): Promise<{ project: { id: string; name: string; createdAt: string }; blueprints: BlueprintListItem[] }> {
+export function getProject(id: string): Promise<{
+  project: { id: string; name: string; createdAt: string };
+  blueprints: BlueprintListItem[];
+  families: FamilySummary[];
+  unfiled: ProjectSourceRow[];
+}> {
   return fetchJson(`/api/projects/${id}`);
+}
+
+// ---- Project source manager -------------------------------------------------
+
+export interface FamilySummary {
+  id: string;
+  key: string;
+  label: string;
+  kind: "periodic" | "constant";
+  granularity: Granularity | null;
+  filedPeriods: string[];
+  liveFile: { sourceId: string; name: string } | null;
+}
+
+export interface ProjectSourcesResponse {
+  families: FamilySummary[];
+  unfiled: ProjectSourceRow[];
+}
+
+export interface NewFamilyInput {
+  key: string;
+  label: string;
+  kind: "periodic" | "constant";
+  granularity: Granularity | null;
+}
+
+export interface FileSourceBody {
+  familyId?: string;
+  newFamily?: NewFamilyInput;
+  period: string | null;
+}
+
+export function getProjectSources(projectId: string): Promise<ProjectSourcesResponse> {
+  return fetchJson(`/api/projects/${projectId}/sources`);
+}
+
+export function uploadProjectSources(
+  projectId: string,
+  files: File[],
+): Promise<{ sources: ProjectSourceRow[] }> {
+  const fd = new FormData();
+  for (const file of files) fd.append("files", file);
+  return fetchJson(`/api/projects/${projectId}/sources`, { method: "POST", body: fd });
+}
+
+export function classifySources(
+  projectId: string,
+  sourceIds: string[],
+): Promise<{ sources: { id: string; proposal: ClassifyProposal | null }[] }> {
+  return fetchJson(`/api/projects/${projectId}/sources/classify`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ sourceIds }),
+  });
+}
+
+export function confirmSource(
+  projectId: string,
+  body: FileSourceBody & { sourceId: string },
+): Promise<{ ok: true }> {
+  return fetchJson(`/api/projects/${projectId}/sources/confirm`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+export function refileSource(
+  projectId: string,
+  sourceId: string,
+  body: FileSourceBody,
+): Promise<{ ok: true }> {
+  return fetchJson(`/api/projects/${projectId}/sources/${sourceId}`, {
+    method: "PATCH",
+    headers: JSON_HEADERS,
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteProjectSource(projectId: string, sourceId: string): Promise<{ ok: true }> {
+  return fetchJson(`/api/projects/${projectId}/sources/${sourceId}`, { method: "DELETE" });
 }
 
 export function patchBlueprint(id: string, body: PatchBlueprintBody): Promise<{ ok: true }> {

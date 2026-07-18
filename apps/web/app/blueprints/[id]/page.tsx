@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import type { BlueprintContent } from "@runoff/core";
 import { Builder } from "@/components/builder/Builder";
 import { getDb } from "@/lib/db";
-import { listSourcesWithUsage } from "@/lib/queries";
 import type { SourceRow } from "@/lib/api";
 
 // The builder reads the live current revision and bound sources on every
@@ -53,7 +52,19 @@ export default async function BlueprintPage({
        WHERE bs.blueprint_id = ?`,
     )
     .all(id) as { id: string }[];
-  const allSources = listSourcesWithUsage(db) as SourceRow[];
+  // Task 7 replaces this global source list with project-scoped family binding;
+  // until then the builder keeps its existing "all sources" feed. Inlined here
+  // because the shared listSourcesWithUsage helper was retired with the old
+  // global /api/sources routes.
+  const allSources = db.sqlite
+    .prepare(
+      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
+              s.uploaded_at AS uploadedAt,
+              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
+       FROM sources s
+       ORDER BY s.uploaded_at DESC, s.id DESC`,
+    )
+    .all() as SourceRow[];
 
   const initialSectionKey = content.sections[0]?.key ?? "";
 

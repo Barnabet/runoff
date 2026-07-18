@@ -6,10 +6,8 @@ import { join } from "node:path";
 import { GET as listBlueprints, POST as createBlueprint } from "../app/api/blueprints/route";
 import { GET as getBlueprint, PATCH as patchBlueprint } from "../app/api/blueprints/[id]/route";
 import { POST as saveRevision } from "../app/api/blueprints/[id]/revisions/route";
-import { GET as listSources, POST as uploadSource } from "../app/api/sources/route";
-import { DELETE as deleteSource, POST as refreshSource } from "../app/api/sources/[id]/route";
 import { getDb } from "../lib/db";
-import type { BlueprintContent } from "@runoff/core";
+import { newId, type BlueprintContent } from "@runoff/core";
 
 // A fresh temp DB + files dir per test; clear the cached connection getDb()
 // memoises on globalThis so each test opens its own database.
@@ -39,14 +37,16 @@ async function makeBlueprint(name = "R", clientName = "C"): Promise<string> {
   return (await res.json()).id as string;
 }
 
-async function makeSource(origName = "spend.csv", type = "text/csv", label = "Spend Data"): Promise<string> {
-  const file = new File([new TextEncoder().encode("a,b\n1,2\n")], origName, { type });
-  const fd = new FormData();
-  fd.set("file", file);
-  fd.set("name", label);
-  const res = await uploadSource(new Request("http://x/api/sources", { method: "POST", body: fd }));
-  expect(res.status).toBe(200);
-  return (await res.json()).id as string;
+// Project-scoped upload/classify/confirm live in test/sourceManager.test.ts.
+// Here we only need a bindable source row, so insert one directly.
+function makeSource(origName = "spend.csv", type = "text/csv", label = "Spend Data"): string {
+  const id = newId("src");
+  getDb()
+    .sqlite.prepare(
+      "INSERT INTO sources (id, project_id, name, kind, stored_filename, mime, size, status) VALUES (?, ?, ?, 'file', ?, ?, 8, 'unfiled')",
+    )
+    .run(id, PROJECT_ID, label, `${id}_${origName}`, type);
+  return id;
 }
 
 const validContent: BlueprintContent = {
@@ -163,7 +163,7 @@ describe("PATCH /api/blueprints/:id", () => {
 
   it("binds sourceIds (replacing existing rows) and reflects in GET + counts", async () => {
     const id = await makeBlueprint();
-    const srcId = await makeSource();
+    const srcId = makeSource();
 
     const res = await patchBlueprint(jsonReq({ sourceIds: [srcId] }, "PATCH"), ctx(id));
     expect(res.status).toBe(200);
@@ -172,8 +172,6 @@ describe("PATCH /api/blueprints/:id", () => {
     expect(sources).toHaveLength(1);
     expect(sources[0].id).toBe(srcId);
 
-    const list = await (await listSources()).json();
-    expect(list.sources[0].usedBy).toBe(1);
     const bpList = await (await listBps()).json();
     expect(bpList.blueprints[0].sourceCount).toBe(1);
 
@@ -184,39 +182,3 @@ describe("PATCH /api/blueprints/:id", () => {
   });
 });
 
-describe("sources API", () => {
-  it("uploads an in-memory File and lists it with usedBy 0", async () => {
-    const id = await makeSource("spend.csv", "text/csv", "Spend Data");
-    expect(id).toMatch(/^src_[0-9a-f]{12}$/);
-
-    const { sources } = await (await listSources()).json();
-    expect(sources).toHaveLength(1);
-    expect(sources[0].id).toBe(id);
-    expect(sources[0].name).toBe("Spend Data");
-    expect(sources[0].mime).toBe("text/csv");
-    expect(sources[0].size).toBeGreaterThan(0);
-    expect(sources[0].storedFilename).toMatch(/^src_[0-9a-f]{12}_spend\.csv$/);
-    expect(sources[0].usedBy).toBe(0);
-  });
-
-  it("falls back to an extension-derived mime when file.type is empty", async () => {
-    await makeSource("report.pdf", "", "A PDF");
-    const { sources } = await (await listSources()).json();
-    expect(sources[0].mime).toBe("application/pdf");
-  });
-
-  it("deletes a source", async () => {
-    const id = await makeSource();
-    const res = await deleteSource(new Request("http://x", { method: "DELETE" }), ctx(id));
-    expect(res.status).toBe(200);
-    const { sources } = await (await listSources()).json();
-    expect(sources).toHaveLength(0);
-  });
-
-  it("acknowledges a source refresh request", async () => {
-    const id = await makeSource();
-    const res = await refreshSource(new Request("http://x", { method: "POST" }), ctx(id));
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true });
-  });
-});

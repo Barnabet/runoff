@@ -2,7 +2,9 @@ import { join } from "node:path";
 import { blocksToPlainText, newId, previousCompletedDocument } from "@runoff/core";
 import type { RunDocument, RunEvent, RunoffDb } from "@runoff/core";
 import type { CopilotContext, EngineFile, RunSummary, RunSectionDetail } from "@runoff/engine";
-import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow, SourceRow } from "./api";
+import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow } from "./api";
+import { listProjectSources, type FamilySummary } from "./sourceManager";
+import type { ProjectSourceRow } from "@runoff/core";
 import { listGoldenSummaries } from "./goldens";
 
 // Server-only db reads shared by the API route and the server-rendered Library
@@ -45,19 +47,23 @@ export function listProjects(db: RunoffDb): ProjectListItem[] {
 export interface ProjectPayload {
   project: { id: string; name: string; createdAt: string };
   blueprints: BlueprintListItem[];
+  families: FamilySummary[];
+  unfiled: ProjectSourceRow[];
 }
 
 /**
- * One project's header row plus its scoped blueprint ledger. Shared by
- * GET /api/projects/:id and the server-rendered project page so the read lives
- * in one place. Returns null when the project row is missing so callers 404.
+ * One project's header row plus its scoped blueprint ledger and source manager
+ * state (families + unfiled uploads). Shared by GET /api/projects/:id and the
+ * server-rendered project page so the read lives in one place. Returns null when
+ * the project row is missing so callers 404.
  */
 export function getProjectPayload(db: RunoffDb, id: string): ProjectPayload | null {
   const project = db.sqlite
     .prepare("SELECT id, name, created_at AS createdAt FROM projects WHERE id = ?")
     .get(id) as { id: string; name: string; createdAt: string } | undefined;
   if (!project) return null;
-  return { project, blueprints: listBlueprintsWithRuns(db, id) };
+  const { families, unfiled } = listProjectSources(db, id);
+  return { project, blueprints: listBlueprintsWithRuns(db, id), families, unfiled };
 }
 
 /**
@@ -219,23 +225,6 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
   );
 
   return { run, events, flags, sectionMeta, sourceLabels, blueprint, project, content: masthead, previous, memories };
-}
-
-/**
- * Every source with a count of blueprints referencing it (`usedBy`), newest
- * upload first. Shared by the GET /api/sources route and the server-rendered
- * Sources page so the join lives in exactly one place.
- */
-export function listSourcesWithUsage(db: RunoffDb): SourceRow[] {
-  return db.sqlite
-    .prepare(
-      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt,
-              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
-       FROM sources s
-       ORDER BY s.uploaded_at DESC, s.id DESC`,
-    )
-    .all() as SourceRow[];
 }
 
 /**
