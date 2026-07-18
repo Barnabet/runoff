@@ -1,0 +1,16 @@
+{
+  "name": "runoff",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
+    "test": "vitest run --passWithNoTests",
+    "seed": "tsx scripts/seed.ts",
+    "eval": "tsx scripts/eval.ts"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.0.0"
+  }
+}

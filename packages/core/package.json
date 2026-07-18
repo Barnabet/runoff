@@ -1,0 +1,8 @@
+{
+  "name": "@runoff/core", "version": "0.0.1", "type": "module",
+  "main": "src/index.ts", "types": "src/index.ts",
+  "dependencies": {
+    "better-sqlite3": "^11.7.0", "drizzle-orm": "^0.38.0", "zod": "^3.25.0"
+  },
+  "devDependencies": { "@types/better-sqlite3": "^7.6.0", "vitest": "^3.0.0" }
+}
