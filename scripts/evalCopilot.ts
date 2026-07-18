@@ -13,10 +13,11 @@ import {
   MODEL,
   type CopilotContext,
   type EngineFile,
+  type FamilyInfo,
 } from "@runoff/engine";
 import { seedDatabase } from "./seed.js";
 
-const BLUEPRINT_NAME = "Monthly Performance Report";
+const BLUEPRINT_NAME = "Quarterly Performance Report";
 
 function dbPath(): string {
   return process.env.RUNOFF_DB ?? "data/runoff.db";
@@ -78,7 +79,7 @@ async function preflight(client: OpenAI): Promise<void> {
 }
 
 /** Load the seeded blueprint (seeding first if absent). */
-function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files: EngineFile[]; content: ReturnType<typeof BlueprintContentSchema.parse> } {
+function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; content: ReturnType<typeof BlueprintContentSchema.parse> } {
   let row = db.sqlite
     .prepare("SELECT id, current_rev AS rev FROM blueprints WHERE name = ?")
     .get(BLUEPRINT_NAME) as { id: string; rev: number } | undefined;
@@ -97,20 +98,96 @@ function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files:
   if (!revRow) throw new Error(`blueprint revision not found: ${row.id}@${row.rev}`);
   const content = BlueprintContentSchema.parse(JSON.parse(revRow.content));
 
-  const bound = db.sqlite
-    .prepare(
-      "SELECT s.id, s.name, s.mime, s.stored_filename AS storedFilename FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id WHERE bs.blueprint_id = ?",
-    )
-    .all(row.id) as { id: string; name: string; mime: string; storedFilename: string }[];
+  return { blueprintId: row.id, rev: row.rev, content };
+}
+
+/**
+ * Build the Task-10 CopilotContext for the seeded blueprint, mirroring
+ * `buildCopilotContext` in apps/web/lib/queries.ts: families (with bound /
+ * filedPeriods / hasLiveFile), defaultFiles (bound families → live file, id =
+ * family id), and periodFiles (every filed periodic row of bound families). Run
+ * history / goldens are stubbed empty — the eval only exercises source access,
+ * edits, and saveMemory.
+ */
+function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotContext {
   const dir = filesDir();
-  const files: EngineFile[] = bound.map((s) => ({
-    id: s.id,
-    name: s.name,
-    mime: s.mime,
-    path: join(dir, s.storedFilename),
+  const projectId =
+    (db.sqlite.prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?").get(blueprintId) as
+      | { projectId: string }
+      | undefined)?.projectId ?? "";
+  const boundSet = new Set(
+    (db.sqlite
+      .prepare("SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?")
+      .all(blueprintId) as { familyId: string }[]).map((r) => r.familyId),
+  );
+  const famRows = db.sqlite
+    .prepare("SELECT id, key, label, kind, granularity FROM source_families WHERE project_id = ? ORDER BY key")
+    .all(projectId) as {
+    id: string;
+    key: string;
+    label: string;
+    kind: "periodic" | "constant";
+    granularity: FamilyInfo["granularity"];
+  }[];
+  const periodsStmt = db.sqlite.prepare(
+    "SELECT period FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+  );
+  const liveStmt = db.sqlite.prepare(
+    "SELECT 1 FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL LIMIT 1",
+  );
+  const families: FamilyInfo[] = famRows.map((f) => ({
+    id: f.id,
+    key: f.key,
+    label: f.label,
+    kind: f.kind,
+    granularity: f.granularity,
+    filedPeriods:
+      f.kind === "constant" ? [] : (periodsStmt.all(f.id) as { period: string }[]).map((r) => r.period),
+    hasLiveFile: f.kind === "constant" ? !!liveStmt.get(f.id) : false,
+    bound: boundSet.has(f.id),
   }));
 
-  return { blueprintId: row.id, rev: row.rev, files, content };
+  const constantSlot = db.sqlite.prepare(
+    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL",
+  );
+  const latestSlot = db.sqlite.prepare(
+    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period DESC LIMIT 1",
+  );
+  const defaultFiles: EngineFile[] = [];
+  for (const f of families) {
+    if (!f.bound) continue;
+    const r = (f.kind === "constant" ? constantSlot : latestSlot).get(f.id) as
+      | { mime: string; storedFilename: string }
+      | undefined;
+    if (!r) continue;
+    defaultFiles.push({ id: f.id, name: f.label, mime: r.mime, path: join(dir, r.storedFilename) });
+  }
+
+  const periodRowsStmt = db.sqlite.prepare(
+    "SELECT period, mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+  );
+  const periodFiles: CopilotContext["periodFiles"] = [];
+  for (const f of families) {
+    if (!f.bound || f.kind !== "periodic") continue;
+    for (const r of periodRowsStmt.all(f.id) as { period: string; mime: string; storedFilename: string }[]) {
+      periodFiles.push({
+        familyId: f.id,
+        period: r.period,
+        file: { id: f.id, name: f.label, mime: r.mime, path: join(dir, r.storedFilename) },
+      });
+    }
+  }
+
+  return {
+    families,
+    defaultFiles,
+    periodFiles,
+    listRuns: () => [],
+    getRunSection: () => null,
+    listGoldens: () => [],
+    getGolden: () => null,
+    saveMemory: () => "mem_eval",
+  };
 }
 
 async function main(): Promise<void> {
@@ -118,17 +195,9 @@ async function main(): Promise<void> {
   await preflight(client);
   const db = openDb(dbPath());
   try {
-    const { content, files } = loadBlueprint(db);
-    const events: string[] = [];
+    const { blueprintId, content } = loadBlueprint(db);
     let editOps = 0;
-    const ctx: CopilotContext = {
-      files,
-      listRuns: () => [],
-      getRunSection: () => null,
-      listGoldens: () => [],
-      getGolden: () => null,
-      saveMemory: () => "mem_eval",
-    };
+    const ctx: CopilotContext = buildEvalContext(db, blueprintId);
     const res = await copilotTurn({
       client,
       draft: content,

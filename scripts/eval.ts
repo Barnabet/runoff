@@ -1,5 +1,5 @@
 /**
- * Live smoke eval for Runoff. Runs the seeded "Monthly Performance Report"
+ * Live smoke eval for Runoff. Runs the seeded "Quarterly Performance Report"
  * blueprint end to end through the real engine against the local CLIProxyAPI
  * (OpenAI-compatible, serving GPT 5.6 Sol) and asserts the run produced a
  * usable document.
@@ -27,7 +27,8 @@ import {
 } from "@runoff/engine";
 import { seedDatabase } from "./seed.js";
 
-const BLUEPRINT_NAME = "Monthly Performance Report";
+const BLUEPRINT_NAME = "Quarterly Performance Report";
+const RUN_PERIOD = "2026-Q2";
 
 function dbPath(): string {
   return process.env.RUNOFF_DB ?? "data/runoff.db";
@@ -89,7 +90,7 @@ async function preflight(client: OpenAI): Promise<void> {
 }
 
 /** Load the seeded blueprint (seeding first if absent). */
-function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files: EngineFile[]; content: ReturnType<typeof BlueprintContentSchema.parse> } {
+function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files: EngineFile[]; gaps: string[]; content: ReturnType<typeof BlueprintContentSchema.parse> } {
   let row = db.sqlite
     .prepare("SELECT id, current_rev AS rev FROM blueprints WHERE name = ?")
     .get(BLUEPRINT_NAME) as { id: string; rev: number } | undefined;
@@ -108,20 +109,33 @@ function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files:
   if (!revRow) throw new Error(`blueprint revision not found: ${row.id}@${row.rev}`);
   const content = BlueprintContentSchema.parse(JSON.parse(revRow.content));
 
-  const bound = db.sqlite
+  // Resolve the blueprint's bound families to concrete files for RUN_PERIOD,
+  // mirroring the worker's resolveRunSources: constants take their NULL slot,
+  // periodics the file filed for this period. EngineFile.id is the FAMILY id.
+  const fams = db.sqlite
     .prepare(
-      "SELECT s.id, s.name, s.mime, s.stored_filename AS storedFilename FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id WHERE bs.blueprint_id = ?",
+      `SELECT f.id, f.key, f.label, f.kind FROM blueprint_families bf
+       JOIN source_families f ON f.id = bf.family_id WHERE bf.blueprint_id = ? ORDER BY f.key`,
     )
-    .all(row.id) as { id: string; name: string; mime: string; storedFilename: string }[];
+    .all(row.id) as { id: string; key: string; label: string; kind: string }[];
+  const slot = db.sqlite.prepare(
+    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS ?",
+  );
   const dir = filesDir();
-  const files: EngineFile[] = bound.map((s) => ({
-    id: s.id,
-    name: s.name,
-    mime: s.mime,
-    path: join(dir, s.storedFilename),
-  }));
+  const files: EngineFile[] = [];
+  const gaps: string[] = [];
+  for (const f of fams) {
+    const s = slot.get(f.id, f.kind === "constant" ? null : RUN_PERIOD) as
+      | { mime: string; storedFilename: string }
+      | undefined;
+    if (!s) {
+      gaps.push(f.key);
+      continue;
+    }
+    files.push({ id: f.id, name: f.label, mime: s.mime, path: join(dir, s.storedFilename) });
+  }
 
-  return { blueprintId: row.id, rev: row.rev, files, content };
+  return { blueprintId: row.id, rev: row.rev, files, gaps, content };
 }
 
 /** A console EngineIO: logs every event compactly, streams deltas as dots. */
@@ -227,19 +241,43 @@ async function main(): Promise<void> {
 
   const db = openDb(dbPath());
   try {
-    const { content, files, rev } = loadBlueprint(db);
-    console.log(`Running "${content.title}" for ${content.clientName} — ${files.length} sources, rev ${rev}.`);
+    const { content, files, gaps, rev } = loadBlueprint(db);
+    console.log(`Running "${content.title}" for ${content.clientName} — ${files.length} sources, period ${RUN_PERIOD}, rev ${rev}.`);
+
+    // Wrap the console IO to capture the run_started event so we can assert on
+    // its serialized payload (period present, gaps absent).
+    const baseIo = consoleIO();
+    let runStartedJson: string | null = null;
+    const io: EngineIO = {
+      ...baseIo,
+      emit(e: RunEvent): void {
+        if (e.type === "run_started") runStartedJson = JSON.stringify(e);
+        baseIo.emit(e);
+      },
+    };
 
     const { document, stats } = await executeRun({
       client,
       content,
       files,
-      io: consoleIO(),
+      io,
       blueprintRev: rev,
+      period: RUN_PERIOD,
+      gaps,
     });
 
     // --- assertions --------------------------------------------------------
     const failures: string[] = [];
+    if (runStartedJson === null) {
+      failures.push("no run_started event was emitted");
+    } else {
+      if (!runStartedJson.includes(`"period":"${RUN_PERIOD}"`)) {
+        failures.push(`run_started payload missing "period":"${RUN_PERIOD}" — got ${runStartedJson}`);
+      }
+      if (runStartedJson.includes(`"gaps"`)) {
+        failures.push(`run_started payload should not contain "gaps" (seed fills every slot) — got ${runStartedJson}`);
+      }
+    }
     for (const section of content.sections) {
       if (section.mode === "fixed") continue;
       const doc = document.sections.find((s) => s.key === section.key);

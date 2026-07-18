@@ -6,7 +6,8 @@
     "test": "vitest run --passWithNoTests",
     "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
     "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
-    "eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalCopilot.ts"
+    "eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalCopilot.ts",
+    "eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalClassify.ts"
   },
   "dependencies": {
     "@runoff/core": "workspace:*",
