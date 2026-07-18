@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&amp;display=swap" rel="stylesheet">
+<style>body{margin:0;background:#FAF6EE}a{color:#B3392B}a:hover{color:#7E2418}input::placeholder{color:rgba(32,26,21,.4);font-style:italic}@keyframes ro-blink{0%,55%{opacity:1}56%,100%{opacity:0}}</style></helmet>
+<div style="font-family:Archivo,system-ui,sans-serif;color:#201A15;background:#FAF6EE;min-height:100vh;display:flex;flex-direction:column">
+
+<sc-if value="{{ isLibrary }}" hint-placeholder-val="{{ true }}">
+  <div style="display:flex;flex-direction:column;flex:1" data-screen-label="Library">
+    <div style="display:flex;align-items:center;gap:22px;height:56px;padding:0 26px;border-bottom:1px solid rgba(32,26,21,.15);flex:none">
+      <div style="font:italic 500 21px Newsreader,serif;cursor:pointer" onClick="{{ goLibrary }}">Runoff</div>
+      <div style="display:flex;gap:20px;font:500 13px Archivo;height:100%;align-items:stretch">
+        <span style="display:flex;align-items:center;border-bottom:2px solid #B3392B;margin-bottom:-1px;cursor:pointer">Blueprints</span>
+        <span style="display:flex;align-items:center;color:rgba(32,26,21,.55);cursor:pointer" onClick="{{ goReader }}">Runs</span>
+        <span style="display:flex;align-items:center;color:rgba(32,26,21,.55);cursor:pointer" onClick="{{ goSources }}">Sources</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+        <div style="border:1px solid rgba(32,26,21,.25);border-radius:99px;padding:7px 16px;font:italic 400 13px Newsreader,serif;color:rgba(32,26,21,.45);width:200px">Search blueprints…</div>
+        <span style="background:#201A15;color:#FAF6EE;padding:8px 16px;border-radius:99px;font:500 12.5px Archivo;cursor:pointer" onClick="{{ mockNew }}">New blueprint</span>
+        <span style="width:28px;height:28px;border-radius:50%;background:#201A15;color:#FAF6EE;display:flex;align-items:center;justify-content:center;font:italic 500 13px Newsreader,serif">S</span>
+      </div>
+    </div>
+    <div style="padding:28px 40px 34px;max-width:1360px;width:100%;box-sizing:border-box;margin:0 auto">
+      <div style="display:flex;align-items:baseline;gap:14px">
+        <span style="font:500 30px Newsreader,serif">Blueprints</span>
+        <span style="font:400 11px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5)">6 ACTIVE · 2 AWAIT REVIEW</span>
+        <div style="display:flex;gap:7px;font:500 11.5px Archivo;margin-left:auto">
+          <span style="background:#201A15;color:#FAF6EE;padding:5px 13px;border-radius:99px">All</span>
+          <span style="border:1px solid rgba(32,26,21,.25);padding:4px 13px;border-radius:99px;color:rgba(32,26,21,.6);cursor:pointer">Monthly</span>
+          <span style="border:1px solid rgba(32,26,21,.25);padding:4px 13px;border-radius:99px;color:rgba(32,26,21,.6);cursor:pointer">Weekly</span>
+          <span style="border:1px solid rgba(32,26,21,.25);padding:4px 13px;border-radius:99px;color:rgba(32,26,21,.6);cursor:pointer">Quarterly</span>
+          <span style="border:1px solid rgba(32,26,21,.25);padding:4px 13px;border-radius:99px;color:rgba(32,26,21,.6);cursor:pointer">Drafts</span>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;margin-top:20px">
+        <div style="flex:1;background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #B3392B;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1"><div style="font:500 14.5px Newsreader,serif">Meridian Retail — run #38 finished with 2 flags</div><div style="font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5);margin-top:3px">JUL 1 · CPM +18% · VARIANCE TABLE TRUNCATED</div></div>
+          <span style="background:#201A15;color:#FAF6EE;padding:6px 14px;border-radius:99px;font:500 11.5px Archivo;cursor:pointer" onClick="{{ goReader }}">Review</span>
+        </div>
+        <div style="flex:1;background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #8A5A22;padding:14px 16px;display:flex;align-items:center;gap:14px">
+          <div style="flex:1"><div style="font:500 14.5px Newsreader,serif">Alpine QBR — the agent has a question before Sep 30</div><div style="font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5);margin-top:3px">"WHICH OF THE TWO PRICING CHANGES SHOULD §03 REFLECT?"</div></div>
+          <span style="border:1px solid rgba(32,26,21,.3);padding:5px 14px;border-radius:99px;font:500 11.5px Archivo;cursor:pointer" onClick="{{ mockAnswer }}">Answer</span>
+        </div>
+      </div>
+      <div style="margin-top:26px">
+        <div style="display:flex;font:600 9.5px Archivo;letter-spacing:1.8px;color:rgba(32,26,21,.45);padding:0 2px 9px;border-bottom:1px solid rgba(32,26,21,.3)"><span style="flex:2.5">BLUEPRINT</span><span style="flex:1.4">CLIENT</span><span style="flex:1">CADENCE</span><span style="flex:.8">SOURCES</span><span style="flex:1.5">LAST RUN</span><span style="flex:1">NEXT RUN</span><span style="width:22px"></span></div>
+        <sc-for list="{{ blueprints }}" as="b" hint-placeholder-count="6">
+          <div style="{{ b.rowStyle }}" onClick="{{ b.onOpen }}">
+            <span style="flex:2.5;font:500 15.5px Newsreader,serif">{{ b.name }} <sc-if value="{{ b.draft }}" hint-placeholder-val="{{ false }}"><span style="font:500 8.5px 'IBM Plex Mono',monospace;letter-spacing:1px;border:1px solid rgba(32,26,21,.25);border-radius:3px;padding:2px 5px;vertical-align:2px;color:rgba(32,26,21,.5)">DRAFT</span></sc-if></span>
+            <span style="flex:1.4;font-size:12px;color:rgba(32,26,21,.65)">{{ b.client }}</span>
+            <span style="flex:1;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">{{ b.cadence }}</span>
+            <span style="flex:.8;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">{{ b.sources }}</span>
+            <span style="flex:1.5;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">{{ b.last }} <span style="{{ b.statusStyle }}">{{ b.status }}</span></span>
+            <span style="flex:1;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">{{ b.next }}</span>
+            <span style="width:22px;color:rgba(32,26,21,.4)">→</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font:italic 400 13px Newsreader,serif;color:rgba(32,26,21,.45);margin-top:16px;cursor:pointer" onClick="{{ mockDrop }}">Start from a past report — drop any PDF or DOCX here and the agent will reverse-engineer it into a blueprint.</div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isBuilder }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;flex:1" data-screen-label="Builder">
+    <div style="display:flex;align-items:center;gap:16px;height:56px;padding:0 22px;border-bottom:1px solid rgba(32,26,21,.15);flex:none">
+      <div style="font:italic 500 21px Newsreader,serif;cursor:pointer" onClick="{{ goLibrary }}">Runoff</div>
+      <div style="width:1px;height:20px;background:rgba(32,26,21,.15)"></div>
+      <div style="font-size:13px;color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ goLibrary }}">← Blueprints</div>
+      <div style="font-size:13px">Meridian Retail — <b style="font-weight:600">Monthly Performance Report</b></div>
+      <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#8A5A22;border:1px solid rgba(138,90,34,.4);padding:3px 8px;border-radius:99px">DRAFT · REV 15</div>
+      <div style="margin-left:auto;display:flex;gap:18px;align-items:center;font:500 12.5px Archivo">
+        <span style="color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ mockHistory }}">History</span>
+        <span style="color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ goSources }}">Sources</span>
+        <span style="border:1px solid rgba(32,26,21,.3);padding:7px 14px;border-radius:99px;cursor:pointer" onClick="{{ goRun }}">Preview run</span>
+        <span style="background:#201A15;color:#FAF6EE;padding:8px 16px;border-radius:99px;cursor:pointer" onClick="{{ publish }}">Publish</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:stretch;flex:1;max-width:1360px;width:100%;margin:0 auto;box-sizing:border-box">
+      <div style="width:248px;flex:none;padding:22px 0 18px 22px;display:flex;flex-direction:column;gap:2px">
+        <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45);margin-bottom:12px">CONTENTS</div>
+        <sc-for list="{{ builderToc }}" as="s" hint-placeholder-count="7">
+          <div style="{{ s.rowStyle }}" onClick="{{ s.onSelect }}">
+            <span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.4)">{{ s.num }}</span>
+            <span style="{{ s.nameStyle }}">{{ s.name }}</span>
+            <span style="{{ s.badgeStyle }}">{{ s.badge }}</span>
+          </div>
+        </sc-for>
+        <div style="font:italic 400 13px Newsreader,serif;color:rgba(32,26,21,.5);padding:10px 0;cursor:pointer" onClick="{{ mockAddSection }}">+ add a section…</div>
+        <div style="margin-top:auto;padding:14px 18px 0 0;border-top:1px solid rgba(32,26,21,.12)">
+          <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45);margin:4px 0 10px">SOURCES</div>
+          <div style="display:flex;flex-direction:column;gap:6px;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.7)">
+            <div>GA4 · API <span style="color:rgba(32,26,21,.4)">— fresh</span></div>
+            <div>HubSpot CRM <span style="color:rgba(32,26,21,.4)">— fresh</span></div>
+            <div>spend_june.csv <span style="color:#8A5A22">— 31d, stale</span></div>
+            <div>client_brief.pdf <span style="color:rgba(32,26,21,.4)">— fixed</span></div>
+            <div>Web research <span style="color:rgba(32,26,21,.4)">— at run</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1;display:flex;justify-content:center;padding:30px 26px 38px">
+        <div style="width:648px;box-sizing:border-box;background:#FFFDF8;border:1px solid rgba(32,26,21,.14);box-shadow:0 3px 18px rgba(32,26,21,.09);padding:54px 58px 46px;align-self:flex-start">
+          <div style="font:500 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.5)">PREPARED FOR MERIDIAN RETAIL GROUP · JULY 2026</div>
+          <div style="font:500 33px/1.15 Newsreader,serif;margin:10px 0 6px">Monthly Performance Report</div>
+          <div style="font:italic 400 14px Newsreader,serif;color:rgba(32,26,21,.55)">June 1 – June 30, 2026 · run of July 1, 09:00</div>
+          <div style="height:1px;background:rgba(32,26,21,.25);margin:22px 0 24px"></div>
+          <sc-if value="{{ isSec2 }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;align-items:baseline;gap:10px"><span style="font:500 19px Newsreader,serif">Executive summary</span><sc-if value="{{ note1Open }}" hint-placeholder-val="{{ true }}"><span style="font:500 8.5px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#B3392B;border:1px solid rgba(179,57,43,.5);padding:2px 6px;border-radius:3px">REVIEW</span></sc-if></div>
+            <sc-if value="{{ note1Open }}" hint-placeholder-val="{{ true }}">
+              <div style="font:400 14.5px/1.8 Newsreader,serif;margin-top:12px">Revenue closed at $2.41M<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">GA4</span>, <span style="text-decoration:line-through;color:rgba(179,57,43,.75)">broadly in line with plan</span> <span style="border-bottom:2px solid #B3392B;color:#201A15">down 12.4% from May and 4.1% under target</span>, driven by a paid-social CPM spike of +18.0%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CSV</span>. Organic held steady while sessions fell 13.1%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">GA4</span>, concentrated in prospecting campaigns. Pipeline grew 6.2%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CRM</span>, suggesting the dip is a cost problem, not a demand problem.</div>
+            </sc-if>
+            <sc-if value="{{ note1Resolved }}" hint-placeholder-val="{{ false }}">
+              <div style="font:400 14.5px/1.8 Newsreader,serif;margin-top:12px">Revenue closed at $2.41M<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">GA4</span>, down 12.4% from May and 4.1% under target, driven by a paid-social CPM spike of +18.0%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CSV</span>. Organic held steady while sessions fell 13.1%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">GA4</span>, concentrated in prospecting campaigns. Pipeline grew 6.2%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CRM</span>, suggesting the dip is a cost problem, not a demand problem.</div>
+            </sc-if>
+            <div style="margin-top:22px;border-top:1px solid rgba(32,26,21,.2);border-bottom:1px solid rgba(32,26,21,.2)">
+              <div style="display:flex;font:600 9.5px Archivo;letter-spacing:1.5px;color:rgba(32,26,21,.5);padding:9px 2px"><span style="flex:2.2">METRIC</span><span style="flex:1.2;text-align:right">JUNE</span><span style="flex:1.2;text-align:right">Δ MOM</span><span style="flex:1;text-align:right">SOURCE</span></div>
+              <div style="display:flex;align-items:baseline;padding:8px 2px;border-top:1px solid rgba(32,26,21,.1);font:400 13.5px Newsreader,serif"><span style="flex:2.2">Revenue</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">$2.41M</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B3392B">▼ 12.4%</span><span style="flex:1;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:rgba(32,26,21,.45)">GA4</span></div>
+              <div style="display:flex;align-items:baseline;padding:8px 2px;border-top:1px solid rgba(32,26,21,.1);font:400 13.5px Newsreader,serif"><span style="flex:2.2">Sessions</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">486k</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B3392B">▼ 13.1%</span><span style="flex:1;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:rgba(32,26,21,.45)">GA4</span></div>
+              <div style="display:flex;align-items:baseline;padding:8px 2px;border-top:1px solid rgba(32,26,21,.1);font:400 13.5px Newsreader,serif"><span style="flex:2.2">Paid CPM</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">$8.42</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#B3392B">▲ 18.0%</span><span style="flex:1;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:rgba(32,26,21,.45)">CSV</span></div>
+              <div style="display:flex;align-items:baseline;padding:8px 2px;border-top:1px solid rgba(32,26,21,.1);font:400 13.5px Newsreader,serif"><span style="flex:2.2">Pipeline value</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">$940k</span><span style="flex:1.2;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px">▲ 6.2%</span><span style="flex:1;text-align:right;font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:rgba(32,26,21,.45)">CRM</span></div>
+            </div>
+            <div style="font:500 19px Newsreader,serif;margin-top:30px">Channel performance</div>
+            <div style="margin-top:12px;height:104px;background:repeating-linear-gradient(0deg,rgba(32,26,21,.08) 0 9px,transparent 9px 20px)"></div>
+            <div style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45);margin-top:8px">channel tables render here at run time — GA4 · spend_june.csv</div>
+          </sc-if>
+          <sc-if value="{{ isSecOther }}" hint-placeholder-val="{{ false }}">
+            <div style="font:500 19px Newsreader,serif">{{ selName }}</div>
+            <div style="font:italic 400 13.5px/1.7 Newsreader,serif;color:rgba(32,26,21,.55);margin-top:10px">{{ selHint }}</div>
+            <div style="margin-top:18px;height:150px;background:repeating-linear-gradient(0deg,rgba(32,26,21,.07) 0 9px,transparent 9px 20px)"></div>
+            <div style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45);margin-top:8px">{{ selMeta }}</div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="width:312px;flex:none;padding:24px 22px 20px 0;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between"><span style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45)">MARGIN NOTES</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:#B3392B">{{ openNotesLabel }}</span></div>
+        <div style="font:italic 400 11.5px Newsreader,serif;color:rgba(32,26,21,.5);margin-top:-6px"><span style="text-decoration:line-through;color:rgba(179,57,43,.7)">struck</span> = agent removal · <span style="border-bottom:2px solid #B3392B">underline</span> = agent insertion</div>
+        <sc-if value="{{ note1Open }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #B3392B;padding:13px 14px;box-shadow:0 1px 6px rgba(32,26,21,.06)">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:50%;background:#201A15;color:#FAF6EE;display:flex;align-items:center;justify-content:center;font:italic 500 11px Newsreader,serif">R</span><span style="font:600 11.5px Archivo">Agent</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">¶ Executive summary · 4m</span></div>
+            <div style="font:400 13px/1.6 Newsreader,serif;margin-top:9px">Revenue fell 12.4% MoM, so I led with it and attributed the drop to the paid-social CPM spike in <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px">spend_june.csv</span>. Accept the rewrite?</div>
+            <div style="display:flex;gap:8px;margin-top:11px;font:500 11px Archivo">
+              <span style="background:#201A15;color:#FAF6EE;padding:6px 13px;border-radius:99px;cursor:pointer" onClick="{{ acceptNote1 }}">Accept</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:5px 13px;border-radius:99px;cursor:pointer" onClick="{{ reviseNote1 }}">Revise…</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ note2Open }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #8A5A22;padding:13px 14px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:50%;background:#201A15;color:#FAF6EE;display:flex;align-items:center;justify-content:center;font:italic 500 11px Newsreader,serif">R</span><span style="font:600 11.5px Archivo">Agent</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">¶ Sources · 12m</span></div>
+            <div style="font:400 13px/1.6 Newsreader,serif;margin-top:9px"><span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px">spend_june.csv</span> is 31 days old. Ask the client for July's sheet, or should I pace-adjust June's?</div>
+            <div style="display:flex;gap:8px;margin-top:11px;font:500 11px Archivo">
+              <span style="border:1px solid rgba(32,26,21,.3);padding:5px 13px;border-radius:99px;cursor:pointer" onClick="{{ paceAdjust }}">Pace-adjust</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:5px 13px;border-radius:99px;cursor:pointer" onClick="{{ remindMe }}">Remind me</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ sentNote }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#F1EADC;border:1px solid rgba(32,26,21,.16);padding:13px 14px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:50%;border:1px solid rgba(32,26,21,.4);display:flex;align-items:center;justify-content:center;font:italic 500 11px Newsreader,serif">S</span><span style="font:600 11.5px Archivo">You</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">¶ {{ selName }} · now</span></div>
+            <div style="font:400 13px/1.6 Newsreader,serif;margin-top:9px">{{ sentNote }}</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ agentReply }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #201A15;padding:13px 14px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="width:20px;height:20px;border-radius:50%;background:#201A15;color:#FAF6EE;display:flex;align-items:center;justify-content:center;font:italic 500 11px Newsreader,serif">R</span><span style="font:600 11.5px Archivo">Agent</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">now</span></div>
+            <div style="font:400 13px/1.6 Newsreader,serif;margin-top:9px">Noted — I'll fold that into <b>{{ selName }}</b> and it will show in the next preview run. Rev 15 → 16 when you publish.</div>
+          </div>
+        </sc-if>
+        <div style="border:1px solid rgba(32,26,21,.2);border-radius:2px;padding:6px 6px 6px 12px;display:flex;align-items:center;background:rgba(255,253,248,.6)">
+          <input style="font:italic 400 13px Newsreader,serif;flex:1;border:none;outline:none;background:transparent;color:#201A15;min-width:0" placeholder="Note to the agent about this section…" value="{{ chatDraft }}" onChange="{{ onChatInput }}" onKeyDown="{{ onChatKey }}">
+          <span style="font:500 10px Archivo;border:1px solid rgba(32,26,21,.3);border-radius:99px;padding:4px 10px;color:#201A15;cursor:pointer;flex:none" onClick="{{ sendNote }}">Send</span>
+        </div>
+        <div style="font:400 10.5px/1.6 'IBM Plex Mono',monospace;color:rgba(32,26,21,.4);margin-top:auto;padding-top:14px;border-top:1px solid rgba(32,26,21,.12)">RESOLVED TODAY — {{ resolvedCount }}<br><span style="text-decoration:line-through">Shortened summary to 178 words</span></div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isRun }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;flex:1" data-screen-label="Live run">
+    <div style="display:flex;align-items:center;gap:16px;height:56px;padding:0 22px;border-bottom:1px solid rgba(32,26,21,.15);flex:none">
+      <div style="font:italic 500 21px Newsreader,serif;cursor:pointer" onClick="{{ goLibrary }}">Runoff</div>
+      <div style="width:1px;height:20px;background:rgba(32,26,21,.15)"></div>
+      <div style="font-size:13px;color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ goBuilder }}">← Blueprint</div>
+      <div style="font-size:13px">Monthly Performance Report — <b style="font-weight:600">run #39</b></div>
+      <sc-if value="{{ runActive }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:7px;font:500 10px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#B3392B;border:1px solid rgba(179,57,43,.5);padding:3px 9px;border-radius:99px"><span style="width:6px;height:6px;border-radius:50%;background:#B3392B;animation:ro-blink 1.1s steps(1) infinite"></span>{{ runPhaseLabel }}</div>
+      </sc-if>
+      <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}">
+        <div style="font:500 10px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#FAF6EE;background:#201A15;padding:4px 10px;border-radius:99px">COMPLETE · {{ flagWord }}</div>
+      </sc-if>
+      <div style="margin-left:auto;display:flex;gap:12px;align-items:center;font:500 12.5px Archivo">
+        <span style="font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5)">{{ elapsedLabel }} ELAPSED · EST 00:14</span>
+        <sc-if value="{{ runActive }}" hint-placeholder-val="{{ true }}"><span style="border:1px solid rgba(32,26,21,.3);padding:6px 14px;border-radius:99px;cursor:pointer" onClick="{{ togglePause }}">{{ pauseLabel }}</span></sc-if>
+        <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}"><span style="background:#201A15;color:#FAF6EE;padding:7px 15px;border-radius:99px;cursor:pointer" onClick="{{ goReader }}">Open the report →</span></sc-if>
+      </div>
+    </div>
+    <div style="height:3px;background:rgba(32,26,21,.1);flex:none"><div style="{{ progressStyle }}"></div></div>
+    <div style="display:flex;align-items:stretch;flex:1;max-width:1360px;width:100%;margin:0 auto;box-sizing:border-box">
+      <div style="width:248px;flex:none;padding:22px 0 22px 22px">
+        <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45);margin-bottom:12px">THIS RUN</div>
+        <div style="display:flex;flex-direction:column;gap:1px">
+          <sc-for list="{{ runToc }}" as="s" hint-placeholder-count="7">
+            <div style="{{ s.rowStyle }}">
+              <span style="{{ s.markStyle }}">{{ s.mark }}</span>
+              <span style="{{ s.nameStyle }}">{{ s.name }}</span>
+              <span style="{{ s.metaStyle }}">{{ s.meta }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:26px;padding-top:14px;border-top:1px solid rgba(32,26,21,.12);font:400 10.5px/1.8 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5)">TRIGGER — MANUAL PREVIEW<br>BLUEPRINT — REV 15<br>SOURCES — 5 · 1 STALE ▲</div>
+        <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}"><div style="font:italic 400 12.5px Newsreader,serif;color:rgba(32,26,21,.55);margin-top:14px;cursor:pointer;text-decoration:underline" onClick="{{ runAgain }}">Run it again</div></sc-if>
+      </div>
+      <div style="flex:1;display:flex;justify-content:center;padding:30px 26px 38px">
+        <div style="width:648px;box-sizing:border-box;background:#FFFDF8;border:1px solid rgba(32,26,21,.14);box-shadow:0 3px 18px rgba(32,26,21,.09);padding:54px 58px 46px;align-self:flex-start">
+          <div style="font:500 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.5)">PREPARED FOR MERIDIAN RETAIL GROUP · JULY 2026</div>
+          <div style="font:500 33px/1.15 Newsreader,serif;margin:10px 0 6px">Monthly Performance Report</div>
+          <div style="height:1px;background:rgba(32,26,21,.25);margin:22px 0 24px"></div>
+          <sc-if value="{{ sec2Started }}" hint-placeholder-val="{{ true }}">
+            <div style="font:500 19px Newsreader,serif">Executive summary <sc-if value="{{ sec2Done }}" hint-placeholder-val="{{ false }}"><span style="font:400 11px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.4)">✓</span></sc-if></div>
+            <div style="font:400 14px/1.75 Newsreader,serif;margin-top:10px;color:rgba(32,26,21,.85)">{{ sec2Text }}<sc-if value="{{ sec2Writing }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:8px;height:15px;background:#201A15;vertical-align:-2px;margin-left:2px;animation:ro-blink 1.1s steps(1) infinite"></span></sc-if></div>
+          </sc-if>
+          <sc-if value="{{ sec4Started }}" hint-placeholder-val="{{ false }}">
+            <div style="font:500 19px Newsreader,serif;margin-top:28px">Channel performance <sc-if value="{{ sec4Writing }}" hint-placeholder-val="{{ false }}"><span style="font:italic 400 12px Newsreader,serif;color:#B3392B">being written</span></sc-if></div>
+            <div style="font:400 14.5px/1.8 Newsreader,serif;margin-top:10px">{{ sec4Text }}<sc-if value="{{ sec4Writing }}" hint-placeholder-val="{{ false }}"><span style="display:inline-block;width:8px;height:15px;background:#201A15;vertical-align:-2px;margin-left:2px;animation:ro-blink 1.1s steps(1) infinite"></span></sc-if></div>
+          </sc-if>
+          <sc-if value="{{ tailVisible }}" hint-placeholder-val="{{ false }}">
+            <div style="margin-top:22px;height:64px;background:repeating-linear-gradient(0deg,rgba(32,26,21,.05) 0 9px,transparent 9px 20px)"></div>
+            <div style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.35);margin-top:8px">{{ tailLabel }}</div>
+          </sc-if>
+        </div>
+      </div>
+      <div style="width:312px;flex:none;padding:24px 22px 20px 0;display:flex;flex-direction:column;gap:11px">
+        <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45)">THE AGENT'S DESK</div>
+        <div style="font:400 10.5px/2 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">
+          <sc-for list="{{ runLog }}" as="l" hint-placeholder-count="3">
+            <div><span style="color:rgba(32,26,21,.35)">{{ l.time }}</span> <span style="{{ l.style }}">{{ l.msg }}</span></div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ runFlagOpen }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #8A5A22;padding:13px 14px;box-shadow:0 1px 6px rgba(32,26,21,.06)">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font:500 8.5px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#8A5A22;border:1px solid rgba(138,90,34,.5);padding:2px 6px;border-radius:3px">FLAG</span><span style="font:600 11.5px Archivo">¶ Channel performance</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">now</span></div>
+            <div style="font:400 13px/1.6 Newsreader,serif;margin-top:9px">Two competitors launched prospecting pushes this month — likely the auction pressure. Cite the two launches (web research), or keep the claim unattributed?</div>
+            <div style="display:flex;gap:8px;margin-top:11px;font:500 11px Archivo">
+              <span style="background:#201A15;color:#FAF6EE;padding:6px 13px;border-radius:99px;cursor:pointer" onClick="{{ citeThem }}">Cite them</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:5px 13px;border-radius:99px;cursor:pointer" onClick="{{ leaveOut }}">Leave it out</span>
+            </div>
+            <div style="font:italic 400 11px Newsreader,serif;color:rgba(32,26,21,.45);margin-top:9px">No answer by §06? I'll leave it unattributed and note it for review.</div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ runFlagResult }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#F1EADC;border:1px solid rgba(32,26,21,.16);padding:11px 14px;font:italic 400 12.5px/1.6 Newsreader,serif;color:rgba(32,26,21,.7)">{{ runFlagResult }}</div>
+        </sc-if>
+        <sc-if value="{{ runDone }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#201A15;color:#FAF6EE;padding:14px 15px">
+            <div style="font:500 14px Newsreader,serif">Run #39 complete in {{ finalTime }}</div>
+            <div style="font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(250,246,238,.65);margin-top:4px">14 PAGES · PDF + DOCX · {{ flagWord }}</div>
+            <span style="display:inline-block;background:#FAF6EE;color:#201A15;padding:6px 13px;border-radius:99px;font:500 11px Archivo;cursor:pointer;margin-top:10px" onClick="{{ goReader }}">Open the report →</span>
+          </div>
+        </sc-if>
+        <div style="border:1px solid rgba(32,26,21,.2);border-radius:2px;padding:6px 6px 6px 12px;display:flex;align-items:center;background:rgba(255,253,248,.6);margin-top:auto">
+          <input style="font:italic 400 13px Newsreader,serif;flex:1;border:none;outline:none;background:transparent;color:#201A15;min-width:0" placeholder="Steer the run — &quot;skip web research&quot;…" value="{{ steerDraft }}" onChange="{{ onSteerInput }}" onKeyDown="{{ onSteerKey }}">
+          <span style="font:500 10px Archivo;border:1px solid rgba(32,26,21,.3);border-radius:99px;padding:4px 10px;color:#201A15;cursor:pointer;flex:none" onClick="{{ sendSteer }}">Send</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isReader }}" hint-placeholder-val="{{ false }}">
+  <div style="display:flex;flex-direction:column;flex:1" data-screen-label="Reader">
+    <div style="display:flex;align-items:center;gap:16px;height:56px;padding:0 22px;border-bottom:1px solid rgba(32,26,21,.15);flex:none">
+      <div style="font:italic 500 21px Newsreader,serif;cursor:pointer" onClick="{{ goLibrary }}">Runoff</div>
+      <div style="width:1px;height:20px;background:rgba(32,26,21,.15)"></div>
+      <div style="font-size:13px;color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ goLibrary }}">← Blueprints</div>
+      <div style="font-size:13px"><b style="font-weight:600">Monthly Performance Report</b></div>
+      <div style="border:1px solid rgba(32,26,21,.3);border-radius:99px;padding:5px 13px;font:500 11.5px Archivo;color:rgba(32,26,21,.75);cursor:pointer" onClick="{{ mockRuns }}">Run #38 — Jul 1, 2026 ▾</div>
+      <div style="font:500 11.5px Archivo;color:rgba(32,26,21,.55);text-decoration:underline;cursor:pointer" onClick="{{ mockCompare }}">compare with #37</div>
+      <div style="margin-left:auto;display:flex;gap:10px;align-items:center;font:500 12.5px Archivo">
+        <span style="color:rgba(32,26,21,.6);cursor:pointer" onClick="{{ mockShare }}">Share</span>
+        <span style="border:1px solid rgba(32,26,21,.3);padding:6px 14px;border-radius:99px;cursor:pointer" onClick="{{ mockDocx }}">DOCX</span>
+        <span style="background:#201A15;color:#FAF6EE;padding:7px 15px;border-radius:99px;cursor:pointer" onClick="{{ mockPdf }}">Export PDF</span>
+      </div>
+    </div>
+    <sc-if value="{{ flagsOpen }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:rgba(216,161,59,.14);border-bottom:1px solid rgba(138,90,34,.3);flex:none">
+        <span style="font:500 8.5px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#8A5A22;border:1px solid rgba(138,90,34,.5);padding:2px 6px;border-radius:3px">{{ flagCountLabel }}</span>
+        <span style="font:italic 400 13.5px Newsreader,serif;color:#5C4318">{{ flagBannerText }}</span>
+      </div>
+    </sc-if>
+    <sc-if value="{{ flagsCleared }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:12px;padding:10px 22px;background:#201A15;flex:none">
+        <span style="font:500 8.5px 'IBM Plex Mono',monospace;letter-spacing:1px;color:#FAF6EE;border:1px solid rgba(250,246,238,.4);padding:2px 6px;border-radius:3px">CLEARED</span>
+        <span style="font:italic 400 13.5px Newsreader,serif;color:#FAF6EE">{{ deliveryText }}</span>
+      </div>
+    </sc-if>
+    <div style="display:flex;align-items:stretch;flex:1;max-width:1360px;width:100%;margin:0 auto;box-sizing:border-box">
+      <div style="flex:1;display:flex;justify-content:center;padding:30px 26px 38px">
+        <div style="width:648px;box-sizing:border-box;background:#FFFDF8;border:1px solid rgba(32,26,21,.14);box-shadow:0 3px 18px rgba(32,26,21,.09);padding:54px 58px 46px;align-self:flex-start">
+          <div style="font:500 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.5)">PREPARED FOR MERIDIAN RETAIL GROUP · JULY 2026</div>
+          <div style="font:500 33px/1.15 Newsreader,serif;margin:10px 0 6px">Monthly Performance Report</div>
+          <div style="font:italic 400 14px Newsreader,serif;color:rgba(32,26,21,.55)">June 1 – June 30, 2026 · 14 pages · every figure cites its source</div>
+          <div style="height:1px;background:rgba(32,26,21,.25);margin:22px 0 24px"></div>
+          <div style="font:500 19px Newsreader,serif">Executive summary</div>
+          <div style="font:400 14.5px/1.8 Newsreader,serif;margin-top:12px">Revenue closed at $2.41M<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">GA4</span>, down 12.4% from May and 4.1% under target. <span style="{{ hlStyle }}">{{ f1Sentence }}<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CSV</span></span><sc-if value="{{ f1Open }}" hint-placeholder-val="{{ true }}"><span style="font:500 9px 'IBM Plex Mono',monospace;color:#8A5A22;margin-left:4px;vertical-align:3px">F1</span></sc-if> Pipeline grew 6.2%<span style="font:500 8.5px 'IBM Plex Mono',monospace;color:#5B4A8A;border:1px solid rgba(91,74,138,.4);border-radius:3px;padding:1px 4px;margin:0 2px;vertical-align:3px">CRM</span> — a cost problem, not a demand problem.</div>
+          <div style="font:500 19px Newsreader,serif;margin-top:28px">Where June was won and lost</div>
+          <div style="font:400 14.5px/1.8 Newsreader,serif;margin-top:10px;color:rgba(32,26,21,.85)">Organic and email held their ground; paid prospecting carried the loss. Retargeting CPAs stayed within plan…</div>
+          <div style="margin-top:16px;height:88px;background:repeating-linear-gradient(0deg,rgba(32,26,21,.07) 0 9px,transparent 9px 20px)"></div>
+          <div style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.4);margin-top:8px">PP. 3–14 — CHANNELS · BUDGET · RECOMMENDATIONS · APPENDIX</div>
+        </div>
+      </div>
+      <div style="width:322px;flex:none;padding:26px 22px 20px 0;display:flex;flex-direction:column;gap:12px">
+        <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);padding:15px 16px">
+          <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45);margin-bottom:11px">RUN REPORT — #38</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:5px 14px;font:400 10.5px/1.7 'IBM Plex Mono',monospace;color:rgba(32,26,21,.75)">
+            <span style="color:rgba(32,26,21,.45)">DURATION</span><span>29.4s · 1 retry</span>
+            <span style="color:rgba(32,26,21,.45)">LENGTH</span><span>2,140 words · 14 pp</span>
+            <span style="color:rgba(32,26,21,.45)">SOURCES</span><span>5 used · <span style="color:#8A5A22">1 stale ▲</span></span>
+            <span style="color:rgba(32,26,21,.45)">CHECKS</span><span>10 pass · {{ checksLabel }}</span>
+            <span style="color:rgba(32,26,21,.45)">CITATIONS</span><span>31 figures, all sourced</span>
+          </div>
+        </div>
+        <sc-if value="{{ f1Open }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #8A5A22;padding:13px 14px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font:500 9px 'IBM Plex Mono',monospace;color:#8A5A22">F1</span><span style="font:600 11.5px Archivo">Competitor attribution</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">¶ Exec summary</span></div>
+            <div style="font:400 12.5px/1.6 Newsreader,serif;margin-top:8px">The CPM cause cites two web sources I found — verify before the client sees it.</div>
+            <div style="display:flex;gap:8px;margin-top:10px;font:500 11px Archivo">
+              <span style="background:#201A15;color:#FAF6EE;padding:5px 12px;border-radius:99px;cursor:pointer" onClick="{{ f1Keep }}">Keep</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:4px 12px;border-radius:99px;cursor:pointer" onClick="{{ f1Soften }}">Soften</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:4px 12px;border-radius:99px;cursor:pointer" onClick="{{ f1Sources }}">Sources</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ f1Done }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#F1EADC;border:1px solid rgba(32,26,21,.16);padding:11px 14px;font:italic 400 12.5px/1.6 Newsreader,serif;color:rgba(32,26,21,.7)"><b style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-style:normal;color:#8A5A22">F1</b> — {{ f1ResultText }}</div>
+        </sc-if>
+        <sc-if value="{{ f2Open }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#FFFDF8;border:1px solid rgba(32,26,21,.16);border-top:2px solid #8A5A22;padding:13px 14px">
+            <div style="display:flex;align-items:center;gap:8px"><span style="font:500 9px 'IBM Plex Mono',monospace;color:#8A5A22">F2</span><span style="font:600 11.5px Archivo">Variance table truncated</span><span style="font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">¶ Budget</span></div>
+            <div style="font:400 12.5px/1.6 Newsreader,serif;margin-top:8px">9 rows exceeded the 8-row cap; I dropped the smallest line (−$310). Fine?</div>
+            <div style="display:flex;gap:8px;margin-top:10px;font:500 11px Archivo">
+              <span style="background:#201A15;color:#FAF6EE;padding:5px 12px;border-radius:99px;cursor:pointer" onClick="{{ f2Fine }}">Fine</span>
+              <span style="border:1px solid rgba(32,26,21,.3);padding:4px 12px;border-radius:99px;cursor:pointer" onClick="{{ f2ShowAll }}">Show all 9</span>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ f2Done }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#F1EADC;border:1px solid rgba(32,26,21,.16);padding:11px 14px;font:italic 400 12.5px/1.6 Newsreader,serif;color:rgba(32,26,21,.7)"><b style="font-family:'IBM Plex Mono',monospace;font-size:9px;font-style:normal;color:#8A5A22">F2</b> — {{ f2ResultText }}</div>
+        </sc-if>
+        <div style="border:1px solid rgba(32,26,21,.16);padding:13px 14px;background:rgba(255,253,248,.6)">
+          <div style="font:600 9.5px Archivo;letter-spacing:2.5px;color:rgba(32,26,21,.45)">DELIVERY</div>
+          <div style="font:400 12.5px/1.6 Newsreader,serif;margin-top:7px">To <span style="font-family:'IBM Plex Mono',monospace;font-size:10.5px">reports@meridianretail.com</span> once flags clear — or hold for manual send.</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:9px;cursor:pointer" onClick="{{ toggleDeliver }}">
+            <span style="{{ toggleStyle }}"><span style="{{ knobStyle }}"></span></span>
+            <span style="font:500 11px Archivo">Auto-deliver on clear</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</sc-if>
+
+<sc-if value="{{ isSources }}" hint-placeholder-val="{{ false }}">
+  <div style="position:relative;display:flex;flex-direction:column;flex:1" data-screen-label="Sources">
+    <div style="display:flex;align-items:center;gap:22px;height:56px;padding:0 26px;border-bottom:1px solid rgba(32,26,21,.15);flex:none">
+      <div style="font:italic 500 21px Newsreader,serif;cursor:pointer" onClick="{{ goLibrary }}">Runoff</div>
+      <div style="display:flex;gap:20px;font:500 13px Archivo;height:100%;align-items:stretch">
+        <span style="display:flex;align-items:center;color:rgba(32,26,21,.55);cursor:pointer" onClick="{{ goLibrary }}">Blueprints</span>
+        <span style="display:flex;align-items:center;color:rgba(32,26,21,.55);cursor:pointer" onClick="{{ goReader }}">Runs</span>
+        <span style="display:flex;align-items:center;border-bottom:2px solid #B3392B;margin-bottom:-1px;cursor:pointer">Sources</span>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:12px;align-items:center">
+        <span style="background:#201A15;color:#FAF6EE;padding:8px 16px;border-radius:99px;font:500 12.5px Archivo;cursor:pointer" onClick="{{ openModal }}">Add source</span>
+        <span style="width:28px;height:28px;border-radius:50%;background:#201A15;color:#FAF6EE;display:flex;align-items:center;justify-content:center;font:italic 500 13px Newsreader,serif">S</span>
+      </div>
+    </div>
+    <div style="padding:28px 40px;max-width:1360px;width:100%;box-sizing:border-box;margin:0 auto">
+      <div style="display:flex;align-items:baseline;gap:14px"><span style="font:500 30px Newsreader,serif">Sources</span><span style="font:400 11px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.5)">{{ sourcesCountLabel }}</span></div>
+      <div style="margin-top:20px">
+        <div style="display:flex;font:600 9.5px Archivo;letter-spacing:1.8px;color:rgba(32,26,21,.45);padding:0 2px 9px;border-bottom:1px solid rgba(32,26,21,.3)"><span style="flex:2.2">SOURCE</span><span style="flex:1">KIND</span><span style="flex:1.4">USED BY</span><span style="flex:1.2">FRESHNESS</span><span style="flex:1">SYNC</span></div>
+        <sc-for list="{{ sourceRows }}" as="r" hint-placeholder-count="6">
+          <div style="{{ r.rowStyle }}">
+            <span style="flex:2.2;font:500 15px Newsreader,serif">{{ r.name }}</span>
+            <span style="flex:1;font:400 10.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.6)">{{ r.kind }}</span>
+            <span style="flex:1.4;font-size:12px;color:rgba(32,26,21,.65)">{{ r.usedBy }}</span>
+            <span style="{{ r.freshStyle }}">{{ r.fresh }}</span>
+            <span style="{{ r.syncStyle }}" onClick="{{ r.onSync }}">{{ r.sync }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="font:italic 400 13px Newsreader,serif;color:rgba(32,26,21,.45);margin-top:16px">Every source is read-only. The agent queries and quotes; it never writes back.</div>
+    </div>
+    <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute;inset:0;background:rgba(32,26,21,.38);display:flex;align-items:center;justify-content:center" onClick="{{ closeModal }}">
+        <div style="width:600px;background:#FFFDF8;border:1px solid rgba(32,26,21,.2);box-shadow:0 14px 44px rgba(32,26,21,.3);padding:26px 30px 24px" onClick="{{ stopClick }}">
+          <div style="display:flex;align-items:baseline;gap:12px"><span style="font:500 22px Newsreader,serif">Add a source</span><span style="margin-left:auto;font:400 10px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">1 CHOOSE — <b style="color:#201A15">2 CONNECT</b> — 3 MAP FIELDS</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-top:18px">
+            <sc-for list="{{ sourceKinds }}" as="k" hint-placeholder-count="6">
+              <div style="{{ k.cardStyle }}" onClick="{{ k.onPick }}"><div style="{{ k.titleStyle }}">{{ k.title }}</div><div style="font:400 9.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.55);margin-top:3px">{{ k.sub }}</div></div>
+            </sc-for>
+          </div>
+          <div style="margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><div style="font:600 9px Archivo;letter-spacing:1.8px;color:rgba(32,26,21,.45);margin-bottom:5px">HOST</div><div style="border:1px solid rgba(32,26,21,.3);padding:8px 11px;font:400 11.5px 'IBM Plex Mono',monospace">acme.snowflakecomputing.com</div></div>
+            <div><div style="font:600 9px Archivo;letter-spacing:1.8px;color:rgba(32,26,21,.45);margin-bottom:5px">DATABASE</div><div style="border:1px solid rgba(32,26,21,.3);padding:8px 11px;font:400 11.5px 'IBM Plex Mono',monospace">FIN_MART</div></div>
+            <div style="grid-column:1/3"><div style="font:600 9px Archivo;letter-spacing:1.8px;color:rgba(32,26,21,.45);margin-bottom:5px">READ-ONLY KEY</div><div style="border:1px solid rgba(32,26,21,.3);padding:8px 11px;font:400 11.5px 'IBM Plex Mono',monospace;color:rgba(32,26,21,.45)">••••••••••••••••••••••••</div></div>
+          </div>
+          <div style="display:flex;align-items:center;margin-top:18px">
+            <span style="font:italic 400 12px Newsreader,serif;color:rgba(32,26,21,.5)">Read-only, encrypted at rest. The agent queries; it never writes.</span>
+            <div style="margin-left:auto;display:flex;gap:9px;font:500 12px Archivo">
+              <span style="border:1px solid rgba(32,26,21,.3);padding:7px 15px;border-radius:99px;cursor:pointer" onClick="{{ closeModal }}">Cancel</span>
+              <span style="background:#201A15;color:#FAF6EE;padding:8px 16px;border-radius:99px;cursor:pointer" onClick="{{ connectSource }}">Test &amp; continue →</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+</sc-if>
+
+<sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+  <div style="position:fixed;left:50%;transform:translateX(-50%);bottom:26px;background:#201A15;color:#FAF6EE;padding:10px 20px;border-radius:99px;font:italic 400 14px Newsreader,serif;box-shadow:0 6px 24px rgba(32,26,21,.35);z-index:99">{{ toast }}</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;startView&quot;: {&quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;library&quot;, &quot;builder&quot;, &quot;run&quot;, &quot;reader&quot;, &quot;sources&quot;], &quot;default&quot;: &quot;library&quot;, &quot;tsType&quot;: &quot;string&quot;, &quot;section&quot;: &quot;Prototype&quot;}, &quot;runSpeed&quot;: {&quot;editor&quot;: &quot;range&quot;, &quot;min&quot;: 0.5, &quot;max&quot;: 3, &quot;step&quot;: 0.5, &quot;default&quot;: 1, &quot;unit&quot;: &quot;x&quot;, &quot;tsType&quot;: &quot;number&quot;, &quot;section&quot;: &quot;Prototype&quot;}, &quot;autoDeliver&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot;, &quot;section&quot;: &quot;Prototype&quot;}}">
+class Component extends DCLogic {
+  state = { view: null, section: 2, note1: 'open', note2: 'open', sentNote: null, agentReply: false, chatDraft: '', steerDraft: '',
+    run: { started: false, elapsed: 0, paused: false, done: false, flagAnswer: null, extra: [] },
+    f1: 'open', f2: 'open', autoDeliver: null, requested: false, modalOpen: false, pickedKind: 1, toast: null };
+  SEC = [
+    { num: '01', name: 'Cover & letter', badge: 'FIXED', t: 0.9, meta: '1.2s' },
+    { num: '02', name: 'Executive summary', badge: 'REVIEW', t: 2.3, meta: '178w' },
+    { num: '03', name: 'KPI dashboard', badge: 'AUTO', t: 3.5, meta: '2.4s' },
+    { num: '04', name: 'Channel performance', badge: 'AUTO', t: 9.6, meta: '' },
+    { num: '05', name: 'Budget & pacing', badge: 'AUTO', t: 10.9, meta: 'retry 1' },
+    { num: '06', name: 'Recommendations', badge: 'REVIEW', t: 11.9, meta: 'held' },
+    { num: '07', name: 'Appendix & method', badge: 'FIXED', t: 12.9, meta: '' }];
+  HINTS = { 1: 'Fixed front matter — your letterhead and a short letter the agent personalizes with the month and headline number.',
+    3: 'Every KPI in the client scorecard, with MoM and vs-target deltas. The ±10% flag rule applies here too.',
+    4: 'Channel-by-channel table joined from GA4 and the spend sheet, with a one-line story per channel.',
+    5: 'Reconciles total spend against the CSV; flags any line more than 5% over budget with a one-line cause.',
+    6: 'The agent drafts 3–5 recommendations from the month\u2019s data. Always held for your review before delivery.',
+    7: 'Fixed methodology and source list. Every figure in the report links back to a row here.' };
+  TYPE2 = 'Revenue closed at $2.41M, down 12.4% from May and 4.1% under target, driven by a paid-social CPM spike of +18.0%. Organic held steady while sessions fell 13.1%, concentrated in prospecting\u2026';
+  TYPE4 = 'Paid social delivered 61% of new-user sessions at a CPM of $8.42, up 18.0% month-over-month. The increase is concentrated in prospecting audiences, where auction pressure';
+  BASELOG = [
+    { t: 0.1, msg: 'run #39 started (manual preview)', tone: 0 },
+    { t: 0.5, msg: 'sources 4/5 fresh \u2014 spend_june.csv 31d \u25b2', tone: 1 },
+    { t: 0.9, msg: '\u00a701 cover \u2014 ok 1.2s', tone: 0 },
+    { t: 2.3, msg: '\u00a702 exec summary \u2014 ok 178 words', tone: 0 },
+    { t: 2.6, msg: 'check kpi-threshold \u2192 2 flags (sessions \u221213.1%, cpm +18.0%)', tone: 1 },
+    { t: 3.5, msg: '\u00a703 kpi dashboard \u2014 ok', tone: 0 },
+    { t: 3.8, msg: 'reading ga4.channels \u2014 4 channels, 30d', tone: 0 },
+    { t: 4.4, msg: 'joining spend_june.csv on channel', tone: 0 },
+    { t: 5.1, msg: 'cpm +18.0% breaches the \u00b110% rule', tone: 1 },
+    { t: 5.8, msg: 'flag raised \u2014 competitor attribution?', tone: 1 },
+    { t: 9.6, msg: '\u00a704 channels \u2014 ok', tone: 0 },
+    { t: 9.9, msg: '\u00a705 budget \u2014 assert fail spend-total \u03940.9% \u2192 retry', tone: 2 },
+    { t: 10.9, msg: '\u00a705 budget \u2014 ok (retry 1)', tone: 0 },
+    { t: 11.9, msg: '\u00a706 recommendations \u2014 ok \u00b7 held for review', tone: 0 },
+    { t: 12.9, msg: '\u00a707 appendix \u2014 ok', tone: 0 },
+    { t: 13.6, msg: 'render pdf + docx \u2014 14 pages', tone: 0 }];
+  componentWillUnmount() { clearInterval(this.t); clearTimeout(this.toastT); clearTimeout(this.replyT); }
+  view() { return this.state.view ?? this.props.startView ?? 'library'; }
+  speed() { return this.props.runSpeed ?? 1; }
+  showToast(msg) { clearTimeout(this.toastT); this.setState({ toast: msg }); this.toastT = setTimeout(() => this.setState({ toast: null }), 2400); }
+  go(v) { this.setState({ view: v }); if (v === 'run') this.startRun(); }
+  startRun(force) {
+    const r = this.state.run;
+    if (r.started && !r.done && !force) return;
+    if (r.done && !force) return;
+    clearInterval(this.t);
+    this.setState({ run: { started: true, elapsed: 0, paused: false, done: false, flagAnswer: null, extra: [] } });
+    this.t = setInterval(() => {
+      this.setState(s => {
+        const r = s.run; if (r.paused || r.done) return null;
+        let e = r.elapsed + 0.1 * this.speed(); let extra = r.extra; let fa = r.flagAnswer;
+        if (!fa && e >= 11 && r.elapsed < 11) { fa = 'auto'; extra = extra.concat({ t: 11, msg: 'no answer \u2014 cpm left unattributed, noted for review', tone: 1 }); }
+        if (e >= 14) { e = 14; clearInterval(this.t); return { run: { ...r, elapsed: 14, flagAnswer: fa, extra, done: true } }; }
+        return { run: { ...r, elapsed: e, flagAnswer: fa, extra } };
+      });
+    }, 100);
+  }
+  clamp(x) { return Math.max(0, Math.min(1, x)); }
+  fmt(e) { const s = Math.floor(e); return '00:' + String(s).padStart(2, '0'); }
+  renderVals() {
+    const st = this.state, v = this.view(), r = st.run, e = r.elapsed;
+    const sel = st.section, selS = this.SEC[sel - 1];
+    const autoDeliver = st.autoDeliver ?? (this.props.autoDeliver ?? true);
+    const builderToc = this.SEC.map((s, i) => {
+      const on = sel === i + 1;
+      return { num: s.num, name: s.name, badge: s.badge,
+        rowStyle: on ? 'display:flex;align-items:baseline;gap:9px;padding:7px 10px 7px 8px;background:#F1EADC;border-left:2px solid #B3392B;margin-left:-10px;cursor:pointer'
+                     : 'display:flex;align-items:baseline;gap:9px;padding:7px 10px 7px 0;cursor:pointer',
+        nameStyle: 'font:' + (on ? '500' : '400') + ' 14px Newsreader,serif;flex:1',
+        badgeStyle: 'font:500 8px \'IBM Plex Mono\',monospace;letter-spacing:1px;padding:2px 5px;border-radius:3px;' + (s.badge === 'REVIEW' ? 'color:#B3392B;border:1px solid rgba(179,57,43,.5)' : 'color:rgba(32,26,21,.45);border:1px solid rgba(32,26,21,.2)'),
+        onSelect: () => this.setState({ section: i + 1 }) };
+    });
+    const runToc = this.SEC.map((s, i) => {
+      const done = e >= s.t, cur = !done && (i === 0 || e >= this.SEC[i - 1].t) && r.started && !r.done && (i === 0 ? true : e >= this.SEC[i - 1].t);
+      const active = cur && !done;
+      return { name: s.name,
+        mark: done ? '\u2713' : active ? '\u270e' : '\u25cb',
+        markStyle: 'font:400 12px \'IBM Plex Mono\',monospace;width:14px;color:' + (done ? 'rgba(32,26,21,.55)' : active ? '#B3392B' : 'rgba(32,26,21,.3)'),
+        nameStyle: 'font:' + (active ? '500' : '400') + ' 14px Newsreader,serif;flex:1;color:' + (done ? 'rgba(32,26,21,.6)' : active ? '#201A15' : 'rgba(32,26,21,.45)'),
+        meta: done ? (s.meta || 'ok') : active ? 'writing\u2026' : '',
+        metaStyle: active ? 'font:italic 400 11px Newsreader,serif;color:#B3392B' : 'font:400 9.5px \'IBM Plex Mono\',monospace;color:rgba(32,26,21,.4)',
+        rowStyle: active ? 'display:flex;align-items:baseline;gap:9px;padding:7px 10px 7px 8px;background:#F1EADC;border-left:2px solid #B3392B;margin-left:-10px' : 'display:flex;align-items:baseline;gap:9px;padding:7px 0' };
+    });
+    const log = this.BASELOG.concat(r.extra, r.done ? [{ t: 14, msg: 'run #39 complete \u2014 ' + (r.flagAnswer === 'cite' ? '1 flag' : '2 flags') + ' for review', tone: 3 }] : [])
+      .filter(l => e >= l.t).sort((a, b) => a.t - b.t)
+      .map(l => ({ time: '09:00:' + String(Math.floor(l.t * 2 + 2)).padStart(2, '0'),
+        msg: l.msg, style: l.tone === 1 ? 'color:#8A5A22' : l.tone === 2 ? 'color:#B3392B' : l.tone === 3 ? 'color:#201A15;font-weight:600' : '' }));
+    const t2n = Math.floor(this.clamp((e - 0.9) / 1.4) * this.TYPE2.length);
+    const t4n = Math.floor(this.clamp((e - 3.5) / 5.6) * this.TYPE4.length);
+    const blueprints = [
+      { name: 'Monthly Performance Report', client: 'Meridian Retail', cadence: 'monthly \u00b7 1st', sources: '5', last: 'JUL 1 \u00b7', status: '2 FLAGS', statusStyle: 'color:#B3392B', next: 'AUG 1', open: () => this.go('builder') },
+      { name: 'Weekly Trading Summary', client: 'Internal \u2014 Finance', cadence: 'weekly \u00b7 mon', sources: '3', last: 'JUL 14 \u00b7', status: '\u2713 CLEAN', statusStyle: '', next: 'JUL 21 \u00b7 3D' },
+      { name: 'Quarterly Business Review', client: 'Alpine Software', cadence: 'quarterly', sources: '6', last: 'JUN 30 \u00b7', status: 'QUESTION', statusStyle: 'color:#8A5A22', next: 'SEP 30' },
+      { name: 'SOC 2 Evidence Pack', client: 'Internal \u2014 Compliance', cadence: 'quarterly', sources: '4', last: 'JUN 30 \u00b7', status: '\u2713 CLEAN', statusStyle: '', next: 'SEP 30' },
+      { name: 'Market Scan \u2014 Grocery Delivery', client: 'Research desk', cadence: 'on demand', sources: '2', last: 'JUL 12 \u00b7', status: '\u2713 CLEAN', statusStyle: '', next: '\u2014' },
+      { name: 'Proposal \u2014 Harbor Logistics', client: 'New business', cadence: '\u2014', sources: '1', last: 'NEVER RUN', status: '', statusStyle: '', next: '\u2014', draft: true }
+    ].map(b => ({ ...b, rowStyle: 'display:flex;align-items:baseline;padding:13px 2px;border-bottom:1px solid rgba(32,26,21,.1);cursor:pointer',
+      onOpen: b.open || (() => this.showToast('This prototype follows the Meridian report \u2014 open that one.')) }));
+    const connected = st.connectedExtra;
+    const sourceRows = [
+      { name: 'Google Analytics 4', kind: 'API', usedBy: '3 blueprints', fresh: '\u2713 2M AGO', sync: 'HOURLY' },
+      { name: 'HubSpot CRM', kind: 'API', usedBy: '2 blueprints', fresh: '\u2713 1H AGO', sync: 'HOURLY' },
+      { name: 'spend_june.csv', kind: 'FILE', usedBy: 'Meridian monthly', fresh: '\u25b2 31D \u2014 STALE', stale: true, sync: st.requested ? 'REMINDER SENT \u2713' : 'Request update', req: true },
+      { name: 'Snowflake \u2014 FIN_MART', kind: 'WAREHOUSE', usedBy: 'Trading weekly \u00b7 SOC 2', fresh: '\u2713 10M AGO', sync: 'READ-ONLY' },
+      { name: 'client_brief.pdf', kind: 'DOCUMENT', usedBy: 'Meridian monthly', fresh: 'FIXED', sync: '\u2014' },
+      { name: 'Web research', kind: 'AGENT', usedBy: '4 blueprints', fresh: 'AT RUN TIME', sync: 'CITED' }
+    ].map(s => ({ ...s,
+      rowStyle: 'display:flex;align-items:baseline;padding:12px 2px;border-bottom:1px solid rgba(32,26,21,.1)' + (s.stale ? ';background:rgba(216,161,59,.1)' : ''),
+      freshStyle: 'flex:1.2;font:400 10.5px \'IBM Plex Mono\',monospace' + (s.stale ? ';color:#8A5A22' : ''),
+      syncStyle: s.req && !st.requested ? 'flex:1;font:500 11px Archivo;color:#8A5A22;text-decoration:underline;cursor:pointer' : 'flex:1;font:400 10.5px \'IBM Plex Mono\',monospace;color:rgba(32,26,21,.6)',
+      onSync: s.req && !st.requested ? () => { this.setState({ requested: true }); this.showToast('Reminder sent \u2014 the agent will chase July\u2019s sheet.'); } : undefined }));
+    const KINDS = [['Upload a file', 'CSV \u00b7 XLSX \u00b7 PDF \u00b7 DOCX'], ['Database', 'POSTGRES \u00b7 SNOWFLAKE \u00b7 BQ'], ['SaaS API', 'GA4 \u00b7 HUBSPOT \u00b7 STRIPE\u2026'], ['Cloud drive', 'DRIVE \u00b7 SHAREPOINT'], ['Web research', 'AGENT BROWSES AT RUN'], ['Paste text', 'NOTES \u00b7 BOILERPLATE']];
+    const sourceKinds = KINDS.map((k, i) => ({ title: k[0], sub: k[1],
+      cardStyle: i === st.pickedKind ? 'border:1.5px solid #201A15;background:#F1EADC;padding:11px 12px;cursor:pointer' : 'border:1px solid rgba(32,26,21,.2);padding:11px 12px;cursor:pointer',
+      titleStyle: 'font:' + (i === st.pickedKind ? '600' : '500') + ' 13.5px Newsreader,serif',
+      onPick: () => this.setState({ pickedKind: i }) }));
+    const openNotes = (st.note1 === 'open' ? 1 : 0) + (st.note2 === 'open' ? 1 : 0);
+    const flagsOpenCount = (st.f1 === 'open' ? 1 : 0) + (st.f2 === 'open' ? 1 : 0);
+    const softened = st.f1 === 'softened';
+    return {
+      isLibrary: v === 'library', isBuilder: v === 'builder', isRun: v === 'run', isReader: v === 'reader', isSources: v === 'sources',
+      goLibrary: () => this.go('library'), goBuilder: () => this.go('builder'), goRun: () => this.go('run'), goReader: () => this.go('reader'), goSources: () => this.go('sources'),
+      blueprints, mockNew: () => this.showToast('Mock \u2014 starts a blank blueprint, or drop a past report.'),
+      mockAnswer: () => this.showToast('Mock \u2014 opens the QBR question thread.'),
+      mockDrop: () => this.showToast('Mock \u2014 drop a PDF/DOCX and the agent drafts the blueprint.'),
+      mockHistory: () => this.showToast('Mock \u2014 15 revisions, each diffable.'),
+      mockAddSection: () => this.showToast('Mock \u2014 describe the section; the agent drafts its instructions.'),
+      builderToc, isSec2: sel === 2, isSecOther: sel !== 2, selName: selS.name, selHint: this.HINTS[sel] || '',
+      selMeta: '\u00a7' + selS.num + ' \u00b7 ' + selS.badge + ' \u00b7 instructions preview \u2014 select \u00a702 for the full mock',
+      note1Open: st.note1 === 'open', note1Resolved: st.note1 !== 'open', note2Open: st.note2 === 'open',
+      openNotesLabel: openNotes + ' OPEN', resolvedCount: 3 + (st.note1 !== 'open' ? 1 : 0) + (st.note2 !== 'open' ? 1 : 0),
+      acceptNote1: () => { this.setState({ note1: 'done' }); this.showToast('Rewrite accepted \u2014 part of rev 15.'); },
+      reviseNote1: () => this.showToast('Tell the agent what to change in the note box below.'),
+      paceAdjust: () => { this.setState({ note2: 'done' }); this.showToast('\u00a705 will pace-adjust June\u2019s spend and say so in a footnote.'); },
+      remindMe: () => { this.setState({ note2: 'done' }); this.showToast('Reminder scheduled \u2014 Jul 21, before the next run.'); },
+      sentNote: st.sentNote, agentReply: st.agentReply, chatDraft: st.chatDraft,
+      onChatInput: (ev) => this.setState({ chatDraft: ev.target.value }),
+      onChatKey: (ev) => { if (ev.key === 'Enter') this.sendNote(); },
+      sendNote: () => this.sendNote(),
+      publish: () => this.showToast('Rev 15 published \u2014 next scheduled run Aug 1, 09:00.'),
+      runActive: r.started && !r.done, runDone: r.done, pauseLabel: r.paused ? 'Resume run' : 'Pause run',
+      togglePause: () => this.setState(s => ({ run: { ...s.run, paused: !s.run.paused } })),
+      runAgain: () => this.startRun(true),
+      runPhaseLabel: r.paused ? 'PAUSED' : e < 0.9 ? 'READING SOURCES' : e < 2.3 ? 'DRAFTING \u00a702' : e < 3.5 ? 'DRAFTING \u00a703' : e < 9.6 ? 'DRAFTING \u00a704' : e < 10.9 ? 'DRAFTING \u00a705' : e < 12.9 ? 'DRAFTING \u00a706\u2013\u00a707' : 'RENDERING',
+      elapsedLabel: this.fmt(e), finalTime: '14.2s', flagWord: (r.flagAnswer === 'cite' ? '1 FLAG' : '2 FLAGS') + ' FOR REVIEW',
+      progressStyle: 'height:3px;background:#201A15;width:' + Math.round(this.clamp(e / 14) * 100) + '%',
+      runToc, runLog: log,
+      sec2Started: e >= 0.9, sec2Done: e >= 2.3, sec2Writing: e >= 0.9 && e < 2.3, sec2Text: this.TYPE2.slice(0, t2n),
+      sec4Started: e >= 3.5, sec4Writing: e >= 3.5 && e < 9.6, sec4Text: this.TYPE4.slice(0, t4n) + (e >= 9.6 ? ' eased only in the final week.' : ''),
+      tailVisible: e >= 9.6, tailLabel: e < 14 ? '\u00a705\u2013\u00a707 ' + (e < 12.9 ? 'in progress' : 'rendering\u2026') : '\u00a705\u2013\u00a707 done \u2014 14 pages rendered',
+      runFlagOpen: r.started && e >= 5.8 && !r.flagAnswer,
+      runFlagResult: r.flagAnswer === 'cite' ? 'Cited both launches \u2014 AdWeek Jun 14 \u00b7 Retail Dive Jun 20. The claim now carries sources.'
+        : r.flagAnswer === 'skip' ? 'Left unattributed \u2014 the sentence states the CPM rise without a cause.'
+        : r.flagAnswer === 'auto' ? 'No answer by \u00a706 \u2014 left unattributed and noted for your review.' : null,
+      citeThem: () => this.answerFlag('cite', 'citing 2 web sources for auction pressure'),
+      leaveOut: () => this.answerFlag('skip', 'ok \u2014 keeping the claim unattributed'),
+      steerDraft: st.steerDraft,
+      onSteerInput: (ev) => this.setState({ steerDraft: ev.target.value }),
+      onSteerKey: (ev) => { if (ev.key === 'Enter') this.sendSteer(); },
+      sendSteer: () => this.sendSteer(),
+      flagsOpen: flagsOpenCount > 0, flagsCleared: flagsOpenCount === 0,
+      flagCountLabel: flagsOpenCount + (flagsOpenCount === 1 ? ' FLAG' : ' FLAGS'),
+      flagBannerText: flagsOpenCount === 2 ? 'Two passages await your judgment \u2014 clearing them releases the report for delivery.' : 'One passage awaits your judgment \u2014 clearing it releases the report for delivery.',
+      deliveryText: autoDeliver ? 'Cleared. Delivered to reports@meridianretail.com \u2014 Jul 1, 09:14. \u2713' : 'Cleared. Auto-delivery is off \u2014 send it manually when ready.',
+      checksLabel: flagsOpenCount === 0 ? '2 resolved \u2713' : flagsOpenCount + ' flags',
+      f1Open: st.f1 === 'open', f1Done: st.f1 !== 'open', f2Open: st.f2 === 'open', f2Done: st.f2 !== 'open',
+      f1Sentence: softened ? 'The shortfall traces to a paid-social CPM spike of +18.0%, consistent with broader auction pressure in the category.' : 'The shortfall traces to a paid-social CPM spike of +18.0%, consistent with two competitor prospecting launches in mid-June.',
+      hlStyle: st.f1 === 'open' ? 'background:rgba(216,161,59,.3)' : '',
+      f1ResultText: st.f1 === 'kept' ? 'Kept, with both citations attached.' : 'Softened to \u201cbroader auction pressure\u201d \u2014 no named competitors.',
+      f2ResultText: st.f2 === 'fine' ? 'Truncation approved \u2014 noted in the appendix.' : 'Expanded to all 9 rows.',
+      f1Keep: () => { this.setState({ f1: 'kept' }); this.showToast('F1 cleared \u2014 attribution kept.'); },
+      f1Soften: () => { this.setState({ f1: 'softened' }); this.showToast('F1 cleared \u2014 wording softened in the report.'); },
+      f1Sources: () => this.showToast('AdWeek, Jun 14 \u00b7 Retail Dive, Jun 20 \u2014 both linked in the appendix.'),
+      f2Fine: () => { this.setState({ f2: 'fine' }); this.showToast('F2 cleared \u2014 truncation approved.'); },
+      f2ShowAll: () => { this.setState({ f2: 'all9' }); this.showToast('F2 cleared \u2014 table expanded to 9 rows.'); },
+      toggleDeliver: () => this.setState({ autoDeliver: !autoDeliver }),
+      toggleStyle: 'width:30px;height:17px;border-radius:99px;position:relative;flex:none;transition:background .2s;background:' + (autoDeliver ? '#201A15' : 'rgba(32,26,21,.25)'),
+      knobStyle: 'position:absolute;top:2px;width:13px;height:13px;border-radius:50%;background:#FAF6EE;transition:left .2s,right .2s;' + (autoDeliver ? 'right:2px' : 'left:2px'),
+      mockRuns: () => this.showToast('Mock \u2014 every past run, diffable against any other.'),
+      mockCompare: () => this.showToast('Mock \u2014 side-by-side diff of #38 vs #37.'),
+      mockShare: () => this.showToast('Link copied \u2014 view-only, watermarked DRAFT until cleared.'),
+      mockDocx: () => this.showToast('Exported \u2014 meridian-monthly-june.docx'),
+      mockPdf: () => this.showToast('Exported \u2014 meridian-monthly-june.pdf (14 pages).'),
+      sourcesCountLabel: '6 CONNECTED \u00b7 ' + (st.requested ? 'UPDATE REQUESTED' : '1 STALE'),
+      sourceRows, sourceKinds, modalOpen: st.modalOpen,
+      openModal: () => this.setState({ modalOpen: true }), closeModal: () => this.setState({ modalOpen: false }),
+      stopClick: (ev) => ev.stopPropagation(),
+      connectSource: () => { this.setState({ modalOpen: false }); this.showToast('Connected \u2014 FIN_MART, read-only. Next: map fields.'); },
+      toast: st.toast };
+  }
+  sendNote() {
+    const d = this.state.chatDraft.trim();
+    if (!d) { this.showToast('Type a note first.'); return; }
+    clearTimeout(this.replyT);
+    this.setState({ sentNote: d, chatDraft: '', agentReply: false });
+    this.replyT = setTimeout(() => this.setState({ agentReply: true }), 900);
+  }
+  sendSteer() {
+    const d = this.state.steerDraft.trim();
+    if (!d) { this.showToast('Type an instruction first.'); return; }
+    this.setState(s => ({ steerDraft: '', run: { ...s.run, extra: s.run.extra.concat({ t: s.run.elapsed, msg: 'you: ' + d + ' \u2014 applying to the remaining sections', tone: 3 }) } }));
+  }
+  answerFlag(kind, logMsg) {
+    this.setState(s => ({ run: { ...s.run, flagAnswer: kind, extra: s.run.extra.concat({ t: s.run.elapsed, msg: logMsg, tone: 0 }) } }));
+    if (kind === 'cite') this.setState({ f1: 'kept' });
+  }
+}
+</script>
+</body>
+</html>
