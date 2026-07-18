@@ -18,6 +18,11 @@ import { ContentsRail } from "./ContentsRail";
 import { SectionEditor } from "./SectionEditor";
 import { MarginNotes } from "./MarginNotes";
 
+/** Best-effort human message from a rejected API promise. */
+function errMsg(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
 /** A client-side section key — browsers can't import the server-only `newId`. */
 function slugId(): string {
   const rand =
@@ -63,7 +68,7 @@ export function Builder({
   const [selectedKey, setSelectedKey] = useState(initialSectionKey);
   const [dirty, setDirty] = useState(false);
   const [rev, setRev] = useState(initialRev);
-  const [, setStatus] = useState(initialStatus);
+  const [status, setStatus] = useState(initialStatus);
   const [boundIds, setBoundIds] = useState<string[]>(initialBoundIds);
 
   // Refs keep the stable Cmd/Ctrl+S handler reading the latest draft.
@@ -98,6 +103,8 @@ export function Builder({
     setSelectedKey(section.key);
   }
 
+  // Throws on failure so callers can abort; `dirty` only clears once the write
+  // resolves, so a rejected save leaves the draft dirty and re-savable.
   async function save(): Promise<void> {
     const { rev: newRev } = await saveRevision(blueprintId, contentRef.current);
     setRev(newRev);
@@ -105,17 +112,30 @@ export function Builder({
     showToast(`Saved as REV ${newRev}`);
   }
 
+  // The direct-save affordances (pill, Cmd/Ctrl+S) surface their own errors.
+  function runSave() {
+    save().catch((err) => showToast(`Save failed — ${errMsg(err)}`));
+  }
+
   async function previewRun() {
-    if (dirtyRef.current) await save();
-    const { id } = await createRun(blueprintId);
-    router.push(`/runs/${id}`);
+    try {
+      if (dirtyRef.current) await save();
+      const { id } = await createRun(blueprintId);
+      router.push(`/runs/${id}`);
+    } catch (err) {
+      showToast(`Could not start preview run — ${errMsg(err)}`);
+    }
   }
 
   async function publish() {
-    if (dirtyRef.current) await save();
-    await patchBlueprint(blueprintId, { status: "active" });
-    setStatus("active");
-    showToast("Published");
+    try {
+      if (dirtyRef.current) await save();
+      await patchBlueprint(blueprintId, { status: "active" });
+      setStatus("active");
+      showToast("Published");
+    } catch (err) {
+      showToast(`Publish failed — ${errMsg(err)}`);
+    }
   }
 
   function changeBoundIds(ids: string[]) {
@@ -137,7 +157,7 @@ export function Builder({
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && (e.key === "s" || e.key === "S")) {
         e.preventDefault();
-        if (dirtyRef.current) void save();
+        if (dirtyRef.current) runSave();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -155,8 +175,12 @@ export function Builder({
       <span className="text-[13px] text-ink">
         {clientName} — <b className="font-semibold">{name}</b>
       </span>
-      <span className="rounded-full border border-amber/40 px-[8px] py-[3px] font-mono text-[8.5px] font-medium tracking-[1px] text-amber">
-        DRAFT · REV {rev}
+      <span
+        className={`rounded-full border px-[8px] py-[3px] font-mono text-[8.5px] font-medium tracking-[1px] ${
+          status === "active" ? "border-ink/20 text-ink/45" : "border-amber/40 text-amber"
+        }`}
+      >
+        {status === "active" ? "ACTIVE" : "DRAFT"} · REV {rev}
       </span>
     </div>
   );
@@ -215,7 +239,7 @@ export function Builder({
           {dirty ? (
             <button
               type="button"
-              onClick={() => void save()}
+              onClick={runSave}
               className="sticky bottom-6 z-10 mt-6 self-end rounded-full bg-ink px-[16px] py-[8px] font-sans text-[12px] font-medium text-paper shadow-lg"
             >
               Save · REV {rev + 1}

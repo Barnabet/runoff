@@ -23,7 +23,7 @@ const {
   getBlueprint: vi.fn(),
   acceptNote: vi.fn(async () => ({ rev: 3 })),
   getNotes: vi.fn(async () => ({ notes: [] })),
-  postNote: vi.fn(async () => ({ agentNote: { id: "a1", author: "agent", body: "Done.", proposedEdit: null, status: "open", createdAt: new Date().toISOString() } })),
+  postNote: vi.fn(async () => ({ agentNote: { id: "a1", author: "agent", body: "Done.", proposedEdit: null, status: "open", createdAt: new Date().toISOString() } as NoteRow })),
   resolveNote: vi.fn(async () => ({ ok: true })),
   push: vi.fn(),
 }));
@@ -199,5 +199,60 @@ describe("MarginNotes", () => {
     const { getByText } = renderBuilder();
     fireEvent.click(getByText("Send"));
     expect(showToast).toHaveBeenCalledWith("Type a note first.");
+  });
+
+  it("rolls back a failed send: removes the optimistic card and restores the draft", async () => {
+    const d = (() => {
+      let reject!: (e: unknown) => void;
+      const promise = new Promise<{ agentNote: NoteRow }>((_, r) => (reject = r));
+      return { promise, reject };
+    })();
+    postNote.mockReturnValueOnce(d.promise);
+
+    const { getByLabelText, getByText, queryByText } = renderBuilder();
+    const input = getByLabelText("note to the agent") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "Retry me" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    // Optimistically shown, and the input has cleared while sending.
+    expect(getByText("Retry me")).toBeTruthy();
+    expect((getByLabelText("note to the agent") as HTMLInputElement).value).toBe("");
+
+    await act(async () => {
+      d.reject(new Error("down"));
+      await d.promise.catch(() => {});
+    });
+
+    // Rolled back: card gone, annotating line gone, draft restored, toast shown.
+    expect(queryByText("Retry me")).toBeNull();
+    expect(queryByText("Agent is annotating…")).toBeNull();
+    expect((getByLabelText("note to the agent") as HTMLInputElement).value).toBe("Retry me");
+    expect(showToast).toHaveBeenCalledWith("Could not reach the agent.");
+  });
+});
+
+describe("primary-action failure feedback", () => {
+  it("flips the status badge to ACTIVE after a successful publish", async () => {
+    const { getByText } = renderBuilder();
+    expect(getByText("DRAFT · REV 1")).toBeTruthy();
+    fireEvent.click(getByText("Publish"));
+    await waitFor(() => expect(patchBlueprint).toHaveBeenCalledWith("bp", { status: "active" }));
+    await waitFor(() => expect(getByText("ACTIVE · REV 1")).toBeTruthy());
+    expect(showToast).toHaveBeenCalledWith("Published");
+  });
+
+  it("surfaces a publish/save failure and keeps the draft dirty", async () => {
+    saveRevision.mockRejectedValueOnce(new Error("network"));
+    const { getByLabelText, getByText, queryByText } = renderBuilder();
+    fireEvent.change(getByLabelText("title"), { target: { value: "Edited" } });
+    fireEvent.click(getByText("Publish"));
+
+    await waitFor(() =>
+      expect(showToast).toHaveBeenCalledWith(expect.stringContaining("Publish failed")),
+    );
+    // Save never succeeded, so status is not patched and the draft stays dirty.
+    expect(patchBlueprint).not.toHaveBeenCalled();
+    expect(getByText("Save · REV 2")).toBeTruthy();
+    expect(queryByText("ACTIVE · REV 1")).toBeNull();
   });
 });

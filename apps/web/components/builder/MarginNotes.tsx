@@ -130,8 +130,9 @@ export function MarginNotes({
   }
 
   function postBody(body: string) {
+    const tempId = `temp_${Date.now()}`;
     const temp: NoteRow = {
-      id: `temp_${Date.now()}`,
+      id: tempId,
       author: "user",
       body,
       proposedEdit: null,
@@ -142,7 +143,13 @@ export function MarginNotes({
     setSending(true);
     postNote(blueprintId, { sectionKey, body })
       .then(({ agentNote }) => setNotes((prev) => [...prev, agentNote]))
-      .catch(() => showToast("Could not reach the agent."))
+      .catch(() => {
+        // Roll the failed send back: drop the stranded optimistic card and put
+        // the text back in the input so the user can retry without retyping.
+        setNotes((prev) => prev.filter((n) => n.id !== tempId));
+        setDraft((cur) => cur || body);
+        showToast("Could not reach the agent.");
+      })
       .finally(() => setSending(false));
   }
 
