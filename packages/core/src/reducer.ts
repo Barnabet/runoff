@@ -11,6 +11,7 @@ export interface RunProjection {
   log: { level: "info" | "warn" | "error" | "user"; message: string }[];
   questions: Record<string, { sectionKey: string; question: string; options: string[]; fallback: string; deadlineSection: string; status: "open" | "answered" | "fallback"; answer?: string }>;
   flags: { flagId: string; code: string; sectionKey: string; question: string; options: string[] }[];
+  memoryIds: string[];
   document?: RunDocument;
   stats?: RunStats;
   error?: string;
@@ -32,6 +33,7 @@ export function reduceRun(
     log: [],
     questions: {},
     flags: [],
+    memoryIds: [],
   };
 
   const numberOf = (key: string): number | undefined =>
@@ -59,6 +61,7 @@ export function reduceRun(
       case "run_started": {
         p.status = "running";
         p.phase = "READING SOURCES";
+        p.memoryIds = e.memoryIds ?? [];
         for (const key of e.sectionKeys) {
           p.sections[key] = { state: "queued", typedText: "", blocks: [], retries: 0, words: 0 };
         }

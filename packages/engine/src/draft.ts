@@ -85,11 +85,12 @@ export async function draftSection(opts: {
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
   previousSectionText?: string;
+  memories?: string[];
   cb: DraftCallbacks;
 }): Promise<DraftResult> {
   const { client, cb } = opts;
   const messages: any[] = [
-    { role: "system", content: systemPrompt(opts.content) },
+    { role: "system", content: systemPrompt(opts.content, opts.memories) },
     { role: "user", content: sectionUserPrompt(opts) },
   ];
   let raw = "";

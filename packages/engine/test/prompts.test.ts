@@ -117,4 +117,20 @@ describe("citation-marker wording", () => {
     expect(prompt).toContain("the visible text must be the actual number");
     expect(prompt).not.toContain("[[figure|");
   });
+
+  describe("standing-guidance block", () => {
+    it("pins the wording and lists each memory", () => {
+      const prompt = systemPrompt(content, ["Express deltas as percentages.", "Never mention competitors."]);
+      expect(prompt).toContain(
+        "Standing guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):",
+      );
+      expect(prompt).toContain("- Express deltas as percentages.");
+      expect(prompt).toContain("- Never mention competitors.");
+    });
+
+    it("is absent without memories", () => {
+      expect(systemPrompt(content)).not.toContain("Standing guidance");
+      expect(systemPrompt(content, [])).not.toContain("Standing guidance");
+    });
+  });
 });

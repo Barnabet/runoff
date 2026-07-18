@@ -20,6 +20,22 @@ function capturingClient(script: Parameters<typeof makeFakeClient>[0]) {
   return { client, prompts };
 }
 
+/** Like capturingClient, but records the system message (messages[0]) of each call. */
+function capturingSystemClient(client: ReturnType<typeof makeFakeClient>) {
+  const systemPrompts: string[] = [];
+  const orig = client.chat.completions.create;
+  client.chat.completions.create = (params: any) => {
+    systemPrompts.push(params.messages[0].content as string);
+    return orig(params);
+  };
+  return { client, systemPrompts };
+}
+
+/** An EngineIO that collects emitted events into `events` and no-ops the rest. */
+function collectingIO(events: RunEvent[]): EngineIO {
+  return { emit: (e) => events.push(e), pollInputs: () => [], sleep: async () => {} };
+}
+
 /** Assert each `expected` type appears in `actual` strictly after the previous match (order + presence, not just membership). */
 function expectOrderedSubsequence(actual: string[], expected: string[]): void {
   let cursor = 0;
@@ -188,5 +204,17 @@ describe("executeRun — v1.1", () => {
     // arrived between draft and retry must reach the retry prompt.
     expect(prompts[1]).toContain("Use plan B");
     expect(prompts[0]).not.toContain("Use plan B");
+  });
+
+  it("threads memory bodies into the drafting system prompt and their ids onto run_started", async () => {
+    const { client, systemPrompts } = capturingSystemClient(makeFakeClient([[{ text: "Body text." }]]));
+    const events: RunEvent[] = [];
+    await executeRun({
+      client, content, files, io: collectingIO(events), blueprintRev: 1,
+      memories: [{ id: "mem_1", body: "Express deltas as percentages." }],
+    });
+    expect(systemPrompts[0]).toContain("- Express deltas as percentages.");
+    const started = events.find((e) => e.type === "run_started");
+    expect(started && started.type === "run_started" ? started.memoryIds : []).toEqual(["mem_1"]);
   });
 });

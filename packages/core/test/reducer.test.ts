@@ -50,6 +50,13 @@ describe("reduceRun", () => {
     expect(p.sections.s1.error).toBe("model refused to draft this section");
   });
 
+  it("stores run_started memoryIds on the projection", () => {
+    const p = reduceRun([
+      { type: "run_started", blueprintRev: 1, sectionKeys: ["a"], memoryIds: ["mem_1", "mem_2"] } as RunEvent,
+    ], meta);
+    expect(p.memoryIds).toEqual(["mem_1", "mem_2"]);
+  });
+
   it("tracks pause, questions and completion", () => {
     const events: RunEvent[] = [
       { type: "run_started", sectionKeys: ["kpi"], blueprintRev: 1 },

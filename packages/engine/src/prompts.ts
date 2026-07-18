@@ -9,9 +9,13 @@ export const MODEL = process.env.RUNOFF_MODEL ?? "gpt-5.6-sol";
  * per-section content — so it is byte-identical across every section of a run.
  * Per-section content goes in the user turn.
  */
-export function systemPrompt(content: BlueprintContent): string {
+export function systemPrompt(content: BlueprintContent, memories: string[] = []): string {
   const globalRules = content.globalRules.length
     ? `\n\nGlobal rules for this report:\n${content.globalRules.map((r) => `- ${r}`).join("\n")}`
+    : "";
+
+  const guidance = memories.length
+    ? `\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n${memories.map((m) => `- ${m}`).join("\n")}`
     : "";
 
   return `You are drafting one section of a formal business report for ${content.clientName}. \
@@ -30,7 +34,7 @@ to this section.
 Tools: use ask_user only for genuine ambiguity in the data or its business framing — never about \
 the dialect, citation markers, or locator grammar, which the reader never sees; resolve mechanics \
 yourself and raise_flag if precision suffers. Use raise_flag for judgment calls the rules mark as \
-needing review.${globalRules}`;
+needing review.${globalRules}${guidance}`;
 }
 
 /**

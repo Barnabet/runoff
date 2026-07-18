@@ -54,8 +54,9 @@ export async function executeRun(opts: {
   io: EngineIO;
   blueprintRev: number;
   previousDocument?: RunDocument;
+  memories?: { id: string; body: string }[];
 }): Promise<ExecuteRunResult> {
-  const { client, content, files, io, blueprintRev, previousDocument } = opts;
+  const { client, content, files, io, blueprintRev, previousDocument, memories = [] } = opts;
   const emit = (e: RunEvent) => io.emit(e);
   const runStart = Date.now();
 
@@ -193,7 +194,7 @@ export async function executeRun(opts: {
 
   try {
     // Rule 1: announce the run, build the source pack, surface each source.
-    emit({ type: "run_started", sectionKeys: content.sections.map((s) => s.key), blueprintRev });
+    emit({ type: "run_started", sectionKeys: content.sections.map((s) => s.key), blueprintRev, ...(memories.length ? { memoryIds: memories.map((m) => m.id) } : {}) });
     const pack = await buildSourcePack(files);
     for (const src of pack.sources) {
       emit({ type: "source_read", sourceId: src.id, label: src.label, summary: src.summary });
@@ -226,7 +227,7 @@ export async function executeRun(opts: {
       const prevSection = previousDocument?.sections.find((s) => s.key === section.key);
       const previousSectionText = prevSection ? blocksToPlainText(prevSection.blocks) : undefined;
       try {
-        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, cb });
+        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, memories: memories.map((m) => m.body), cb });
         let blocks = draft.blocks;
         // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
         applyFallbacks(section.key);
@@ -241,7 +242,7 @@ export async function executeRun(opts: {
           // An answer or steer posted while the first draft was being written or
           // checked must reach the redraft (v1.1 spec §4b).
           await drainInputs();
-          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, cb });
+          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, memories: memories.map((m) => m.body), cb });
           blocks = draft.blocks;
           applyFallbacks(section.key);
           failures = runChecks(section, blocks, pack);

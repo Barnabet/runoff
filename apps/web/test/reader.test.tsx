@@ -78,6 +78,7 @@ const projection: RunProjection = {
   log: [],
   questions: {},
   flags: [],
+  memoryIds: [],
 };
 
 function payload(flags: FlagRow[], previous: GetRunResponse["previous"] = null): GetRunResponse {
