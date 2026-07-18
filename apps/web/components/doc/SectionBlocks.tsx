@@ -33,11 +33,13 @@ export function SectionBlocks({
   blocks,
   sourceLabels = {},
   annotate,
+  figureDeltas,
   caret = false,
 }: {
   blocks: Block[];
   sourceLabels?: Record<string, string>;
   annotate?: Annotate;
+  figureDeltas?: Record<string, { before: number; after: number }>;
   caret?: boolean;
 }) {
   if (!blocks.length && caret) {
@@ -58,6 +60,7 @@ export function SectionBlocks({
             index={i}
             sourceLabels={sourceLabels}
             annotate={annotate}
+            figureDeltas={figureDeltas}
             caret={caret && i === blocks.length - 1}
           />
         ) : (
@@ -68,6 +71,7 @@ export function SectionBlocks({
             index={i}
             sourceLabels={sourceLabels}
             annotate={annotate}
+            figureDeltas={figureDeltas}
             caret={caret && i === blocks.length - 1}
           />
         )
@@ -97,19 +101,34 @@ function resolveLabel(sourceId: string, labels: Record<string, string>): string 
   return stripped.toUpperCase();
 }
 
+/** ▲/▼ change-since-last-run marker after a cited figure. Screen-only. */
+function DeltaBadge({ before, after }: { before: number; after: number }) {
+  const up = after > before;
+  return (
+    <span
+      className={`no-print ml-[3px] font-mono text-[9.5px] ${up ? "text-ink/60" : "text-pencil"}`}
+    >
+      {up ? "▲" : "▼"} {Math.abs(after - before).toLocaleString("en-US")}
+    </span>
+  );
+}
+
 /** Render a single span: text, optional citation chip, optional annotate wrap. */
 function renderSpan(
   span: Span,
   key: string,
   labels: Record<string, string>,
-  annotate?: Annotate
+  annotate?: Annotate,
+  deltas?: Record<string, { before: number; after: number }>
 ): ReactNode {
+  const delta = span.citation ? deltas?.[`${span.citation.sourceId}|${span.citation.locator.trim()}`] : undefined;
   const content: ReactNode = (
     <>
       {span.text}
       {span.citation ? (
         <CitationChip label={resolveLabel(span.citation.sourceId, labels)} />
       ) : null}
+      {delta ? <DeltaBadge before={delta.before} after={delta.after} /> : null}
     </>
   );
   const annotated = annotate ? annotate(span, key, content) : null;
@@ -126,6 +145,7 @@ function Paragraph({
   index,
   sourceLabels,
   annotate,
+  figureDeltas,
   caret = false,
 }: {
   block: Extract<Block, { type: "paragraph" }>;
@@ -133,6 +153,7 @@ function Paragraph({
   index: number;
   sourceLabels: Record<string, string>;
   annotate?: Annotate;
+  figureDeltas?: Record<string, { before: number; after: number }>;
   caret?: boolean;
 }) {
   return (
@@ -140,7 +161,7 @@ function Paragraph({
       className={`font-serif text-[14.5px] leading-[1.8] text-ink${first ? "" : " mt-[12px]"}`}
     >
       {block.spans.map((span, i) =>
-        renderSpan(span, `${index}-${i}`, sourceLabels, annotate)
+        renderSpan(span, `${index}-${i}`, sourceLabels, annotate, figureDeltas)
       )}
       {caret ? <Caret /> : null}
     </p>
@@ -163,6 +184,7 @@ function Table({
   index,
   sourceLabels,
   annotate,
+  figureDeltas,
   caret = false,
 }: {
   block: Extract<Block, { type: "table" }>;
@@ -170,6 +192,7 @@ function Table({
   index: number;
   sourceLabels: Record<string, string>;
   annotate?: Annotate;
+  figureDeltas?: Record<string, { before: number; after: number }>;
   caret?: boolean;
 }) {
   return (
@@ -195,7 +218,7 @@ function Table({
             return (
               <span key={c} className={`${flexClass(c)} ${cls}`}>
                 {cell.map((span, s) =>
-                  renderSpan(span, `${index}-${r}-${c}-${s}`, sourceLabels, annotate)
+                  renderSpan(span, `${index}-${r}-${c}-${s}`, sourceLabels, annotate, figureDeltas)
                 )}
               </span>
             );

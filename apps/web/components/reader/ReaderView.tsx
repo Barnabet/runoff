@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Block, DocSection, RunDocument, RunProjection, RunStats } from "@runoff/core";
+import { diffRuns } from "@runoff/core/src/diff.js";
 import type { FlagRow, GetRunResponse } from "@/lib/api";
 import { getBlueprint, resolveFlag, saveRevision } from "@/lib/api";
 import { showToast } from "@/components/Toast";
@@ -11,6 +12,7 @@ import { DocumentPage } from "@/components/doc/DocumentPage";
 import { SectionBlocks, type Annotate } from "@/components/doc/SectionBlocks";
 import { StatusBanner } from "./StatusBanner";
 import { RunReport } from "./RunReport";
+import { DeltaCard } from "./DeltaCard";
 import { FlagCard } from "./FlagCard";
 import { DeliveryCard } from "./DeliveryCard";
 
@@ -59,6 +61,19 @@ export function ReaderView({
   // a run that just completed live has them on the projection instead.
   const doc: RunDocument | null = projection.document ?? parseJson<RunDocument>(run.document);
   const stats: RunStats | null = projection.stats ?? parseJson<RunStats>(run.stats);
+
+  const diff = doc && payload.previous ? diffRuns(doc, payload.previous.document) : null;
+  const showDeltaCard =
+    diff !== null &&
+    (diff.deltas.length > 0 || Object.values(diff.sections).some((s) => s !== "unchanged"));
+  const deltasFor = (key: string) =>
+    diff
+      ? Object.fromEntries(
+          diff.deltas
+            .filter((d) => d.sectionKey === key)
+            .map((d) => [`${d.sourceId}|${d.locator}`, { before: d.before, after: d.after }]),
+        )
+      : undefined;
 
   const [flags, setFlags] = useState<FlagRow[]>(payload.flags);
   const [autoDeliver, setAutoDeliver] = useState(content.delivery.autoDeliverOnClear);
@@ -150,13 +165,6 @@ export function ReaderView({
       >
         Run #{shortId} — {dateLabel} ▾
       </button>
-      <button
-        type="button"
-        onClick={() => showToast("Comparison with previous runs coming soon.")}
-        className="font-sans text-[12px] text-ink/60 underline"
-      >
-        compare with previous
-      </button>
     </div>
   );
 
@@ -196,7 +204,7 @@ export function ReaderView({
             {sections.map((s) => (
               <section key={s.key} className="mt-[28px] first:mt-0">
                 <h2 className="mb-[10px] font-serif text-[19px] font-medium text-ink">{s.heading}</h2>
-                <SectionBlocks blocks={s.blocks} sourceLabels={sourceLabels} annotate={makeAnnotate(s)} />
+                <SectionBlocks blocks={s.blocks} sourceLabels={sourceLabels} annotate={makeAnnotate(s)} figureDeltas={deltasFor(s.key)} />
               </section>
             ))}
           </DocumentPage>
@@ -205,6 +213,14 @@ export function ReaderView({
         <aside className="no-print flex flex-col gap-[14px]">
           {stats ? (
             <RunReport stats={stats} resolvedCount={resolvedCount} allCleared={allCleared} />
+          ) : null}
+
+          {showDeltaCard ? (
+            <DeltaCard
+              diff={diff}
+              sourceLabels={sourceLabels}
+              previousDate={formatDate(payload.previous!.completedAt)}
+            />
           ) : null}
 
           {flags.map((flag) => (

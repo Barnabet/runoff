@@ -42,7 +42,11 @@ const document: RunDocument = {
     {
       key: "s1",
       heading: "Executive summary",
-      blocks: [{ type: "paragraph", spans: [{ text: "Revenue softened this month." }] }],
+      blocks: [{ type: "paragraph", spans: [
+        { text: "Revenue closed at " },
+        { text: "220,500", citation: { sourceId: "src_a", locator: "sum(src_a.amount)" } },
+        { text: " this month." },
+      ] }],
     },
     {
       key: "s2",
@@ -76,7 +80,7 @@ const projection: RunProjection = {
   flags: [],
 };
 
-function payload(flags: FlagRow[]): GetRunResponse {
+function payload(flags: FlagRow[], previous: GetRunResponse["previous"] = null): GetRunResponse {
   return {
     run: {
       id: "run_abcd1234ef56",
@@ -105,7 +109,7 @@ function payload(flags: FlagRow[]): GetRunResponse {
       dateline: "July 2026",
       delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: false },
     },
-    previous: null,
+    previous,
   };
 }
 
@@ -201,8 +205,9 @@ describe("Reader — flag highlights", () => {
     const { container, getByTestId } = render(
       <ReaderView payload={payload([flag({})])} projection={projection} />,
     );
-    // One open flag on s1 → one amber mark with an "F1" superscript marker.
-    expect(container.querySelectorAll("mark").length).toBe(1);
+    // One open flag on s1 → its first paragraph's spans wrapped in amber marks
+    // (one per span), with the "F1" superscript marker on the last span only.
+    expect(container.querySelectorAll("mark").length).toBe(3);
     const sups = Array.from(container.querySelectorAll("sup")).map((el) => el.textContent);
     expect(sups).toEqual(["F1"]);
 
@@ -257,5 +262,51 @@ describe("Reader — delivery toggle", () => {
 
     await waitFor(() => expect(toggle.getAttribute("aria-checked")).toBe("false"));
     expect(showToast).toHaveBeenCalled();
+  });
+});
+
+describe("Reader — since last run", () => {
+  const previous: GetRunResponse["previous"] = {
+    runId: "run_prev",
+    completedAt: "2026-06-01 09:10:00",
+    document: {
+      title: "Monthly Performance Report",
+      eyebrow: "PREPARED FOR MERIDIAN",
+      dateline: "June 2026",
+      sections: [
+        {
+          key: "s1",
+          heading: "Executive summary",
+          blocks: [{ type: "paragraph", spans: [
+            { text: "Revenue closed at " },
+            { text: "208,200", citation: { sourceId: "src_a", locator: "sum(src_a.amount)" } },
+            { text: " this month." },
+          ] }],
+        },
+        { key: "s2", heading: "Channels", blocks: [{ type: "paragraph", spans: [{ text: "Paid search led acquisition." }] }] },
+      ],
+    },
+  };
+
+  it("renders an inline delta badge next to a changed cited figure", () => {
+    const { container } = render(<ReaderView payload={payload([], previous)} projection={projection} />);
+    const text = container.textContent ?? "";
+    expect(text).toContain("▲ 12,300");
+  });
+
+  it("renders the DeltaCard with rows, summary, and no-print", () => {
+    const { getByTestId } = render(<ReaderView payload={payload([], previous)} projection={projection} />);
+    const card = getByTestId("delta-card");
+    expect(card.className).toContain("no-print");
+    expect(card.textContent).toContain("Since last run");
+    expect(card.textContent).toContain("Jun 1, 2026");
+    expect(card.textContent).toContain("208,200 → 220,500");
+    expect(card.textContent).toContain("1 changed · 1 unchanged");
+  });
+
+  it("renders neither badge nor card without a predecessor", () => {
+    const { container, queryByTestId } = render(<ReaderView payload={payload([])} projection={projection} />);
+    expect(queryByTestId("delta-card")).toBeNull();
+    expect(container.textContent).not.toContain("▲");
   });
 });
