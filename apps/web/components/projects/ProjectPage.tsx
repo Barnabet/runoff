@@ -1,21 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import type { ProjectSourceRow } from "@runoff/core";
 import { Topbar } from "@/components/Topbar";
 import { LibraryView } from "@/components/library/LibraryView";
-import type { BlueprintListItem } from "@/lib/api";
+import { SourceManager } from "@/components/projects/SourceManager";
+import type { BlueprintListItem, FamilySummary } from "@/lib/api";
 
 /**
- * One project's workspace: the blueprint zone (embedding the LibraryView grid)
- * plus SOURCES and MEMORY zone placeholders that Tasks 6 and 11 fill in. The
- * server page supplies the project header and its scoped blueprint rows.
+ * One project's workspace: the blueprint zone (embedding the LibraryView grid),
+ * the SOURCES zone (the smart source manager) and a MEMORY zone placeholder that
+ * Task 11 fills in. The server page supplies the project header, its scoped
+ * blueprint rows, and the project's source families + unfiled uploads.
  */
 export function ProjectPage({
   project,
   blueprints,
+  families,
+  unfiled,
 }: {
   project: { id: string; name: string; createdAt: string };
   blueprints: BlueprintListItem[];
+  families: FamilySummary[];
+  unfiled: ProjectSourceRow[];
 }) {
   return (
     <>
@@ -33,10 +40,8 @@ export function ProjectPage({
 
         <LibraryView blueprints={blueprints} projectId={project.id} />
 
-        <ZoneStub
-          heading="Sources"
-          note="The smart source manager lands here — periodic families, filed periods, and freshness."
-        />
+        <SourceManager projectId={project.id} families={families} unfiled={unfiled} />
+
         <ZoneStub
           heading="Memory"
           note="Standing guidance for this project will collect here as the copilot and runs learn it."

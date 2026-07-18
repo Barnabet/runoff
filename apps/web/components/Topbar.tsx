@@ -1,11 +1,11 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-export type TopbarTab = "blueprints" | "runs" | "sources";
+export type TopbarTab = "blueprints" | "runs";
 
 /**
- * Shared app chrome. Library and Sources pass a `tab`; Builder / Run / Reader
- * reuse it with a custom `center` slot (and no active tab) in later tasks.
+ * Shared app chrome. The Library passes a `tab`; Builder / Run / Reader reuse it
+ * with a custom `center` slot (and no active tab).
  */
 export function Topbar({
   tab,
@@ -29,7 +29,6 @@ export function Topbar({
           <nav className="flex items-stretch gap-5">
             <TabLink href="/" label="Blueprints" active={tab === "blueprints"} />
             <TabLink href="/" label="Runs" active={tab === "runs"} />
-            <TabLink href="/sources" label="Sources" active={tab === "sources"} />
           </nav>
         </div>
         <div className="flex flex-1 items-center justify-center">{center}</div>

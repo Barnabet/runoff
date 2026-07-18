@@ -208,25 +208,6 @@ export function saveRevision(id: string, content: BlueprintContent): Promise<{ r
   });
 }
 
-export function listSources(): Promise<{ sources: SourceRow[] }> {
-  return fetchJson("/api/sources");
-}
-
-export function uploadSource(file: File, name: string): Promise<{ id: string }> {
-  const fd = new FormData();
-  fd.set("file", file);
-  fd.set("name", name);
-  return fetchJson("/api/sources", { method: "POST", body: fd });
-}
-
-export function deleteSource(id: string): Promise<{ ok: true }> {
-  return fetchJson(`/api/sources/${id}`, { method: "DELETE" });
-}
-
-export function refreshSource(id: string): Promise<{ ok: true }> {
-  return fetchJson(`/api/sources/${id}`, { method: "POST" });
-}
-
 // ---- Runs, flags ------------------------------------------------------------
 
 export interface RunRow {

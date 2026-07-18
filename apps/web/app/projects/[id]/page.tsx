@@ -11,5 +11,12 @@ export default async function Project({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const payload = getProjectPayload(getDb(), id);
   if (!payload) notFound();
-  return <ProjectPage project={payload.project} blueprints={payload.blueprints} />;
+  return (
+    <ProjectPage
+      project={payload.project}
+      blueprints={payload.blueprints}
+      families={payload.families}
+      unfiled={payload.unfiled}
+    />
+  );
 }

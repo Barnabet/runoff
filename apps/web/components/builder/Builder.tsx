@@ -204,9 +204,6 @@ export function Builder({
       >
         History
       </button>
-      <Link href="/sources" className="text-ink/60">
-        Sources
-      </Link>
       <button
         type="button"
         onClick={() => void previewRun()}
