@@ -10,7 +10,7 @@ const nextConfig: NextConfig = {
     // (e.g. `./db/index.js`); map them back to the `.ts` sources for webpack.
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,
-      ".js": [".ts", ".tsx", ".js", ".jsx"],
+      ".js": [".js", ".ts", ".tsx", ".jsx"],
       ".mjs": [".mts", ".mjs"],
     };
     return config;

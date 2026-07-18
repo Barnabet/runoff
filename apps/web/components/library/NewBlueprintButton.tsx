@@ -24,6 +24,7 @@ export function NewBlueprintButton() {
   }
 
   async function submit() {
+    if (busy) return;
     const trimmed = name.trim();
     if (!trimmed) {
       showToast("Name the blueprint first.");
