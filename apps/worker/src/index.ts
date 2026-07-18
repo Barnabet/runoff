@@ -12,5 +12,12 @@ const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout
 
 console.log("[worker] polling for queued runs…");
 for (;;) {
-  if (!(await processOne(db, client))) await sleep(250);
+  try {
+    if (!(await processOne(db, client))) await sleep(250);
+  } catch (err) {
+    // A run's own failure is handled inside processOne; this guards against an
+    // escaping error (e.g. a claim/DB fault) so the poll loop never dies.
+    console.error("[worker] poll loop error:", err);
+    await sleep(1000);
+  }
 }

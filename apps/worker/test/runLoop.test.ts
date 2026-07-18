@@ -12,7 +12,7 @@ import {
   type BlueprintContent,
   type RunDocument,
 } from "@runoff/core";
-import { claimQueuedRun, failStaleRuns, processOne } from "../src/runLoop.js";
+import { claimQueuedRun, failStaleRuns, makeEngineIO, processOne } from "../src/runLoop.js";
 
 function tempDb(): RunoffDb {
   return openDb(join(mkdtempSync(join(tmpdir(), "runoff-worker-")), "t.db"));
@@ -79,6 +79,51 @@ describe("processOne", () => {
   it("returns false when nothing is queued", async () => {
     const db = tempDb();
     expect(await processOne(db, null as any)).toBe(false);
+  });
+
+  it("marks the run failed (status + run_failed event) when the revision content is invalid", async () => {
+    const db = tempDb();
+    const bpId = newId("bp");
+    db.orm.insert(blueprints).values({ id: bpId, name: "Broken", currentRev: 1 }).run();
+    // Content that fails BlueprintContentSchema (missing required fields).
+    db.orm.insert(blueprintRevisions).values({ id: newId("rev"), blueprintId: bpId, rev: 1, content: JSON.stringify({ title: "oops" }) }).run();
+    const runId = newId("run");
+    db.orm.insert(runs).values({ id: runId, blueprintId: bpId, blueprintRev: 1, status: "queued" }).run();
+
+    expect(await processOne(db, null as any)).toBe(true);
+
+    const run = db.sqlite.prepare("SELECT status, finished_at FROM runs WHERE id = ?").get(runId) as { status: string; finished_at: string };
+    expect(run.status).toBe("failed");
+    expect(run.finished_at).toBeTruthy();
+
+    const events = db.sqlite.prepare("SELECT type FROM run_events WHERE run_id = ?").all(runId) as { type: string }[];
+    expect(events.some((e) => e.type === "run_failed")).toBe(true);
+  });
+});
+
+describe("makeEngineIO", () => {
+  it("inserts a matching flags row when a flag_raised event is emitted", () => {
+    const db = tempDb();
+    const runId = newId("run");
+    db.sqlite.prepare("INSERT INTO runs (id, blueprint_id, blueprint_rev, status) VALUES (?, 'bp_x', 1, 'running')").run(runId);
+
+    const io = makeEngineIO(db, runId);
+    io.emit({ type: "flag_raised", flagId: "flag_1", code: "F1", sectionKey: "body", question: "Keep this?", options: ["Keep", "Drop"] });
+
+    const flag = db.sqlite.prepare("SELECT id, run_id, code, section_key, question, options, status FROM flags WHERE id = ?").get("flag_1") as {
+      id: string; run_id: string; code: string; section_key: string; question: string; options: string; status: string;
+    };
+    expect(flag).toBeTruthy();
+    expect(flag.run_id).toBe(runId);
+    expect(flag.code).toBe("F1");
+    expect(flag.section_key).toBe("body");
+    expect(flag.question).toBe("Keep this?");
+    expect(JSON.parse(flag.options)).toEqual(["Keep", "Drop"]);
+    expect(flag.status).toBe("open");
+
+    // The event itself is still recorded.
+    const ev = db.sqlite.prepare("SELECT type FROM run_events WHERE run_id = ?").all(runId) as { type: string }[];
+    expect(ev.some((e) => e.type === "flag_raised")).toBe(true);
   });
 });
 

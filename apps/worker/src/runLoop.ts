@@ -65,7 +65,10 @@ export function makeEngineIO(db: RunoffDb, runId: string): EngineIO {
 
   return {
     emit(e: RunEvent): void {
-      emitTx(e);
+      // Immediate mode takes the write lock up front, so the MAX(seq) read and
+      // the insert see one snapshot — avoids SQLITE_BUSY_SNAPSHOT (which
+      // busy_timeout does not retry) when the web app writes concurrently.
+      emitTx.immediate(e);
     },
     pollInputs(): RunInputMsg[] {
       const rows = selectInputs.all(runId) as { id: number; kind: string; payload: string }[];
@@ -131,13 +134,15 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
     await executeRun({ client, content, files, io, blueprintRev: claimed.blueprintRev });
     // Success is already persisted by the `run_completed` emit handler.
   } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[worker] run ${claimed.id} failed: ${message}`);
     // If the engine threw it already emitted `run_failed` (which set status).
     // For pre-engine throws (revision missing / zod parse) nothing marked it yet.
     const row = db.sqlite.prepare("SELECT status FROM runs WHERE id = ?").get(claimed.id) as
       | { status: string }
       | undefined;
     if (row && row.status !== "failed") {
-      io.emit({ type: "run_failed", error: err instanceof Error ? err.message : String(err) });
+      io.emit({ type: "run_failed", error: message });
     }
   }
   return true;

@@ -1,3 +1,4 @@
+/// <reference path="./pdf-parse.d.ts" />
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
 import Papa from "papaparse";
