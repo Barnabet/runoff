@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { newId } from "@runoff/core";
 import { getDb } from "../../../lib/db";
+import { listSourcesWithUsage } from "../../../lib/queries";
 
 const EXT_MIME: Record<string, string> = {
   ".pdf": "application/pdf",
@@ -24,17 +25,7 @@ function filesDir(): string {
 
 // GET /api/sources — every source with a count of blueprints referencing it.
 export async function GET(): Promise<Response> {
-  const db = getDb();
-  const sources = db.sqlite
-    .prepare(
-      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt, s.refreshed_at AS refreshedAt,
-              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
-       FROM sources s
-       ORDER BY s.uploaded_at DESC, s.id DESC`,
-    )
-    .all();
-  return Response.json({ sources });
+  return Response.json({ sources: listSourcesWithUsage(getDb()) });
 }
 
 // POST /api/sources — multipart upload (`file`, `name`). Stores the bytes under

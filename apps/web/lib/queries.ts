@@ -1,5 +1,5 @@
 import type { RunoffDb } from "@runoff/core";
-import type { BlueprintListItem } from "./api";
+import type { BlueprintListItem, SourceRow } from "./api";
 
 // Server-only db reads shared by the API route and the server-rendered Library
 // page so the blueprint+run join lives in exactly one place. Never import this
@@ -52,4 +52,21 @@ export function listBlueprintsWithRuns(db: RunoffDb): BlueprintListItem[] {
       : null;
     return { ...b, lastRun };
   });
+}
+
+/**
+ * Every source with a count of blueprints referencing it (`usedBy`), newest
+ * upload first. Shared by the GET /api/sources route and the server-rendered
+ * Sources page so the join lives in exactly one place.
+ */
+export function listSourcesWithUsage(db: RunoffDb): SourceRow[] {
+  return db.sqlite
+    .prepare(
+      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
+              s.uploaded_at AS uploadedAt, s.refreshed_at AS refreshedAt,
+              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
+       FROM sources s
+       ORDER BY s.uploaded_at DESC, s.id DESC`,
+    )
+    .all() as SourceRow[];
 }
