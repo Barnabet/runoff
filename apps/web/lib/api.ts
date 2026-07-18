@@ -192,3 +192,8 @@ export function postNote(blueprintId: string, body: { sectionKey: string; body: 
 export function acceptNote(noteId: string): Promise<{ rev: number }> {
   return fetchJson(`/api/notes/${noteId}/accept`, { method: "POST" });
 }
+
+// Dismiss an agent note without applying its proposed edit (marks it resolved).
+export function resolveNote(noteId: string): Promise<{ ok: true }> {
+  return fetchJson(`/api/notes/${noteId}/resolve`, { method: "POST" });
+}
