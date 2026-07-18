@@ -120,6 +120,7 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
         eyebrow: string;
         dateline: string;
         sections: { key: string; number: number; heading: string }[];
+        delivery?: { recipient: string; autoDeliverOnClear: boolean };
       })
     : null;
   const sectionMeta = content
@@ -128,8 +129,18 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
         .sort((a, b) => a.number - b.number)
     : [];
   const masthead = content
-    ? { title: content.title, eyebrow: content.eyebrow, dateline: content.dateline }
-    : { title: "", eyebrow: "", dateline: "" };
+    ? {
+        title: content.title,
+        eyebrow: content.eyebrow,
+        dateline: content.dateline,
+        delivery: content.delivery ?? { recipient: "", autoDeliverOnClear: false },
+      }
+    : {
+        title: "",
+        eyebrow: "",
+        dateline: "",
+        delivery: { recipient: "", autoDeliverOnClear: false },
+      };
 
   const sourceRows = db.sqlite
     .prepare(

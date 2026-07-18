@@ -130,6 +130,22 @@ describe("SectionBlocks", () => {
     );
     expect(container.querySelector("mark")).toBeNull();
   });
+
+  it("falls back to default rendering when annotate returns false (cond && node idiom)", () => {
+    // A callback using `cond && <mark>` yields `false` for non-matching spans; the
+    // guard must treat `false` as an opt-out and keep the span's text.
+    const { container, getByText } = render(
+      <SectionBlocks
+        blocks={[paragraph]}
+        annotate={(span, _key, content) =>
+          span.text.includes("never-matches") ? <mark>{content}</mark> : false
+        }
+      />
+    );
+    expect(container.querySelector("mark")).toBeNull();
+    expect(getByText(/Revenue closed at \$2\.41M/)).toBeTruthy();
+    expect(getByText(/a cost problem/)).toBeTruthy();
+  });
 });
 
 describe("DocumentPage / CitationChip / Greeked", () => {

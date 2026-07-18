@@ -20,7 +20,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/Toast", () => ({ showToast, Toast: () => null }));
-vi.mock("@/lib/api", () => ({ postRunInput, createRun }));
+vi.mock("@/lib/api", () => ({ postRunInput, createRun, resolveFlag: vi.fn(), getBlueprint: vi.fn(), saveRevision: vi.fn() }));
 
 import { RunView } from "../components/run/RunView";
 import type { GetRunResponse } from "../lib/api";
@@ -77,7 +77,12 @@ function basePayload(events: RunEvent[], status = "running"): GetRunResponse {
     sectionMeta,
     sourceLabels: { src_a: "GA4", src_b: "spend.csv" },
     blueprint: { id: "bp_1", name: "Monthly Performance Report", clientName: "Meridian" },
-    content: { title: "Monthly Performance Report", eyebrow: "PREPARED FOR MERIDIAN", dateline: "July 2026" },
+    content: {
+      title: "Monthly Performance Report",
+      eyebrow: "PREPARED FOR MERIDIAN",
+      dateline: "July 2026",
+      delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: false },
+    },
   };
 }
 
@@ -211,15 +216,15 @@ describe("Live Run — pause and completion", () => {
     expect(getByText("COMPLETE · 0 FLAGS")).toBeTruthy();
 
     fireEvent.click(getByText("Open the report →"));
-    // ReaderShell takes over.
+    // ReaderView takes over.
     expect(queryByText("completion-card")).toBeNull();
-    expect(getByText(/Reader arrives in the next task/)).toBeTruthy();
+    expect(getByTestId("run-report")).toBeTruthy();
   });
 
   it("opens straight into the Reader for an already-complete run", () => {
-    const { getByText, queryByTestId } = render(<RunView payload={basePayload(finished, "complete")} />);
+    const { getByTestId, queryByTestId } = render(<RunView payload={basePayload(finished, "complete")} />);
     expect(queryByTestId("completion-card")).toBeNull();
-    expect(getByText(/Reader arrives in the next task/)).toBeTruthy();
+    expect(getByTestId("run-report")).toBeTruthy();
   });
 
   it("remounts per run id so a new run does not inherit the previous projection", () => {

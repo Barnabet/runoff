@@ -149,8 +149,14 @@ export interface GetRunResponse {
   sourceLabels: Record<string, string>;
   blueprint: { id: string; name: string; clientName: string };
   // The pinned revision's masthead, so the Live Run page can render the document
-  // header before any section has been drafted.
-  content: { title: string; eyebrow: string; dateline: string };
+  // header before any section has been drafted; plus its delivery settings so the
+  // Reader can render the status banner and DELIVERY card.
+  content: {
+    title: string;
+    eyebrow: string;
+    dateline: string;
+    delivery: { recipient: string; autoDeliverOnClear: boolean };
+  };
 }
 
 export interface NoteRow {

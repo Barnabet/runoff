@@ -19,7 +19,7 @@ export function DocumentPage({
   children?: ReactNode;
 }) {
   return (
-    <article className="box-border w-[648px] border border-ink/15 bg-card px-[58px] pb-[46px] pt-[54px] shadow-[0_3px_18px_rgba(32,26,21,0.09)]">
+    <article className="doc-page box-border w-[648px] border border-ink/15 bg-card px-[58px] pb-[46px] pt-[54px] shadow-[0_3px_18px_rgba(32,26,21,0.09)]">
       <p className="font-sans text-[9.5px] font-semibold uppercase tracking-[2.5px] text-ink/50">
         {eyebrow}
       </p>

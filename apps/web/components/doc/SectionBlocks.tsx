@@ -89,7 +89,11 @@ function renderSpan(
     </>
   );
   const annotated = annotate ? annotate(span, key, content) : null;
-  return <Fragment key={key}>{annotated != null ? annotated : content}</Fragment>;
+  // Fall back to default rendering when the callback declines. `null`/`undefined`
+  // is the explicit opt-out; `false` covers the `cond && <mark>` idiom so a
+  // falsy conditional never blanks the span (Task 15 review).
+  const useDefault = annotated == null || annotated === false;
+  return <Fragment key={key}>{useDefault ? content : annotated}</Fragment>;
 }
 
 function Paragraph({

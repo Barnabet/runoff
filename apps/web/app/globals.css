@@ -27,3 +27,20 @@ body {
 .blink {
   animation: blink 1.1s steps(1) infinite;
 }
+
+/* Print export (Reader "Export PDF"): the printed page is the clean document
+   only — topbar, status banner, and rails carry `.no-print` and drop out, and
+   the document sheet loses its shadow and fixed width so it fills the page. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .doc-page {
+    box-shadow: none !important;
+    width: auto !important;
+    border: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}
