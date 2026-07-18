@@ -148,6 +148,9 @@ export interface GetRunResponse {
   sectionMeta: SectionMeta[];
   sourceLabels: Record<string, string>;
   blueprint: { id: string; name: string; clientName: string };
+  // The pinned revision's masthead, so the Live Run page can render the document
+  // header before any section has been drafted.
+  content: { title: string; eyebrow: string; dateline: string };
 }
 
 export interface NoteRow {
