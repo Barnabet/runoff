@@ -235,17 +235,32 @@ export function buildCopilotContext(
       };
       const events = db.sqlite
         .prepare(
-          "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('check_failed','retry_started','steer_received','question_answered') ORDER BY seq",
+          "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('check_failed','retry_started','steer_received','question_raised','question_answered') ORDER BY seq",
         )
         .all(runId) as { type: string; payload: string }[];
+      // `question_answered` carries only {questionId, answer}; the question text
+      // and its owning section live in the preceding `question_raised` event, so
+      // map ids -> {question, sectionKey} first.
+      const raised = new Map<string, { question: string; sectionKey?: string }>();
+      for (const e of events) {
+        if (e.type !== "question_raised") continue;
+        const p = JSON.parse(e.payload);
+        if (typeof p.questionId === "string" && typeof p.question === "string")
+          raised.set(p.questionId, { question: p.question, sectionKey: typeof p.sectionKey === "string" ? p.sectionKey : undefined });
+      }
       for (const e of events) {
         const p = JSON.parse(e.payload);
         if (p.sectionKey && p.sectionKey !== key) continue;
         if (e.type === "check_failed") detail.checkFailures.push(String(p.detail ?? ""));
         if (e.type === "retry_started") detail.retryReasons.push(String(p.reason ?? ""));
         if (e.type === "steer_received") detail.steers.push(String(p.text ?? ""));
-        if (e.type === "question_answered")
-          detail.answers.push({ question: String(p.question ?? ""), answer: String(p.answer ?? "") });
+        if (e.type === "question_answered") {
+          const info = raised.get(p.questionId);
+          // Scope the answer to the section its question was raised in; if the
+          // raised event is missing or had no sectionKey, keep it everywhere.
+          if (info?.sectionKey && info.sectionKey !== key) continue;
+          detail.answers.push({ question: info?.question ?? String(p.questionId ?? ""), answer: String(p.answer ?? "") });
+        }
       }
       const flags = db.sqlite
         .prepare("SELECT question, status, resolution FROM flags WHERE run_id = ? AND section_key = ?")

@@ -11,6 +11,7 @@ vi.mock("@runoff/engine", async (importOriginal) => ({
 }));
 vi.mock("../lib/llm", () => ({ getLlmClient: () => ({}) }));
 
+const { buildCopilotContext } = await import("../lib/queries");
 const { GET, POST } = await import("../app/api/blueprints/[id]/copilot/route");
 const { GET: getMemories } = await import("../app/api/blueprints/[id]/memories/route");
 const { PATCH: patchMemory, DELETE: deleteMemory } = await import("../app/api/memories/[id]/route");
@@ -123,6 +124,35 @@ describe("copilot API", () => {
     expect(active.n).toBe(30);
     const oldest = db.sqlite.prepare("SELECT status FROM memories WHERE id='m_00'").get() as { status: string };
     expect(oldest.status).toBe("disabled");
+  });
+
+  it("getRunSection maps question ids to text and scopes answers by the raised section", () => {
+    const doc = {
+      title: "T",
+      eyebrow: "E",
+      dateline: "D",
+      sections: [
+        { key: "a", heading: "A", blocks: [] },
+        { key: "b", heading: "B", blocks: [] },
+      ],
+    };
+    db.sqlite
+      .prepare("INSERT INTO runs (id, blueprint_id, blueprint_rev, status, document) VALUES ('run_1', 'bp_1', 1, 'complete', ?)")
+      .run(JSON.stringify(doc));
+    const ev = (seq: number, type: string, payload: unknown) =>
+      db.sqlite
+        .prepare("INSERT INTO run_events (run_id, seq, type, payload) VALUES ('run_1', ?, ?, ?)")
+        .run(seq, type, JSON.stringify(payload));
+    ev(1, "question_raised", { questionId: "q_1", sectionKey: "a", question: "Which fiscal year?", options: [], fallback: "", deadlineSection: "a" });
+    ev(2, "question_answered", { questionId: "q_1", answer: "FY2026" });
+
+    const context = buildCopilotContext(getDb(), "bp_1", new Map());
+
+    const sectionA = context.getRunSection("run_1", "a");
+    expect(sectionA?.answers).toEqual([{ question: "Which fiscal year?", answer: "FY2026" }]);
+
+    const sectionB = context.getRunSection("run_1", "b");
+    expect(sectionB?.answers).toEqual([]);
   });
 
   it("memories: GET lists, PATCH toggles status, DELETE removes", async () => {
