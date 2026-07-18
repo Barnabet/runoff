@@ -218,6 +218,7 @@ export async function copilotTurn(opts: {
   ];
 
   let reply = "";
+  let nudged = false;
   for (let iter = 0; ; iter++) {
     const stream = await (client as any).chat.completions.create({
       model: MODEL,
@@ -254,8 +255,14 @@ export async function copilotTurn(opts: {
     reply = turnText;
     if (finishReason !== "tool_calls") break;
 
-    // Cap: past the limit, refuse the calls and demand a final answer.
-    if (iter >= MAX_ITERATIONS - 1) {
+    // Already nudged once and the model is still calling tools — hard stop.
+    // Don't execute the tools or make another API call; return what we have.
+    if (nudged) break;
+
+    // Cap: after MAX_ITERATIONS tool-executing rounds, refuse the calls and
+    // demand a final answer. The nudge is sent at most once.
+    if (iter >= MAX_ITERATIONS) {
+      nudged = true;
       messages.push({
         role: "assistant",
         content: turnText || null,

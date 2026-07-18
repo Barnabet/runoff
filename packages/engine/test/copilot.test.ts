@@ -140,6 +140,22 @@ describe("copilotTurn", () => {
     });
     expect(res.reply).toBe("Here is what I found.");
     expect(events.filter((e) => e.type === "text_delta").length).toBeGreaterThan(0);
-    expect(events.filter((e) => e.type === "tool_activity").length).toBeLessThanOrEqual(12);
+    // Exactly 12 tool-executing rounds run before the wrap-up nudge fires.
+    expect(events.filter((e) => e.type === "tool_activity").length).toBe(12);
+  });
+
+  it("hard-stops after one nudge when the model keeps calling tools forever", async () => {
+    // The fake client repeats its last script entry forever, so every turn is a
+    // tool call. After 12 tool rounds the loop nudges once; the next turn is
+    // still a tool call, so the loop must terminate instead of re-nudging.
+    const client = makeFakeClient([[{ toolUse: { name: "query_sources", input: {} } }]]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "loop forever",
+      thread: [], memories: [], ctx: ctx(), io,
+    });
+    // Resolved (did not hang) with a bounded number of tool rounds.
+    expect(res).toBeDefined();
+    expect(events.filter((e) => e.type === "tool_activity").length).toBe(12);
   });
 });
