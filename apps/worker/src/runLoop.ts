@@ -1,7 +1,21 @@
 import { join } from "node:path";
 import type OpenAI from "openai";
-import { type RunoffDb, type RunEvent, BlueprintContentSchema, previousCompletedDocument } from "@runoff/core";
-import { executeRun, type EngineIO, type RunInputMsg, type EngineFile } from "@runoff/engine";
+import {
+  type RunoffDb,
+  type RunEvent,
+  type BlueprintContent,
+  BlueprintContentSchema,
+  previousCompletedDocument,
+  newId,
+} from "@runoff/core";
+import {
+  executeRun,
+  distillRun,
+  type RunInteractions,
+  type EngineIO,
+  type RunInputMsg,
+  type EngineFile,
+} from "@runoff/engine";
 
 /** Atomically claim the oldest queued run (single statement; RETURNING gives us its identity). */
 const CLAIM_SQL = `
@@ -143,6 +157,10 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
       createdAt: runRow.createdAt,
     });
 
+    const memoryRows = db.sqlite
+      .prepare("SELECT id, body FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid")
+      .all(claimed.blueprintId) as { id: string; body: string }[];
+
     await executeRun({
       client,
       content,
@@ -150,8 +168,10 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
       io,
       blueprintRev: claimed.blueprintRev,
       previousDocument: previous?.document,
+      memories: memoryRows,
     });
     // Success is already persisted by the `run_completed` emit handler.
+    await distillCompletedRun(db, client, claimed.id, claimed.blueprintId, content);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     console.error(`[worker] run ${claimed.id} failed: ${message}`);
@@ -165,4 +185,75 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
     }
   }
   return true;
+}
+
+/**
+ * Post-run learning: turn this run's human interventions into standing
+ * memories. Read-side is the run's own event log + resolved flags; any failure
+ * is logged and swallowed — distillation must never affect run status.
+ */
+async function distillCompletedRun(
+  db: RunoffDb,
+  client: OpenAI,
+  runId: string,
+  blueprintId: string,
+  content: BlueprintContent,
+): Promise<void> {
+  try {
+    const events = db.sqlite
+      .prepare(
+        "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('steer_received','question_answered') ORDER BY seq",
+      )
+      .all(runId) as { type: string; payload: string }[];
+    const interactions: RunInteractions = { steers: [], answers: [], flagResolutions: [] };
+    for (const e of events) {
+      const p = JSON.parse(e.payload);
+      if (e.type === "steer_received" && typeof p.text === "string") interactions.steers.push(p.text);
+      if (e.type === "question_answered" && typeof p.answer === "string") {
+        interactions.answers.push({ question: String(p.question ?? p.questionId ?? ""), answer: p.answer });
+      }
+    }
+    const flagRows = db.sqlite
+      .prepare("SELECT question, resolution FROM flags WHERE run_id = ? AND status = 'resolved' AND resolution IS NOT NULL")
+      .all(runId) as { question: string; resolution: string }[];
+    interactions.flagResolutions = flagRows.map((f) => ({ question: f.question, resolution: f.resolution }));
+
+    if (!interactions.steers.length && !interactions.answers.length && !interactions.flagResolutions.length) return;
+
+    const existing = (
+      db.sqlite.prepare("SELECT body FROM memories WHERE blueprint_id = ?").all(blueprintId) as { body: string }[]
+    ).map((r) => r.body);
+
+    const fresh = await distillRun({
+      client,
+      title: content.title,
+      sectionHeadings: content.sections.map((s) => s.heading),
+      interactions,
+      existing,
+    });
+
+    const insert = db.sqlite.prepare(
+      "INSERT INTO memories (id, blueprint_id, body, source, origin_id) VALUES (?, ?, ?, 'distilled', ?)",
+    );
+    for (const body of fresh) {
+      enforceMemoryCap(db, blueprintId);
+      insert.run(newId("mem"), blueprintId, body, runId);
+    }
+  } catch (err) {
+    console.error(`[worker] distillation failed for run ${runId}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+/** Cap active memories at 30 per blueprint by disabling the oldest active row. */
+function enforceMemoryCap(db: RunoffDb, blueprintId: string): void {
+  const { n } = db.sqlite
+    .prepare("SELECT COUNT(*) AS n FROM memories WHERE blueprint_id = ? AND status = 'active'")
+    .get(blueprintId) as { n: number };
+  if (n >= 30) {
+    db.sqlite
+      .prepare(
+        "UPDATE memories SET status = 'disabled' WHERE id = (SELECT id FROM memories WHERE blueprint_id = ? AND status = 'active' ORDER BY rowid LIMIT 1)",
+      )
+      .run(blueprintId);
+  }
 }
