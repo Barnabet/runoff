@@ -51,6 +51,18 @@ export interface DraftCallbacks {
   onQuestion(q: { question: string; options: string[]; fallback: string; deadlineSection: string }): void;
 }
 
+/**
+ * Thrown when the model refuses to draft a section. The orchestrator catches
+ * this per-section (emitting `section_failed`) so one refusal does not fail the
+ * whole run; any other error propagates and fails the run.
+ */
+export class RefusalError extends Error {
+  constructor(message = "model refused to draft this section") {
+    super(message);
+    this.name = "RefusalError";
+  }
+}
+
 export interface DraftResult {
   raw: string;
   blocks: Block[];
@@ -80,6 +92,8 @@ export async function draftSection(opts: {
     { role: "user", content: sectionUserPrompt(opts) },
   ];
   let raw = "";
+  let maxTokens = 16000;
+  let lengthRetried = false;
 
   for (let iter = 0; iter < 6; iter++) {
     const stream = await (client as any).chat.completions.create({
@@ -87,7 +101,7 @@ export async function draftSection(opts: {
       stream: true,
       messages,
       tools,
-      max_completion_tokens: 16000,
+      max_completion_tokens: maxTokens,
     });
 
     let turnText = "";
@@ -121,13 +135,21 @@ export async function draftSection(opts: {
 
     raw = turnText;
 
-    if (refusalText) throw new Error("model refused to draft this section");
+    if (refusalText) throw new RefusalError();
 
     if (finishReason === "tool_calls") {
       const results: any[] = [];
       for (const call of toolCalls) {
         if (!call?.name) continue;
-        const parsed = JSON.parse(call.arguments || "{}");
+        // Guard the tool-argument parse: one malformed payload must not throw and
+        // sink the whole run. Skip the callback and tell the model to continue.
+        let parsed: any;
+        try {
+          parsed = JSON.parse(call.arguments || "{}");
+        } catch {
+          results.push({ role: "tool", tool_call_id: call.id, content: "Invalid tool arguments — ignored. Continue drafting." });
+          continue;
+        }
         let content: string;
         if (call.name === "ask_user") {
           cb.onQuestion(parsed);
@@ -147,6 +169,15 @@ export async function draftSection(opts: {
           .map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
       });
       for (const r of results) messages.push(r);
+      continue;
+    }
+
+    // The model hit the token ceiling mid-draft. Retry the same turn once with a
+    // larger budget; if it truncates again, accept the truncated text and let the
+    // orchestrator proceed normally rather than failing the run.
+    if (finishReason === "length" && !lengthRetried) {
+      lengthRetried = true;
+      maxTokens = 32000;
       continue;
     }
 

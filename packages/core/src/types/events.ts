@@ -11,6 +11,7 @@ export type RunEvent =
   | { type: "section_started"; sectionKey: string }
   | { type: "text_delta"; sectionKey: string; text: string }
   | { type: "section_completed"; sectionKey: string; blocks: Block[]; words: number; ms: number; retries: number }
+  | { type: "section_failed"; sectionKey: string; error: string }
   | { type: "check_passed"; sectionKey: string; rule: string }
   | { type: "check_failed"; sectionKey: string; rule: string; detail: string }
   | { type: "retry_started"; sectionKey: string; reason: string }

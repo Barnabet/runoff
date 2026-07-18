@@ -12,7 +12,7 @@ import { countWords } from "@runoff/core";
 import { parseSectionText } from "./dialect.js";
 import { buildSourcePack, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { evaluateAssert, auditCitations, countCitations } from "./checks.js";
-import { draftSection, type DraftCallbacks } from "./draft.js";
+import { draftSection, RefusalError, type DraftCallbacks } from "./draft.js";
 
 /** A message a paused/steering worker feeds into a live run. */
 export interface RunInputMsg {
@@ -218,36 +218,46 @@ export async function executeRun(opts: {
       }
 
       // Rule 5: draft the section, wiring streaming/question/flag callbacks.
+      // A refusal is contained to this section (emit `section_failed`, skip it,
+      // keep going); any other draft error propagates and fails the whole run.
       emit({ type: "section_started", sectionKey: section.key });
       const cb = makeCallbacks(section.key);
-      let draft = await draftSection({ client, content, section, pack, completed, steers, answers, cb });
-      let blocks = draft.blocks;
-      // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
-      applyFallbacks(section.key);
-
-      // Rule 6: checks, with at most one retry, then flag-and-keep.
-      let retries = 0;
-      let failures = runChecks(section, blocks, pack);
-      if (failures.length > 0) {
-        emit({ type: "retry_started", sectionKey: section.key, reason: failures.join("; ") });
-        retries = 1;
-        totalRetries++;
-        draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), cb });
-        blocks = draft.blocks;
+      try {
+        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, cb });
+        let blocks = draft.blocks;
+        // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
         applyFallbacks(section.key);
-        failures = runChecks(section, blocks, pack);
+
+        // Rule 6: checks, with at most one retry, then flag-and-keep.
+        let retries = 0;
+        let failures = runChecks(section, blocks, pack);
         if (failures.length > 0) {
-          raiseFlag(section.key, `Section '${section.heading}' failed checks: ${failures.join("; ")}. Keep it anyway?`, ["Keep", "Redraft next run"]);
+          emit({ type: "retry_started", sectionKey: section.key, reason: failures.join("; ") });
+          retries = 1;
+          totalRetries++;
+          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), cb });
+          blocks = draft.blocks;
+          applyFallbacks(section.key);
+          failures = runChecks(section, blocks, pack);
+          if (failures.length > 0) {
+            raiseFlag(section.key, `Section '${section.heading}' failed checks: ${failures.join("; ")}. Keep it anyway?`, ["Keep", "Redraft next run"]);
+          }
         }
-      }
 
-      // Rule 7: review sections get a flag unless the model already raised one.
-      if (section.mode === "review" && !modelFlaggedSections.has(section.key)) {
-        raiseFlag(section.key, `Review '${section.heading}' before release.`, ["Approve", "Needs work"]);
-      }
+        // Rule 7: review sections get a flag unless the model already raised one.
+        if (section.mode === "review" && !modelFlaggedSections.has(section.key)) {
+          raiseFlag(section.key, `Review '${section.heading}' before release.`, ["Approve", "Needs work"]);
+        }
 
-      completed.push({ key: section.key, heading: section.heading, blocks });
-      emit({ type: "section_completed", sectionKey: section.key, blocks, words: countWords(blocks), ms: Date.now() - sectionStart, retries });
+        completed.push({ key: section.key, heading: section.heading, blocks });
+        emit({ type: "section_completed", sectionKey: section.key, blocks, words: countWords(blocks), ms: Date.now() - sectionStart, retries });
+      } catch (err) {
+        if (err instanceof RefusalError) {
+          emit({ type: "section_failed", sectionKey: section.key, error: err.message });
+          continue;
+        }
+        throw err;
+      }
     }
 
     // Rule 8: render, assemble the document, tally stats, complete.

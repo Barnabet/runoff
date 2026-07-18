@@ -1,6 +1,8 @@
 export interface FakeTurn {
   text?: string; // streamed as one content delta per word
-  toolUse?: { name: string; input: unknown };
+  // `input` is JSON-stringified into the streamed arguments; `rawArguments`
+  // overrides it verbatim so tests can inject a malformed argument payload.
+  toolUse?: { name: string; input?: unknown; rawArguments?: string };
   stopReason?: "end_turn" | "tool_use" | "max_tokens" | "refusal";
 }
 
@@ -31,7 +33,7 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
   return {
     async *[Symbol.asyncIterator]() {
       let toolIndex = 0;
-      let finish: "stop" | "tool_calls" = "stop";
+      let finish: "stop" | "tool_calls" | "length" = "stop";
       let refused = false;
 
       for (const t of turns) {
@@ -42,7 +44,8 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
         }
         if (t.toolUse) {
           const idx = toolIndex++;
-          const fragments = chunkString(JSON.stringify(t.toolUse.input));
+          const argsStr = t.toolUse.rawArguments ?? JSON.stringify(t.toolUse.input);
+          const fragments = chunkString(argsStr);
           // First fragment carries id + name; later fragments carry only more
           // argument text keyed by the same index — the OpenAI streaming shape.
           yield {
@@ -73,6 +76,7 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
           yield { choices: [{ delta: { refusal: "The model refused." }, finish_reason: null }] };
           refused = true;
         }
+        if (t.stopReason === "max_tokens") finish = "length";
       }
 
       yield { choices: [{ delta: {}, finish_reason: refused ? "stop" : finish }] };

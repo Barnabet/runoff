@@ -32,6 +32,33 @@ const fixedOnlyContent: BlueprintContent = {
   delivery: { recipient: "", autoDeliverOnClear: false },
 };
 
+// A single review-mode section: it takes one model call (drafts plain text that
+// passes checks) and then the engine auto-raises a review flag (rule 7). Used to
+// prove flag ids are run-scoped across two runs on one DB.
+const reviewContent: BlueprintContent = {
+  title: "Review Digest",
+  clientName: "Acme",
+  eyebrow: "Weekly",
+  dateline: "July 2026",
+  sections: [
+    { key: "summary", number: 1, heading: "Summary", mode: "review", instruction: "Review the summary.", sourceIds: [], rules: [] },
+  ],
+  globalRules: [],
+  delivery: { recipient: "", autoDeliverOnClear: false },
+};
+
+// Minimal streaming OpenAI-shaped client: one turn of plain text, then `stop`.
+// (draft.ts always streams, so `create` returns an async-iterable of chunks.)
+function flagRaisingClient(): any {
+  const create = async () => ({
+    async *[Symbol.asyncIterator]() {
+      yield { choices: [{ delta: { content: "The review reads well." }, finish_reason: null }] };
+      yield { choices: [{ delta: {}, finish_reason: "stop" }] };
+    },
+  });
+  return { chat: { completions: { create } } };
+}
+
 function seedQueuedRun(db: RunoffDb, content: BlueprintContent): string {
   const bpId = newId("bp");
   db.orm.insert(blueprints).values({ id: bpId, name: "Digest", currentRev: 1 }).run();
@@ -81,6 +108,28 @@ describe("processOne", () => {
     expect(await processOne(db, null as any)).toBe(false);
   });
 
+  it("keeps flag ids run-scoped so two flagged runs on one DB both complete without a PK collision", async () => {
+    const db = tempDb();
+    const client = flagRaisingClient();
+    const run1 = seedQueuedRun(db, reviewContent);
+    const run2 = seedQueuedRun(db, reviewContent);
+
+    // Each flagged run raises `flag_1` internally; the worker namespaces the row
+    // id by run, so the second run's insert does not hit UNIQUE(flags.id).
+    expect(await processOne(db, client)).toBe(true);
+    expect(await processOne(db, client)).toBe(true);
+
+    for (const id of [run1, run2]) {
+      const run = db.sqlite.prepare("SELECT status FROM runs WHERE id = ?").get(id) as { status: string };
+      expect(run.status).toBe("complete");
+    }
+
+    const flags = db.sqlite.prepare("SELECT id, run_id FROM flags").all() as { id: string; run_id: string }[];
+    expect(flags).toHaveLength(2);
+    expect(new Set(flags.map((f) => f.id)).size).toBe(2); // two distinct flag rows
+    expect(new Set(flags.map((f) => f.run_id))).toEqual(new Set([run1, run2]));
+  });
+
   it("marks the run failed (status + run_failed event) when the revision content is invalid", async () => {
     const db = tempDb();
     const bpId = newId("bp");
@@ -110,10 +159,13 @@ describe("makeEngineIO", () => {
     const io = makeEngineIO(db, runId);
     io.emit({ type: "flag_raised", flagId: "flag_1", code: "F1", sectionKey: "body", question: "Keep this?", options: ["Keep", "Drop"] });
 
-    const flag = db.sqlite.prepare("SELECT id, run_id, code, section_key, question, options, status FROM flags WHERE id = ?").get("flag_1") as {
+    // The row id is namespaced by run (`${runId}_${flagId}`) so per-run ids don't
+    // collide in the globally-keyed flags table across runs.
+    const flag = db.sqlite.prepare("SELECT id, run_id, code, section_key, question, options, status FROM flags WHERE id = ?").get(`${runId}_flag_1`) as {
       id: string; run_id: string; code: string; section_key: string; question: string; options: string; status: string;
     };
     expect(flag).toBeTruthy();
+    expect(flag.id).toBe(`${runId}_flag_1`);
     expect(flag.run_id).toBe(runId);
     expect(flag.code).toBe("F1");
     expect(flag.section_key).toBe("body");

@@ -20,12 +20,14 @@ export function AgentDesk({
   projection,
   sectionMeta,
   terminal,
+  handingOff = false,
   onOpenReport,
 }: {
   runId: string;
   projection: RunProjection;
   sectionMeta: SectionMeta[];
   terminal: boolean;
+  handingOff?: boolean;
   onOpenReport: () => void;
 }) {
   const [steer, setSteer] = useState("");
@@ -153,9 +155,10 @@ export function AgentDesk({
           <button
             type="button"
             onClick={onOpenReport}
-            className="mt-[12px] rounded-full bg-paper px-[14px] py-[6px] font-sans text-[11px] font-medium text-ink"
+            disabled={handingOff}
+            className="mt-[12px] rounded-full bg-paper px-[14px] py-[6px] font-sans text-[11px] font-medium text-ink disabled:opacity-60"
           >
-            Open the report →
+            {handingOff ? "Opening…" : "Open the report →"}
           </button>
         </div>
       ) : null}

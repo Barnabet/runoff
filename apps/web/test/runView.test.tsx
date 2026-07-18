@@ -1,13 +1,14 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
 import type { Block, RunEvent } from "@runoff/core";
 
 // `vi.mock` factories are hoisted; the fns they close over come from `vi.hoisted`.
-const { showToast, postRunInput, createRun, push } = vi.hoisted(() => ({
+const { showToast, postRunInput, createRun, getRun, push } = vi.hoisted(() => ({
   showToast: vi.fn(),
   postRunInput: vi.fn(async () => ({ ok: true as const })),
   createRun: vi.fn(async () => ({ id: "run_new0000" })),
+  getRun: vi.fn(),
   push: vi.fn(),
 }));
 
@@ -20,7 +21,7 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/Toast", () => ({ showToast, Toast: () => null }));
-vi.mock("@/lib/api", () => ({ postRunInput, createRun, resolveFlag: vi.fn(), getBlueprint: vi.fn(), saveRevision: vi.fn() }));
+vi.mock("@/lib/api", () => ({ postRunInput, createRun, getRun, resolveFlag: vi.fn(), getBlueprint: vi.fn(), saveRevision: vi.fn() }));
 
 import { RunView } from "../components/run/RunView";
 import type { GetRunResponse } from "../lib/api";
@@ -208,17 +209,48 @@ describe("Live Run — pause and completion", () => {
     },
   ];
 
-  it("shows the completion card and hands off to the Reader", () => {
+  it("shows the completion card and hands off to the Reader", async () => {
     // run.status is still "running" on load, so the live surface renders and the
     // streamed run_completed brings up the completion card.
-    const { getByText, getByTestId, queryByText } = render(<RunView payload={basePayload(finished)} />);
+    getRun.mockResolvedValue(basePayload(finished, "complete"));
+    const { getByText, getByTestId, queryByTestId } = render(<RunView payload={basePayload(finished)} />);
     expect(getByTestId("completion-card").textContent).toContain("Run complete in 14.2s");
     expect(getByText("COMPLETE · 0 FLAGS")).toBeTruthy();
 
     fireEvent.click(getByText("Open the report →"));
-    // ReaderView takes over.
-    expect(queryByText("completion-card")).toBeNull();
-    expect(getByTestId("run-report")).toBeTruthy();
+    // The handoff refetches the run, then the ReaderView takes over.
+    await waitFor(() => expect(getByTestId("run-report")).toBeTruthy());
+    expect(queryByTestId("completion-card")).toBeNull();
+    expect(getRun).toHaveBeenCalledWith("run_abcd1234ef56");
+  });
+
+  it("refetches fresh flags on handoff so a late flag is not lost (no false Cleared banner)", async () => {
+    // The load-time payload carried no flags (run still writing), but the run
+    // finished with an open flag. The handoff refetch must surface it: an amber
+    // "open" banner and a flag card — never the ink "Cleared" banner.
+    const fresh = basePayload(finished, "complete");
+    fresh.flags = [
+      {
+        id: "run_abcd1234ef56_flag_1",
+        runId: "run_abcd1234ef56",
+        code: "F1",
+        sectionKey: "s1",
+        question: "Soften this claim?",
+        options: ["Keep", "Soften"],
+        status: "open",
+        resolution: null,
+        createdAt: "2026-07-18 09:00:00",
+      },
+    ];
+    getRun.mockResolvedValue(fresh);
+
+    const { getByText, getByTestId } = render(<RunView payload={basePayload(finished)} />);
+    fireEvent.click(getByText("Open the report →"));
+
+    await waitFor(() => expect(getByTestId("run-report")).toBeTruthy());
+    // The refetched open flag renders as a card and keeps the banner amber.
+    expect(getByTestId("flag-card-run_abcd1234ef56_flag_1")).toBeTruthy();
+    expect(getByTestId("status-banner").getAttribute("data-state")).toBe("open");
   });
 
   it("opens straight into the Reader for an already-complete run", () => {

@@ -87,6 +87,13 @@ export function reduceRun(
         s.typedText = blocksToPlainText(e.blocks);
         break;
       }
+      case "section_failed": {
+        // A section that could not be drafted (e.g. the model refused). The run
+        // continues without it, so the phase is left unchanged.
+        section(e.sectionKey).state = "failed";
+        p.log.push({ level: "error", message: `§ ${e.sectionKey} failed — ${e.error}` });
+        break;
+      }
       case "check_failed": {
         p.log.push({ level: "warn", message: `Check failed on ${e.sectionKey} — ${e.rule}: ${e.detail}` });
         break;

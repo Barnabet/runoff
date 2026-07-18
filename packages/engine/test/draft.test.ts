@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { draftSection } from "../src/draft.js";
+import { draftSection, RefusalError } from "../src/draft.js";
 import { makeFakeClient } from "./fakeClient.js";
 import type { BlueprintContent } from "@runoff/core";
 
@@ -51,10 +51,42 @@ describe("draftSection", () => {
     expect(r.raw).toContain("Done.");
   });
 
-  it("throws when the model refuses to draft the section", async () => {
+  it("throws a typed RefusalError when the model refuses to draft the section", async () => {
     const client = makeFakeClient([[{ stopReason: "refusal" }]]);
     await expect(
       draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
+    ).rejects.toBeInstanceOf(RefusalError);
+    await expect(
+      draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
     ).rejects.toThrow("model refused to draft this section");
+  });
+
+  it("skips a malformed tool-argument payload and keeps drafting", async () => {
+    // A tool call whose streamed arguments are not valid JSON must not throw and
+    // sink the run: the callback is skipped and the turn continues to completion.
+    const client = makeFakeClient([
+      [{ toolUse: { name: "raise_flag", rawArguments: "{ this is not json" } }],
+      [{ text: "Recovered and finished." }],
+    ]);
+    const flags: unknown[] = [];
+    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: () => {} } });
+    expect(flags).toEqual([]); // malformed args → callback skipped
+    expect(r.raw).toContain("Recovered and finished.");
+  });
+
+  it("retries once with a larger budget when a draft is truncated by length", async () => {
+    const client = makeFakeClient([
+      [{ text: "Partial draft ", stopReason: "max_tokens" }],
+      [{ text: "Complete draft after retry." }],
+    ]);
+    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
+    expect(r.raw).toContain("Complete draft after retry.");
+    expect(r.raw).not.toContain("Partial draft");
+  });
+
+  it("accepts the truncated text when the length retry also truncates", async () => {
+    const client = makeFakeClient([[{ text: "Truncated only.", stopReason: "max_tokens" }]]);
+    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
+    expect(r.raw).toContain("Truncated only.");
   });
 });

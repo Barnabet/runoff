@@ -41,11 +41,13 @@ export function LiveRunView({
   payload,
   projection,
   connectionLost,
+  handingOff = false,
   onOpenReport,
 }: {
   payload: GetRunResponse;
   projection: RunProjection;
   connectionLost: boolean;
+  handingOff?: boolean;
   onOpenReport: () => void;
 }) {
   const router = useRouter();
@@ -209,6 +211,7 @@ export function LiveRunView({
           projection={projection}
           sectionMeta={sectionMeta}
           terminal={terminal}
+          handingOff={handingOff}
           onOpenReport={onOpenReport}
         />
       </main>

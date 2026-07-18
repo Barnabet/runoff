@@ -22,31 +22,31 @@ export async function POST(_req: Request, ctx: Ctx): Promise<Response> {
     .get(note.blueprintId) as { currentRev: number } | undefined;
   if (!bp) return Response.json({ error: "blueprint not found" }, { status: 400 });
 
-  const revRow = db.sqlite
-    .prepare("SELECT content FROM blueprint_revisions WHERE blueprint_id = ? AND rev = ?")
-    .get(note.blueprintId, bp.currentRev) as { content: string } | undefined;
-  if (!revRow) return Response.json({ error: "blueprint revision not found" }, { status: 400 });
-  const content = JSON.parse(revRow.content) as BlueprintContent;
-
-  const section = content.sections.find((s) => s.key === note.sectionKey);
-  if (!section) {
-    return Response.json({ error: `section "${note.sectionKey}" no longer exists` }, { status: 409 });
-  }
-
-  let newContent: BlueprintContent;
-  try {
-    const edited = applyEdit(section, edit);
-    newContent = { ...content, sections: content.sections.map((s) => (s.key === note.sectionKey ? edited : s)) };
-  } catch (err) {
-    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 409 });
-  }
-
-  // Bump the revision and resolve the note atomically. Immediate mode takes the
-  // write lock up front so the currentRev read and write cannot race.
+  // Atomic read-modify-write. The current revision's content is read, the edit
+  // applied, and the new revision written all inside one immediate-mode
+  // transaction, so a concurrent accept cannot slip a revision in between our
+  // read and write (a lost update). Immediate mode takes the write lock up front.
+  // Anything the transaction throws — section vanished, edit no longer applies —
+  // is a conflict, surfaced as 409 below.
   const tx = db.sqlite.transaction(() => {
     const cur = db.sqlite
       .prepare("SELECT current_rev AS currentRev FROM blueprints WHERE id = ?")
       .get(note.blueprintId) as { currentRev: number };
+    const revRow = db.sqlite
+      .prepare("SELECT content FROM blueprint_revisions WHERE blueprint_id = ? AND rev = ?")
+      .get(note.blueprintId, cur.currentRev) as { content: string } | undefined;
+    if (!revRow) throw new Error("blueprint revision not found");
+    const content = JSON.parse(revRow.content) as BlueprintContent;
+
+    const section = content.sections.find((s) => s.key === note.sectionKey);
+    if (!section) throw new Error(`section "${note.sectionKey}" no longer exists`);
+
+    const edited = applyEdit(section, edit);
+    const newContent: BlueprintContent = {
+      ...content,
+      sections: content.sections.map((s) => (s.key === note.sectionKey ? edited : s)),
+    };
+
     const rev = cur.currentRev + 1;
     db.sqlite
       .prepare("INSERT INTO blueprint_revisions (id, blueprint_id, rev, content) VALUES (?, ?, ?, ?)")
@@ -55,7 +55,13 @@ export async function POST(_req: Request, ctx: Ctx): Promise<Response> {
     db.sqlite.prepare("UPDATE notes SET status = 'resolved' WHERE id = ?").run(id);
     return rev;
   });
-  const rev = tx.immediate();
+
+  let rev: number;
+  try {
+    rev = tx.immediate();
+  } catch (err) {
+    return Response.json({ error: err instanceof Error ? err.message : String(err) }, { status: 409 });
+  }
 
   return Response.json({ rev });
 }

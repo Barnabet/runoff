@@ -23,6 +23,20 @@ describe("reduceRun", () => {
     expect(p.sections.exec.state).toBe("writing");
   });
 
+  it("marks a section failed and logs it without changing the phase", () => {
+    const events: RunEvent[] = [
+      { type: "run_started", sectionKeys: ["kpi", "exec"], blueprintRev: 1 },
+      { type: "section_started", sectionKey: "kpi" },
+      { type: "section_failed", sectionKey: "kpi", error: "model refused to draft this section" },
+      { type: "section_started", sectionKey: "exec" },
+    ];
+    const p = reduceRun(events, meta);
+    expect(p.sections.kpi.state).toBe("failed");
+    // Phase follows the next section_started, not the failure.
+    expect(p.phase).toBe("DRAFTING §02");
+    expect(p.log).toContainEqual({ level: "error", message: "§ kpi failed — model refused to draft this section" });
+  });
+
   it("tracks pause, questions and completion", () => {
     const events: RunEvent[] = [
       { type: "run_started", sectionKeys: ["kpi"], blueprintRev: 1 },

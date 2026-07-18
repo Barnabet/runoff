@@ -41,7 +41,11 @@ export function makeEngineIO(db: RunoffDb, runId: string): EngineIO {
     insertEvent.run(runId, seq, e.type, JSON.stringify(e));
     switch (e.type) {
       case "flag_raised":
-        insertFlag.run(e.flagId, runId, e.code, e.sectionKey, e.question, JSON.stringify(e.options));
+        // The engine mints per-run flag ids (`flag_1`, `flag_2`, …); the `flags`
+        // table is globally keyed, so namespace the row id by run to avoid a
+        // cross-run primary-key collision. The event payload (and thus the UI's
+        // in-flight projection) keeps the bare id; the API reads the row id back.
+        insertFlag.run(`${runId}_${e.flagId}`, runId, e.code, e.sectionKey, e.question, JSON.stringify(e.options));
         break;
       case "paused":
         setStatus.run("paused", runId);

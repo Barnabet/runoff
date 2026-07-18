@@ -52,6 +52,18 @@ export function sectionUserPrompt(args: {
     `\nSources bound to this section:\n${packForPrompt(pack, section.sourceIds)}`,
   ];
 
+  if (section.rules.length) {
+    const lines = section.rules.map((r) => {
+      const base = `- [${r.kind}] ${r.text}`;
+      return r.kind === "assert" && r.expression ? `${base} (expression: ${r.expression})` : base;
+    });
+    parts.push(
+      `\nRules for this section:\n${lines.join("\n")}\n` +
+        `(assert rules are verified deterministically after drafting; style rules shape your ` +
+        `writing; judgment rules should prompt raise_flag when triggered.)`,
+    );
+  }
+
   if (completed.length) {
     const prior = completed
       .map((s) => `${s.heading}\n${blocksToPlainText(s.blocks)}`)

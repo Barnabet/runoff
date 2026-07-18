@@ -90,4 +90,37 @@ describe("executeRun", () => {
     const proj = reduceRun(events, content.sections.map((s) => ({ key: s.key, number: s.number })));
     expect(proj.status).toBe("complete");
   });
+
+  it("contains a section refusal: emits section_failed, skips it, and still completes", async () => {
+    // body refuses on its first (and only) model call; outlook drafts normally.
+    // intro is fixed (no model call), so the two scripted turns are body, outlook.
+    const client = makeFakeClient([
+      [{ stopReason: "refusal" }],           // body — refuses
+      [{ text: "The outlook is stable." }],  // outlook — normal
+    ]);
+
+    const events: RunEvent[] = [];
+    const io: EngineIO = {
+      emit: (e) => events.push(e),
+      pollInputs: () => [],
+      sleep: async () => {},
+    };
+
+    const { document } = await executeRun({ client, content, files, io, blueprintRev: 3 });
+
+    // The refusal was contained: a section_failed for body, and the run reached run_completed.
+    const failed = events.find((e) => e.type === "section_failed");
+    expect(failed?.type === "section_failed" && failed.sectionKey).toBe("body");
+    expect(events.some((e) => e.type === "run_completed")).toBe(true);
+    expect(events.some((e) => e.type === "run_failed")).toBe(false);
+
+    // The document assembles without the refused section.
+    expect(document.sections.map((s) => s.key)).toEqual(["intro", "outlook"]);
+
+    // Reducer agrees: body failed, run complete.
+    const proj = reduceRun(events, content.sections.map((s) => ({ key: s.key, number: s.number })));
+    expect(proj.status).toBe("complete");
+    expect(proj.sections.body.state).toBe("failed");
+    expect(proj.sections.outlook.state).toBe("done");
+  });
 });

@@ -112,8 +112,9 @@ function RailRow({
         data-testid={`rail-row-${sectionKey}`}
         className="flex items-baseline gap-[10px] py-[7px]"
       >
-        <span className="font-mono text-[11px] text-pencil">✗</span>
+        <span className="font-mono text-[11px] text-pencil">✕</span>
         <span className="font-serif text-[14px] text-pencil">{heading}</span>
+        <span className="ml-auto font-serif text-[12px] italic text-pencil">failed</span>
       </div>
     );
   }
