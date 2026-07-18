@@ -10,6 +10,7 @@ import {
   confirmSource,
   deleteProjectSource,
   getProjectSources,
+  refileSource,
   uploadProjectSources,
   type FamilySummary,
 } from "@/lib/api";
@@ -94,7 +95,10 @@ function occupiedBy(edit: ChipEdit, families: FamilySummary[]): string | null {
   const fam = families.find((f) => f.id === edit.familyValue);
   if (!fam) return null;
   if (fam.kind === "constant") return fam.liveFile ? fam.liveFile.name : null;
-  if (edit.period && fam.filedPeriods.includes(edit.period)) return `the ${formatPeriod(edit.period)} file`;
+  if (edit.period) {
+    const entry = fam.filedEntries.find((e) => e.period === edit.period);
+    if (entry) return entry.name;
+  }
   return null;
 }
 
@@ -247,7 +251,8 @@ export function SourceManager({
             <FamilyNode
               key={f.id}
               family={f}
-              onDeleteLive={async (sourceId) => { await deleteProjectSource(projectId, sourceId); await refetch(); }}
+              onRefile={async (sourceId, period) => { await refileSource(projectId, sourceId, { familyId: f.id, period }); await refetch(); }}
+              onDelete={async (sourceId) => { await deleteProjectSource(projectId, sourceId); await refetch(); }}
             />
           ))
         )}
@@ -404,12 +409,23 @@ function ChipRow({
 
 function FamilyNode({
   family,
-  onDeleteLive,
+  onRefile,
+  onDelete,
 }: {
   family: FamilySummary;
-  onDeleteLive: (sourceId: string) => void;
+  onRefile: (sourceId: string, period: string | null) => void;
+  onDelete: (sourceId: string) => void;
 }) {
   const gran = family.granularity ?? "—";
+  // Which filed entry's refile picker is open (by sourceId), and its draft period.
+  const [refiling, setRefiling] = useState<string | null>(null);
+  const [draftPeriod, setDraftPeriod] = useState("");
+
+  function openRefile(sourceId: string, period: string) {
+    setRefiling(sourceId);
+    setDraftPeriod(period);
+  }
+
   return (
     <div className="border-t border-ink/15 pt-3">
       <div className="font-mono text-[10px] uppercase tracking-[1.5px] text-ink/50">
@@ -423,7 +439,7 @@ function FamilyNode({
               {family.liveFile.name}
               <button
                 type="button"
-                onClick={() => onDeleteLive(family.liveFile!.sourceId)}
+                onClick={() => onDelete(family.liveFile!.sourceId)}
                 className="font-mono text-[10px] uppercase tracking-[1.5px] text-ink/0 hover:text-pencil group-hover:text-ink/40"
               >
                 delete
@@ -436,18 +452,65 @@ function FamilyNode({
       ) : family.filedPeriods.length === 0 ? (
         <div className="mt-2 font-serif text-[13px] italic text-ink/45">no periods filed</div>
       ) : (
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2">
           {enumeratePeriods(family.filedPeriods[0], family.filedPeriods[family.filedPeriods.length - 1]).map((p) => {
-            const filed = family.filedPeriods.includes(p);
+            const entry = family.filedEntries.find((e) => e.period === p);
             return (
-              <span
-                key={p}
-                className={`font-mono text-[11px] ${filed ? "text-ink/70" : "text-ink/30"}`}
-              >
-                {formatPeriod(p)} {filed ? "✓" : "—"}
+              <span key={p} className="group inline-flex items-center gap-2" title={entry?.name}>
+                <span className={`font-mono text-[11px] ${entry ? "text-ink/70" : "text-ink/30"}`}>
+                  {formatPeriod(p)} {entry ? "✓" : "—"}
+                </span>
+                {entry && (
+                  <span className="inline-flex items-center gap-2 text-ink/0 group-hover:text-ink/40">
+                    <button
+                      type="button"
+                      data-testid={`refile-${entry.sourceId}`}
+                      onClick={() => openRefile(entry.sourceId, entry.period)}
+                      className="font-mono text-[9px] uppercase tracking-[1.5px] hover:text-ink"
+                    >
+                      refile
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`delete-${entry.sourceId}`}
+                      onClick={() => onDelete(entry.sourceId)}
+                      className="font-mono text-[9px] uppercase tracking-[1.5px] hover:text-pencil"
+                    >
+                      delete
+                    </button>
+                  </span>
+                )}
               </span>
             );
           })}
+
+          {refiling && (
+            <span className="inline-flex items-center gap-2 border border-ink/15 bg-paper px-2 py-1">
+              <span className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink/45">refile to</span>
+              <input
+                data-testid={`refile-period-${refiling}`}
+                value={draftPeriod}
+                onChange={(e) => setDraftPeriod(e.target.value)}
+                className="w-24 border border-ink/20 bg-paper px-2 py-1 font-mono text-[12px]"
+              />
+              <button
+                type="button"
+                data-testid={`refile-save-${refiling}`}
+                disabled={!family.granularity || !PERIOD_REGEX[family.granularity].test(draftPeriod)}
+                onClick={() => { onRefile(refiling, draftPeriod); setRefiling(null); }}
+                className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink hover:text-pencil disabled:opacity-30"
+              >
+                save
+              </button>
+              <button
+                type="button"
+                onClick={() => setRefiling(null)}
+                className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink/40 hover:text-ink"
+              >
+                cancel
+              </button>
+            </span>
+          )}
         </div>
       )}
     </div>

@@ -6,10 +6,10 @@ import type { FamilySummary } from "@/lib/api";
 import type { ProjectSourceRow } from "@runoff/core";
 
 /** Route table keyed by URL substring, first match wins (specific routes first). */
-function mockFetch(routes: Record<string, (init?: RequestInit) => Response | Promise<Response>>) {
+function mockFetch(routes: Record<string, (init?: RequestInit, url?: string) => Response | Promise<Response>>) {
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     for (const [prefix, handler] of Object.entries(routes)) {
-      if (String(url).includes(prefix)) return handler(init);
+      if (String(url).includes(prefix)) return handler(init, String(url));
     }
     return Response.json({}, { status: 404 });
   }));
@@ -36,13 +36,18 @@ function row(over: Partial<ProjectSourceRow> & { id: string }): ProjectSourceRow
 }
 
 function fam(over: Partial<FamilySummary> & { id: string; key: string }): FamilySummary {
+  const filedPeriods = over.filedPeriods ?? [];
   return {
     id: over.id,
     key: over.key,
     label: over.label ?? over.key,
     kind: over.kind ?? "periodic",
     granularity: over.granularity ?? "quarter",
-    filedPeriods: over.filedPeriods ?? [],
+    filedPeriods,
+    // Derive filedEntries from filedPeriods unless supplied, so periodic cells
+    // carry a per-period sourceId + name for refile/delete.
+    filedEntries:
+      over.filedEntries ?? filedPeriods.map((p, i) => ({ period: p, sourceId: `${over.id}_s${i}`, name: `${p}.csv` })),
     liveFile: over.liveFile ?? null,
   };
 }
@@ -133,14 +138,72 @@ describe("SourceManager", () => {
     expect(screen.getByText("Q3 2026 ✓")).toBeTruthy();
   });
 
-  it("warns 'replaces' before confirming into an occupied slot", () => {
+  it("warns 'replaces <occupant filename>' before confirming into an occupied slot", () => {
     mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
-    const families = [fam({ id: "fam_o", key: "trade_data", label: "Trade data", filedPeriods: ["2026-Q2"] })];
+    const families = [
+      fam({
+        id: "fam_o",
+        key: "trade_data",
+        label: "Trade data",
+        filedPeriods: ["2026-Q2"],
+        filedEntries: [{ period: "2026-Q2", sourceId: "src_old", name: "old-q2.csv" }],
+      }),
+    ];
     const unfiled = [
       row({ id: "src_o", proposal: { familyKey: "trade_data", period: "2026-Q2", confidence: "high" } }),
     ];
     render(<SourceManager projectId="prj_1" families={families} unfiled={unfiled} />);
-    expect(screen.getByText(/replaces/i)).toBeTruthy();
+    expect(screen.getByText("replaces old-q2.csv")).toBeTruthy();
+  });
+
+  it("a periodic filed cell's delete DELETEs the entry's sourceId", async () => {
+    const deletes: string[] = [];
+    mockFetch({
+      "/sources": (init, url) => {
+        if (init?.method === "DELETE") deletes.push(String(url).split("/sources/")[1]);
+        return Response.json(init?.method === "DELETE" ? { ok: true } : { families: [], unfiled: [] });
+      },
+    });
+    const families = [
+      fam({
+        id: "fam_d",
+        key: "trade_data",
+        label: "Trade data",
+        filedPeriods: ["2026-Q1"],
+        filedEntries: [{ period: "2026-Q1", sourceId: "src_del", name: "q1.csv" }],
+      }),
+    ];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={[]} />);
+    fireEvent.click(screen.getByTestId("delete-src_del"));
+    await waitFor(() => expect(deletes).toEqual(["src_del"]));
+  });
+
+  it("a periodic filed cell's refile opens a prefilled picker and PATCHes the new period", async () => {
+    let patchUrl = "";
+    let patchBody: Record<string, unknown> | null = null;
+    mockFetch({
+      "/sources": (init, url) => {
+        if (init?.method === "PATCH") { patchUrl = String(url); patchBody = JSON.parse(String(init.body)); return Response.json({ ok: true }); }
+        return Response.json({ families: [], unfiled: [] });
+      },
+    });
+    const families = [
+      fam({
+        id: "fam_r",
+        key: "trade_data",
+        label: "Trade data",
+        filedPeriods: ["2026-Q1"],
+        filedEntries: [{ period: "2026-Q1", sourceId: "src_ref", name: "q1.csv" }],
+      }),
+    ];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={[]} />);
+    fireEvent.click(screen.getByTestId("refile-src_ref"));
+    // Prefilled with the entry's current period.
+    expect((screen.getByTestId("refile-period-src_ref") as HTMLInputElement).value).toBe("2026-Q1");
+    fireEvent.change(screen.getByTestId("refile-period-src_ref"), { target: { value: "2026-Q3" } });
+    fireEvent.click(screen.getByTestId("refile-save-src_ref"));
+    await waitFor(() => expect(patchBody).toEqual({ familyId: "fam_r", period: "2026-Q3" }));
+    expect(patchUrl).toContain("/sources/src_ref");
   });
 });
 

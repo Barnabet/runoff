@@ -12,6 +12,8 @@ export interface FamilySummary {
   kind: "periodic" | "constant";
   granularity: Granularity | null;
   filedPeriods: string[];
+  /** Filed periodic entries (ascending by period); `[]` for constant families. */
+  filedEntries: { period: string; sourceId: string; name: string }[];
   liveFile: { sourceId: string; name: string } | null;
 }
 
@@ -27,17 +29,21 @@ export function listProjectSources(
   const fams = db.sqlite
     .prepare("SELECT id, key, label, kind, granularity FROM source_families WHERE project_id = ? ORDER BY key")
     .all(projectId) as { id: string; key: string; label: string; kind: "periodic" | "constant"; granularity: Granularity | null }[];
-  const periodsStmt = db.sqlite.prepare(
-    "SELECT period FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+  const entriesStmt = db.sqlite.prepare(
+    "SELECT period, id AS sourceId, name FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
   );
   const liveStmt = db.sqlite.prepare(
     "SELECT id, name FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL LIMIT 1",
   );
   const families = fams.map((f) => {
     const live = f.kind === "constant" ? (liveStmt.get(f.id) as { id: string; name: string } | undefined) : undefined;
+    const filedEntries = f.kind === "constant"
+      ? []
+      : (entriesStmt.all(f.id) as { period: string; sourceId: string; name: string }[]);
     return {
       ...f,
-      filedPeriods: (periodsStmt.all(f.id) as { period: string }[]).map((r) => r.period),
+      filedPeriods: filedEntries.map((r) => r.period),
+      filedEntries,
       liveFile: live ? { sourceId: live.id, name: live.name } : null,
     };
   });

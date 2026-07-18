@@ -85,14 +85,22 @@ describe("fileSource", () => {
     const { families, unfiled } = listProjectSources(db, "proj_1");
     const q = families.find((f) => f.key === "trade_data")!;
     expect(q.filedPeriods).toEqual(["2026-Q1", "2026-Q2"]);
+    // filedEntries carry the per-period sourceId + name (ascending) so the UI can
+    // wire refile/delete on each periodic cell.
+    expect(q.filedEntries).toEqual([
+      { period: "2026-Q1", sourceId: "src_a", name: "a.csv" },
+      { period: "2026-Q2", sourceId: "src_b", name: "b.csv" },
+    ]);
     expect(unfiled.map((u) => u.id)).toEqual(["src_c"]);
   });
 
-  it("surfaces the live file of a constant family and null otherwise", () => {
+  it("surfaces the live file of a constant family and null otherwise; constants have no filedEntries", () => {
     const db = makeTestDb(); seedProject(db);
     fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: null });
     const { families } = listProjectSources(db, "proj_1");
-    expect(families.find((f) => f.key === "brand")!.liveFile).toEqual({ sourceId: "src_c", name: "c.pdf" });
+    const brand = families.find((f) => f.key === "brand")!;
+    expect(brand.liveFile).toEqual({ sourceId: "src_c", name: "c.pdf" });
+    expect(brand.filedEntries).toEqual([]);
     expect(families.find((f) => f.key === "trade_data")!.liveFile).toBeNull();
   });
 });

@@ -124,6 +124,7 @@ export interface FamilySummary {
   kind: "periodic" | "constant";
   granularity: Granularity | null;
   filedPeriods: string[];
+  filedEntries: { period: string; sourceId: string; name: string }[];
   liveFile: { sourceId: string; name: string } | null;
 }
 
