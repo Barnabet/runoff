@@ -84,6 +84,7 @@ export async function draftSection(opts: {
   steers: string[];
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
+  previousSectionText?: string;
   cb: DraftCallbacks;
 }): Promise<DraftResult> {
   const { client, cb } = opts;

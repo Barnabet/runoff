@@ -49,8 +49,9 @@ export function sectionUserPrompt(args: {
   steers: string[];
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
+  previousSectionText?: string;
 }): string {
-  const { section, pack, completed, steers, answers, retryFeedback } = args;
+  const { section, pack, completed, steers, answers, retryFeedback, previousSectionText } = args;
 
   const parts: string[] = [
     `Section ${section.number}: ${section.heading}`,
@@ -75,6 +76,13 @@ export function sectionUserPrompt(args: {
       .map((s) => `${s.heading}\n${blocksToPlainText(s.blocks)}`)
       .join("\n\n");
     parts.push(`\nSections already written (for continuity — do not repeat their content):\n${prior}`);
+  }
+
+  if (previousSectionText) {
+    parts.push(
+      `\nLast run's version of this section (keep its structure and wording where the\n` +
+        `underlying data is unchanged; update figures and note material changes):\n${previousSectionText}`,
+    );
   }
 
   if (steers.length) {

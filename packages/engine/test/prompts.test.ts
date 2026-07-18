@@ -60,6 +60,25 @@ describe("sectionUserPrompt — rules block", () => {
   });
 });
 
+describe("continuity block", () => {
+  it("pins the stability-contract wording when previousSectionText is given", () => {
+    const prompt = sectionUserPrompt({
+      ...base,
+      section: section([]),
+      previousSectionText: "June spend totaled 208,200 within the cap.",
+    });
+    expect(prompt).toContain(
+      "Last run's version of this section (keep its structure and wording where the\nunderlying data is unchanged; update figures and note material changes):",
+    );
+    expect(prompt).toContain("June spend totaled 208,200 within the cap.");
+  });
+
+  it("emits no continuity block for a first run", () => {
+    const prompt = sectionUserPrompt({ ...base, section: section([]) });
+    expect(prompt).not.toContain("Last run's version");
+  });
+});
+
 describe("citation-marker wording", () => {
   // A live run showed the model copying a "[[figure|…]]" template literally, rendering
   // the word "figure" to the reader — the templates must never use it as the placeholder.
