@@ -345,4 +345,18 @@ describe("Live Run — failed", () => {
     fireEvent.click(within(banner).getByText("Run it again"));
     expect(createRun).toHaveBeenCalledWith("bp_1");
   });
+
+  it("renders a failed section as a pencil note, not a typing caret", () => {
+    const events: RunEvent[] = [
+      ...midRun,
+      { type: "section_failed", sectionKey: "s2", error: "model refused to draft this section" },
+    ];
+    const { getByText, container } = render(<RunView payload={basePayload(events)} />);
+    expect(
+      getByText(/Drafting failed — model refused to draft this section\. The run continued without this section\./),
+    ).toBeTruthy();
+    // s2 shows no caret; only still-writing sections may blink. s2 is the only
+    // non-done visible section here, so no caret should exist at all.
+    expect(container.querySelector(".blink.bg-ink")).toBeNull();
+  });
 });

@@ -18,12 +18,14 @@ export function LiveSection({
   blocks,
   typedText,
   sourceLabels,
+  error,
 }: {
   heading: string;
   state: SectionRunState;
   blocks: Block[];
   typedText: string;
   sourceLabels: Record<string, string>;
+  error?: string;
 }) {
   if (state === "queued") return null;
 
@@ -32,6 +34,11 @@ export function LiveSection({
       <h2 className="mb-[10px] font-serif text-[19px] font-medium text-ink">{heading}</h2>
       {state === "done" ? (
         <SectionBlocks blocks={blocks} sourceLabels={sourceLabels} />
+      ) : state === "failed" ? (
+        <p className="font-serif text-[13.5px] italic leading-[1.7] text-pencil">
+          Drafting failed — {error ?? "the model declined this section"}. The run continued without
+          this section.
+        </p>
       ) : (
         <SectionBlocks
           blocks={parseSectionText(streamVisible(typedText))}

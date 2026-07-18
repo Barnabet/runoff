@@ -156,6 +156,10 @@ function consoleIO(): EngineIO {
             `[section_completed] ${e.sectionKey} — ${e.blocks.length} blocks, ${e.words} words, ${e.ms}ms, ${e.retries} retries`,
           );
           break;
+        case "section_failed":
+          endStream();
+          console.log(`[section_failed] ${e.sectionKey} — ${e.error}`);
+          break;
         case "check_passed":
           endStream();
           console.log(`  [check_passed] ${e.sectionKey}: ${e.rule}`);

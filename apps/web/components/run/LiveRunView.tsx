@@ -195,6 +195,7 @@ export function LiveRunView({
                   blocks={s?.blocks ?? []}
                   typedText={s?.typedText ?? ""}
                   sourceLabels={sourceLabels}
+                  error={s?.error}
                 />
               );
             })}
