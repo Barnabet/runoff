@@ -54,6 +54,23 @@ function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack
   }
 }
 
+/**
+ * Evaluate one aggregate locator expression — `agg(src.col)` or
+ * `agg(src.col where col=value)` — against the pack. Throws with the audit's
+ * vocabulary on unknown source/column so callers can surface the message.
+ */
+export function computeLocator(expression: string, pack: SourcePack): number {
+  const ref = AGG_REF.exec(expression.trim());
+  if (!ref) throw new Error(`unparseable expression: ${expression}`);
+  return computeAgg(
+    ref[1] as Agg,
+    ref[2],
+    ref[3],
+    pack,
+    ref[4] ? { column: ref[4], value: ref[5] } : undefined,
+  );
+}
+
 function fmt(n: number): string {
   return n.toLocaleString("en-US");
 }

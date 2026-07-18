@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { evaluateAssert, auditCitations, countCitations } from "../src/checks.js";
+import { evaluateAssert, auditCitations, countCitations, computeLocator } from "../src/checks.js";
 import type { SourcePack } from "../src/sourcePack.js";
 import type { Block } from "@runoff/core";
 
@@ -165,6 +165,15 @@ describe("auditCitations", () => {
       { text: "$240,100", citation: { sourceId: "src_spend", locator: "invoice footnote 3" } },
     ]}];
     expect(auditCitations(blocks, pack, ["src_spend"]).pass).toBe(true);
+  });
+});
+
+describe("computeLocator", () => {
+  it("evaluates plain and filtered aggregates and throws on junk", () => {
+    expect(computeLocator("sum(src_spend.amount)", pack)).toBe(240100);
+    expect(computeLocator("sum(src_spend.amount where channel=search)", pack)).toBe(120050);
+    expect(() => computeLocator("banana", pack)).toThrow(/unparseable expression/);
+    expect(() => computeLocator("sum(src_missing.amount)", pack)).toThrow(/unknown source/);
   });
 });
 
