@@ -38,11 +38,14 @@ function seedBlueprint(id: string): void {
     .prepare("INSERT INTO blueprint_revisions (id, blueprint_id, rev, content) VALUES (?, ?, 1, ?)")
     .run(`rev_${id}`, id, JSON.stringify(DRAFT));
   db.sqlite
+    .prepare("INSERT INTO source_families (id, project_id, key, label, kind) VALUES ('fam_1', 'proj_1', 'src', 'Src', 'constant')")
+    .run();
+  db.sqlite
     .prepare(
-      "INSERT INTO sources (id, name, kind, stored_filename, mime, size) VALUES ('src_1', 'Src', 'file', 'src_1.txt', 'text/plain', 5)",
+      "INSERT INTO sources (id, project_id, family_id, period, name, kind, stored_filename, mime, size, status) VALUES ('src_1', 'proj_1', 'fam_1', NULL, 'Src', 'file', 'src_1.txt', 'text/plain', 5, 'filed')",
     )
     .run();
-  db.sqlite.prepare("INSERT INTO blueprint_sources (blueprint_id, source_id) VALUES (?, 'src_1')").run(id);
+  db.sqlite.prepare("INSERT INTO blueprint_families (blueprint_id, family_id) VALUES (?, 'fam_1')").run(id);
 }
 
 beforeEach(() => {

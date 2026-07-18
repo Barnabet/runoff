@@ -1,4 +1,3 @@
-import { join } from "node:path";
 import type OpenAI from "openai";
 import {
   type RunoffDb,
@@ -14,20 +13,20 @@ import {
   type RunInteractions,
   type EngineIO,
   type RunInputMsg,
-  type EngineFile,
 } from "@runoff/engine";
+import { resolveRunSources } from "./resolveSources.js";
 
 /** Atomically claim the oldest queued run (single statement; RETURNING gives us its identity). */
 const CLAIM_SQL = `
 UPDATE runs SET status='running', started_at=datetime('now')
 WHERE id = (SELECT id FROM runs WHERE status='queued' ORDER BY created_at LIMIT 1)
-RETURNING id, blueprint_id AS blueprintId, blueprint_rev AS blueprintRev`;
+RETURNING id, blueprint_id AS blueprintId, blueprint_rev AS blueprintRev, period`;
 
 export function claimQueuedRun(
   db: RunoffDb,
-): { id: string; blueprintId: string; blueprintRev: number } | undefined {
+): { id: string; blueprintId: string; blueprintRev: number; period: string | null } | undefined {
   const row = db.sqlite.prepare(CLAIM_SQL).get() as
-    | { id: string; blueprintId: string; blueprintRev: number }
+    | { id: string; blueprintId: string; blueprintRev: number; period: string | null }
     | undefined;
   return row ?? undefined;
 }
@@ -136,18 +135,7 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
     if (!revRow) throw new Error(`blueprint revision not found: ${claimed.blueprintId}@${claimed.blueprintRev}`);
     const content = BlueprintContentSchema.parse(JSON.parse(revRow.content));
 
-    const bound = db.sqlite
-      .prepare(
-        "SELECT s.id, s.name, s.mime, s.stored_filename AS storedFilename FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id WHERE bs.blueprint_id = ?",
-      )
-      .all(claimed.blueprintId) as { id: string; name: string; mime: string; storedFilename: string }[];
-    const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
-    const files: EngineFile[] = bound.map((s) => ({
-      id: s.id,
-      name: s.name,
-      mime: s.mime,
-      path: join(filesDir, s.storedFilename),
-    }));
+    const { files, gaps } = resolveRunSources(db, claimed.blueprintId, claimed.period);
 
     const runRow = db.sqlite
       .prepare("SELECT created_at AS createdAt FROM runs WHERE id = ?")
@@ -169,6 +157,8 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
       blueprintRev: claimed.blueprintRev,
       previousDocument: previous?.document,
       memories: memoryRows,
+      period: claimed.period,
+      gaps,
     });
     // Success is already persisted by the `run_completed` emit handler.
     await distillCompletedRun(db, client, claimed.id, claimed.blueprintId, content);

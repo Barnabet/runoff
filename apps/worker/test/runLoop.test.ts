@@ -108,6 +108,22 @@ describe("processOne", () => {
     expect(await processOne(db, null as any)).toBe(false);
   });
 
+  it("threads the run's period onto run_started (fixed-only run)", async () => {
+    const db = tempDb();
+    const bpId = newId("bp");
+    db.orm.insert(blueprints).values({ id: bpId, name: "Digest", currentRev: 1 }).run();
+    db.orm.insert(blueprintRevisions).values({ id: newId("rev"), blueprintId: bpId, rev: 1, content: JSON.stringify(fixedOnlyContent) }).run();
+    const runId = newId("run");
+    db.orm.insert(runs).values({ id: runId, blueprintId: bpId, blueprintRev: 1, status: "queued", period: "2026-Q1" }).run();
+
+    expect(await processOne(db, null as any)).toBe(true);
+
+    const started = db.sqlite
+      .prepare("SELECT payload FROM run_events WHERE run_id = ? AND type = 'run_started'")
+      .get(runId) as { payload: string };
+    expect(JSON.parse(started.payload).period).toBe("2026-Q1");
+  });
+
   it("keeps flag ids run-scoped so two flagged runs on one DB both complete without a PK collision", async () => {
     const db = tempDb();
     const client = flagRaisingClient();
@@ -189,7 +205,7 @@ describe("claimQueuedRun", () => {
     const db = tempDb();
     const runId = seedQueuedRun(db, fixedOnlyContent);
     const claimed = claimQueuedRun(db);
-    expect(claimed).toEqual({ id: runId, blueprintId: expect.any(String), blueprintRev: 1 });
+    expect(claimed).toEqual({ id: runId, blueprintId: expect.any(String), blueprintRev: 1, period: null });
     const row = db.sqlite.prepare("SELECT status, started_at FROM runs WHERE id = ?").get(runId) as { status: string; started_at: string };
     expect(row.status).toBe("running");
     expect(row.started_at).toBeTruthy();

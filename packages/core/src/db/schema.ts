@@ -56,11 +56,6 @@ export const sources = sqliteTable("sources", {
   filedAt: text("filed_at"),
 });
 
-export const blueprintSources = sqliteTable("blueprint_sources", {
-  blueprintId: text("blueprint_id").notNull(),
-  sourceId: text("source_id").notNull(),
-}, (t) => [primaryKey({ columns: [t.blueprintId, t.sourceId] })]);
-
 export const runs = sqliteTable("runs", {
   id: text("id").primaryKey(),
   blueprintId: text("blueprint_id").notNull(),

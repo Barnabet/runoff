@@ -32,9 +32,6 @@ CREATE TABLE IF NOT EXISTS sources (
   stored_filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL,
   status TEXT NOT NULL DEFAULT 'unfiled', proposal TEXT,
   uploaded_at TEXT NOT NULL DEFAULT (datetime('now')), filed_at TEXT);
-CREATE TABLE IF NOT EXISTS blueprint_sources (
-  blueprint_id TEXT NOT NULL, source_id TEXT NOT NULL,
-  PRIMARY KEY (blueprint_id, source_id));
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, blueprint_rev INTEGER NOT NULL,
   trigger_kind TEXT NOT NULL DEFAULT 'manual', status TEXT NOT NULL DEFAULT 'queued',

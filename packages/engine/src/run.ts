@@ -55,8 +55,10 @@ export async function executeRun(opts: {
   blueprintRev: number;
   previousDocument?: RunDocument;
   memories?: { id: string; body: string }[];
+  period?: string | null;
+  gaps?: string[];
 }): Promise<ExecuteRunResult> {
-  const { client, content, files, io, blueprintRev, previousDocument, memories = [] } = opts;
+  const { client, content, files, io, blueprintRev, previousDocument, memories = [], period, gaps } = opts;
   const emit = (e: RunEvent) => io.emit(e);
   const runStart = Date.now();
 
@@ -194,7 +196,14 @@ export async function executeRun(opts: {
 
   try {
     // Rule 1: announce the run, build the source pack, surface each source.
-    emit({ type: "run_started", sectionKeys: content.sections.map((s) => s.key), blueprintRev, ...(memories.length ? { memoryIds: memories.map((m) => m.id) } : {}) });
+    emit({
+      type: "run_started",
+      sectionKeys: content.sections.map((s) => s.key),
+      blueprintRev,
+      ...(memories.length ? { memoryIds: memories.map((m) => m.id) } : {}),
+      ...(period ? { period } : {}),
+      ...(gaps && gaps.length ? { gaps } : {}),
+    });
     const pack = await buildSourcePack(files);
     for (const src of pack.sources) {
       emit({ type: "source_read", sourceId: src.id, label: src.label, summary: src.summary });

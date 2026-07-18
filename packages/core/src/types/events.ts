@@ -6,7 +6,7 @@ export interface RunStats {
   citationCount: number; retries: number;
 }
 export type RunEvent =
-  | { type: "run_started"; sectionKeys: string[]; blueprintRev: number; memoryIds?: string[] }
+  | { type: "run_started"; sectionKeys: string[]; blueprintRev: number; memoryIds?: string[]; period?: string; gaps?: string[] }
   | { type: "source_read"; sourceId: string; label: string; summary: string }
   | { type: "section_started"; sectionKey: string }
   | { type: "text_delta"; sectionKey: string; text: string }

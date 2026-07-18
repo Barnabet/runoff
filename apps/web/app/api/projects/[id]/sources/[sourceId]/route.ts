@@ -53,11 +53,7 @@ export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
   if (!row) return Response.json({ error: "source not found" }, { status: 404 });
   if (row.status === "replaced") return Response.json({ error: "replaced sources cannot be deleted" }, { status: 400 });
 
-  const tx = db.sqlite.transaction(() => {
-    db.sqlite.prepare("DELETE FROM blueprint_sources WHERE source_id = ?").run(sourceId);
-    db.sqlite.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
-  });
-  tx();
+  db.sqlite.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
 
   try {
     rmSync(join(filesDir(), row.storedFilename), { force: true });

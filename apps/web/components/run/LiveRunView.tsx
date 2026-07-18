@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RunProjection } from "@runoff/core";
+// Deep import (not the barrel) keeps this client bundle free of the db layer.
+import { formatPeriod } from "@runoff/core/src/types/sources.js";
 import type { GetRunResponse } from "@/lib/api";
 import { createRun, postRunInput } from "@/lib/api";
 import { showToast } from "@/components/Toast";
@@ -201,7 +203,20 @@ export function LiveRunView({
         />
 
         <div className="flex flex-col items-center">
-          <DocumentPage eyebrow={content.eyebrow} title={content.title} dateline={content.dateline}>
+          <DocumentPage
+            eyebrow={content.eyebrow}
+            title={content.title}
+            dateline={
+              run.period ? (
+                <>
+                  {content.dateline}
+                  <span className="ml-2 font-mono text-[11px] not-italic tracking-tight text-ink/45">{formatPeriod(run.period)}</span>
+                </>
+              ) : (
+                content.dateline
+              )
+            }
+          >
             {sectionMeta.map((m) => {
               const s = projection.sections[m.key];
               return (

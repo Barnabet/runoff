@@ -75,7 +75,7 @@ export function listBlueprintsWithRuns(db: RunoffDb, projectId: string): Bluepri
     .prepare(
       `SELECT b.id, b.name, b.client_name AS clientName, b.cadence_label AS cadenceLabel,
               b.status, b.current_rev AS currentRev,
-              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.blueprint_id = b.id) AS sourceCount
+              (SELECT COUNT(*) FROM blueprint_families bf WHERE bf.blueprint_id = b.id) AS sourceCount
        FROM blueprints b
        WHERE b.project_id = ?
        ORDER BY b.created_at DESC, b.id DESC`,
@@ -213,11 +213,13 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
         delivery: { recipient: "", autoDeliverOnClear: false },
       };
 
+  // sourceLabels maps family id -> family label: since v1.2b, EngineFile.id (and
+  // thus every citation's sourceId) is the FAMILY id, not a per-file source id.
   const sourceRows = db.sqlite
     .prepare(
-      `SELECT s.id, s.name FROM blueprint_sources bs
-       JOIN sources s ON s.id = bs.source_id
-       WHERE bs.blueprint_id = ?`,
+      `SELECT f.id, f.label AS name FROM blueprint_families bf
+       JOIN source_families f ON f.id = bf.family_id
+       WHERE bf.blueprint_id = ?`,
     )
     .all(run.blueprintId) as { id: string; name: string }[];
   const sourceLabels: Record<string, string> = Object.fromEntries(
@@ -238,12 +240,30 @@ export function buildCopilotContext(
   goldenCache: Map<string, { description: string; text: string }>,
 ): CopilotContext {
   const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
-  const bound = db.sqlite
+  // Resolve each bound family to its live file, mirroring resolveRunSources but
+  // without a run period: constants take their null-slot file, periodics take
+  // the latest filed period (lexicographic MAX). EngineFile.id is the FAMILY id.
+  // (Task 10 finishes the copilot taxonomy surface; this keeps it sane meanwhile.)
+  const fams = db.sqlite
     .prepare(
-      "SELECT s.id, s.name, s.mime, s.stored_filename AS storedFilename FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id WHERE bs.blueprint_id = ?",
+      `SELECT f.id, f.label, f.kind FROM blueprint_families bf
+       JOIN source_families f ON f.id = bf.family_id WHERE bf.blueprint_id = ? ORDER BY f.key`,
     )
-    .all(blueprintId) as { id: string; name: string; mime: string; storedFilename: string }[];
-  const files: EngineFile[] = bound.map((s) => ({ id: s.id, name: s.name, mime: s.mime, path: join(filesDir, s.storedFilename) }));
+    .all(blueprintId) as { id: string; label: string; kind: string }[];
+  const constantSlot = db.sqlite.prepare(
+    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL",
+  );
+  const latestSlot = db.sqlite.prepare(
+    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period DESC LIMIT 1",
+  );
+  const files: EngineFile[] = [];
+  for (const f of fams) {
+    const row = (f.kind === "constant" ? constantSlot : latestSlot).get(f.id) as
+      | { mime: string; storedFilename: string }
+      | undefined;
+    if (!row) continue;
+    files.push({ id: f.id, name: f.label, mime: row.mime, path: join(filesDir, row.storedFilename) });
+  }
 
   return {
     files,

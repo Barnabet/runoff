@@ -82,12 +82,12 @@ describe("GET /api/runs/:id", () => {
   it("returns run, ordered events, flags, sectionMeta (number order), sourceLabels, blueprint", async () => {
     const bpId = await blueprintWithSections();
 
-    // Bind a source so sourceLabels is non-empty.
+    // Bind a family so sourceLabels is non-empty (family id -> family label).
     const db = getDb();
     db.sqlite
-      .prepare("INSERT INTO sources (id, name, stored_filename, mime, size) VALUES ('src_1', 'Spend Data', 'src_1_x.csv', 'text/csv', 3)")
+      .prepare("INSERT INTO source_families (id, project_id, key, label, kind) VALUES ('src_1', 'proj_1', 'spend', 'Spend Data', 'constant')")
       .run();
-    db.sqlite.prepare("INSERT INTO blueprint_sources (blueprint_id, source_id) VALUES (?, 'src_1')").run(bpId);
+    db.sqlite.prepare("INSERT INTO blueprint_families (blueprint_id, family_id) VALUES (?, 'src_1')").run(bpId);
 
     const runId = (await (await createRun(jsonReq({ blueprintId: bpId }))).json()).id as string;
     insertEvent(runId, 1, { type: "run_started", sectionKeys: ["body", "intro"], blueprintRev: 2 });

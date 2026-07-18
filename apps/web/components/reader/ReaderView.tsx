@@ -8,6 +8,8 @@ import { diffRuns } from "@runoff/core/src/diff.js";
 // the SQLite db layer — same guard the diff import above follows. Type-only
 // imports from the barrel are erased and stay safe.
 import { reduceRun } from "@runoff/core/src/reducer.js";
+// Deep import (not the barrel) keeps this client bundle free of the db layer.
+import { formatPeriod } from "@runoff/core/src/types/sources.js";
 import type { FlagRow, GetRunResponse } from "@/lib/api";
 import { deleteGolden, getBlueprint, getGoldens, resolveFlag, saveRevision, starGolden } from "@/lib/api";
 import { showToast } from "@/components/Toast";
@@ -144,6 +146,14 @@ export function ReaderView({
   const title = doc?.title ?? content.title;
   const eyebrow = doc?.eyebrow ?? content.eyebrow;
   const dateline = doc?.dateline ?? content.dateline;
+  const datelineNode = run.period ? (
+    <>
+      {dateline}
+      <span className="ml-2 font-mono text-[11px] not-italic tracking-tight text-ink/45">{formatPeriod(run.period)}</span>
+    </>
+  ) : (
+    dateline
+  );
   const sections: DocSection[] = doc?.sections ?? [];
 
   const shortId = run.id.replace(/^run_/, "").slice(0, 4);
@@ -259,7 +269,7 @@ export function ReaderView({
 
       <main className="print-doc-root mx-auto grid w-full max-w-[1360px] grid-cols-[1fr_322px] gap-6 px-[40px] py-[28px]">
         <div className="flex flex-col items-center">
-          <DocumentPage eyebrow={eyebrow} title={title} dateline={dateline}>
+          <DocumentPage eyebrow={eyebrow} title={title} dateline={datelineNode}>
             {sections.map((s) => (
               <section key={s.key} className="mt-[28px] first:mt-0">
                 <div className="mb-[10px] flex items-baseline gap-[8px]">

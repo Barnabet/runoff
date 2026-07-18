@@ -206,6 +206,30 @@ describe("executeRun — v1.1", () => {
     expect(prompts[0]).not.toContain("Use plan B");
   });
 
+  it("carries period + gaps on run_started when given and omits both keys entirely when absent", async () => {
+    // A fixed-only blueprint: no model call, so the run completes with an empty client script.
+    const fixedContent: BlueprintContent = {
+      title: "P", clientName: "Acme", eyebrow: "E", dateline: "D",
+      sections: [{ key: "intro", number: 1, heading: "Intro", mode: "fixed", instruction: "", fixedText: "Hi.", familyIds: [], rules: [] }],
+      globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
+    };
+
+    // With a period and non-empty gaps: both surface on run_started.
+    const withEvents: RunEvent[] = [];
+    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], io: collectingIO(withEvents), blueprintRev: 1, period: "2026-Q1", gaps: ["fam_missing"] });
+    const withStarted = withEvents.find((e) => e.type === "run_started");
+    expect(withStarted?.type === "run_started" ? withStarted.period : undefined).toBe("2026-Q1");
+    expect(withStarted?.type === "run_started" ? withStarted.gaps : undefined).toEqual(["fam_missing"]);
+
+    // With period null and empty gaps: the keys must be spread-omitted (byte-compat).
+    const bareEvents: RunEvent[] = [];
+    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], io: collectingIO(bareEvents), blueprintRev: 1, period: null, gaps: [] });
+    const bareStarted = bareEvents.find((e) => e.type === "run_started");
+    const json = JSON.stringify(bareStarted);
+    expect(json).not.toContain('"period"');
+    expect(json).not.toContain('"gaps"');
+  });
+
   it("threads memory bodies into the drafting system prompt and their ids onto run_started", async () => {
     const { client, systemPrompts } = capturingSystemClient(makeFakeClient([[{ text: "Body text." }]]));
     const events: RunEvent[] = [];
