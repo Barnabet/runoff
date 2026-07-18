@@ -8,7 +8,7 @@ import type {
   RunEvent,
   RunStats,
 } from "@runoff/core";
-import { countWords } from "@runoff/core";
+import { countWords, blocksToPlainText } from "@runoff/core";
 import { parseSectionText } from "./dialect.js";
 import { buildSourcePack, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { evaluateAssert, auditCitations, countCitations } from "./checks.js";
@@ -53,8 +53,9 @@ export async function executeRun(opts: {
   files: EngineFile[];
   io: EngineIO;
   blueprintRev: number;
+  previousDocument?: RunDocument;
 }): Promise<ExecuteRunResult> {
-  const { client, content, files, io, blueprintRev } = opts;
+  const { client, content, files, io, blueprintRev, previousDocument } = opts;
   const emit = (e: RunEvent) => io.emit(e);
   const runStart = Date.now();
 
@@ -222,8 +223,10 @@ export async function executeRun(opts: {
       // keep going); any other draft error propagates and fails the whole run.
       emit({ type: "section_started", sectionKey: section.key });
       const cb = makeCallbacks(section.key);
+      const prevSection = previousDocument?.sections.find((s) => s.key === section.key);
+      const previousSectionText = prevSection ? blocksToPlainText(prevSection.blocks) : undefined;
       try {
-        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, cb });
+        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, cb });
         let blocks = draft.blocks;
         // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
         applyFallbacks(section.key);
@@ -235,7 +238,10 @@ export async function executeRun(opts: {
           emit({ type: "retry_started", sectionKey: section.key, reason: failures.join("; ") });
           retries = 1;
           totalRetries++;
-          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), cb });
+          // An answer or steer posted while the first draft was being written or
+          // checked must reach the redraft (v1.1 spec §4b).
+          await drainInputs();
+          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, cb });
           blocks = draft.blocks;
           applyFallbacks(section.key);
           failures = runChecks(section, blocks, pack);

@@ -9,6 +9,17 @@ import { makeFakeClient } from "./fakeClient.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
+function capturingClient(script: Parameters<typeof makeFakeClient>[0]) {
+  const client = makeFakeClient(script);
+  const prompts: string[] = [];
+  const orig = client.chat.completions.create;
+  client.chat.completions.create = (params: any) => {
+    prompts.push(params.messages[1].content as string);
+    return orig(params);
+  };
+  return { client, prompts };
+}
+
 /** Assert each `expected` type appears in `actual` strictly after the previous match (order + presence, not just membership). */
 function expectOrderedSubsequence(actual: string[], expected: string[]): void {
   let cursor = 0;
@@ -122,5 +133,60 @@ describe("executeRun", () => {
     expect(proj.status).toBe("complete");
     expect(proj.sections.body.state).toBe("failed");
     expect(proj.sections.outlook.state).toBe("done");
+  });
+});
+
+describe("executeRun — v1.1", () => {
+  it("feeds the previous run's matching section as continuity and skips absent keys", async () => {
+    const { client, prompts } = capturingClient([
+      [{ text: "Body [[$500|src_data|row 1]] text." }],
+      [{ text: "Outlook text with no figures." }],
+    ]);
+    const io: EngineIO = { emit: () => {}, pollInputs: () => [], sleep: async () => {} };
+
+    await executeRun({
+      client,
+      content,
+      files,
+      io,
+      blueprintRev: 3,
+      previousDocument: {
+        title: "T", eyebrow: "E", dateline: "D",
+        sections: [
+          { key: "body", heading: "Body", blocks: [{ type: "paragraph", spans: [{ text: "Prior body prose." }] }] },
+          // no "outlook" section last run
+        ],
+      },
+    });
+
+    // prompts[0] is the body draft; prompts[1] is the outlook draft.
+    expect(prompts[0]).toContain("Last run's version of this section");
+    expect(prompts[0]).toContain("Prior body prose.");
+    expect(prompts[1]).not.toContain("Last run's version");
+  });
+
+  it("drains a pending answer before the retry draft", async () => {
+    const { client, prompts } = capturingClient([
+      // body first draft: uncited figure -> citation audit fails -> retry
+      [{ text: "Spend was $500 this quarter." }],
+      // body retry: cited -> passes
+      [{ text: "Spend was [[$500|src_data|row 1]] this quarter." }],
+      // outlook
+      [{ text: "Stable outlook." }],
+    ]);
+    let polls = 0;
+    const io: EngineIO = {
+      emit: () => {},
+      // Poll 1 = intro boundary, poll 2 = body boundary, poll 3 = pre-retry drain.
+      pollInputs: () => (++polls === 3 ? [{ kind: "answer", questionId: "q_manual", text: "Use plan B" }] : []),
+      sleep: async () => {},
+    };
+
+    await executeRun({ client, content, files, io, blueprintRev: 3 });
+
+    // prompts: [0] body draft, [1] body retry, [2] outlook. The answer that
+    // arrived between draft and retry must reach the retry prompt.
+    expect(prompts[1]).toContain("Use plan B");
+    expect(prompts[0]).not.toContain("Use plan B");
   });
 });
