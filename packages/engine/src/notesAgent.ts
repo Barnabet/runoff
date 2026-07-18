@@ -70,6 +70,7 @@ export async function marginReply(opts: {
 }): Promise<MarginReply> {
   const { client, content, sectionKey, thread } = opts;
   const section = content.sections.find((s) => s.key === sectionKey);
+  if (!section) throw new Error(`Unknown section "${sectionKey}"`);
 
   const transcript = thread.map((t) => `${t.author === "user" ? "User" : "Agent"}: ${t.body}`).join("\n");
   const userTurn =
@@ -87,9 +88,10 @@ export async function marginReply(opts: {
 
   if (msg.stop_reason === "refusal") return { ...FALLBACK };
 
-  const textBlock = msg.content.find((b: any) => b.type === "text");
   try {
+    const textBlock = msg.content.find((b: any) => b.type === "text");
     const parsed = JSON.parse(textBlock?.text ?? "");
+    if (typeof parsed.reply !== "string") return { ...FALLBACK };
     const reply: MarginReply = { reply: parsed.reply };
     if (parsed.proposedEdit) reply.proposedEdit = parsed.proposedEdit;
     return reply;

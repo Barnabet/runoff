@@ -104,6 +104,13 @@ describe("marginReply", () => {
     expect(r.proposedEdit).toBeUndefined();
   });
 
+  it("throws when the sectionKey matches no section", async () => {
+    const client = {
+      messages: { create: async () => ({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn" }) },
+    } as any;
+    await expect(marginReply({ client, content, sectionKey: "missing", thread: [] })).rejects.toThrow(/Unknown section "missing"/);
+  });
+
   it("returns a graceful fallback on refusal", async () => {
     const client = { messages: { create: async () => ({ content: [], stop_reason: "refusal" }) } } as any;
     const r = await marginReply({ client, content, sectionKey: "exec", thread: [] });
