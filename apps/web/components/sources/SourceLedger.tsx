@@ -17,7 +17,7 @@ const COLS = [
 
 /**
  * The sources ledger: SOURCE / KIND / USED BY / FRESHNESS / SYNC. Freshness is
- * derived from `refreshedAt ?? uploadedAt`; sources older than the stale
+ * derived from `uploadedAt`; sources older than the stale
  * threshold get an amber row wash, a `▲ … — STALE` marker, and a "Request
  * update" action that optimistically swaps to "REMINDER SENT ✓". Each row
  * reveals a delete affordance on hover. Client component (delete + refresh).
@@ -57,7 +57,7 @@ function LedgerRow({
   const [requested, setRequested] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const ts = source.refreshedAt ?? source.uploadedAt;
+  const ts = source.uploadedAt;
   const stale = isStale(ts);
   const rel = fmtRel(ts);
   const usedBy = source.usedBy ?? 0;

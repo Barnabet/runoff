@@ -39,7 +39,6 @@ export interface SourceRow {
   mime: string;
   size: number;
   uploadedAt: string;
-  refreshedAt: string | null;
   usedBy?: number;
 }
 
@@ -103,7 +102,7 @@ export function deleteSource(id: string): Promise<{ ok: true }> {
   return fetchJson(`/api/sources/${id}`, { method: "DELETE" });
 }
 
-export function refreshSource(id: string): Promise<{ ok: true; refreshedAt: string }> {
+export function refreshSource(id: string): Promise<{ ok: true }> {
   return fetchJson(`/api/sources/${id}`, { method: "POST" });
 }
 

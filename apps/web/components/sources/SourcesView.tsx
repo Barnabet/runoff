@@ -16,7 +16,7 @@ export function SourcesView({ sources }: { sources: SourceRow[] }) {
   const [modalOpen, setModalOpen] = useState(false);
 
   const connected = sources.length;
-  const staleCount = sources.filter((s) => isStale(s.refreshedAt ?? s.uploadedAt)).length;
+  const staleCount = sources.filter((s) => isStale(s.uploadedAt)).length;
 
   return (
     <>

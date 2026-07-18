@@ -34,16 +34,13 @@ export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
   return Response.json({ ok: true });
 }
 
-// POST /api/sources/:id — mark the source as refreshed (updates refreshed_at).
+// POST /api/sources/:id — acknowledge a refresh request for the source.
 export async function POST(_req: Request, ctx: Ctx): Promise<Response> {
   const db = getDb();
   const { id } = await ctx.params;
 
-  const res = db.sqlite.prepare("UPDATE sources SET refreshed_at = datetime('now') WHERE id = ?").run(id);
-  if (res.changes === 0) return Response.json({ error: "source not found" }, { status: 404 });
+  const row = db.sqlite.prepare("SELECT id FROM sources WHERE id = ?").get(id) as { id: string } | undefined;
+  if (!row) return Response.json({ error: "source not found" }, { status: 404 });
 
-  const row = db.sqlite
-    .prepare("SELECT refreshed_at AS refreshedAt FROM sources WHERE id = ?")
-    .get(id) as { refreshedAt: string };
-  return Response.json({ ok: true, refreshedAt: row.refreshedAt });
+  return Response.json({ ok: true });
 }

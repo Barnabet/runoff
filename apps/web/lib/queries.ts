@@ -178,7 +178,7 @@ export function listSourcesWithUsage(db: RunoffDb): SourceRow[] {
   return db.sqlite
     .prepare(
       `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt, s.refreshed_at AS refreshedAt,
+              s.uploaded_at AS uploadedAt,
               (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
        FROM sources s
        ORDER BY s.uploaded_at DESC, s.id DESC`,

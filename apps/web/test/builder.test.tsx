@@ -63,8 +63,8 @@ const baseContent: BlueprintContent = {
 };
 
 const sources: SourceRow[] = [
-  { id: "src_a", name: "GA4", kind: "api", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString(), refreshedAt: null },
-  { id: "src_b", name: "spend.csv", kind: "file", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString(), refreshedAt: null },
+  { id: "src_a", name: "GA4", kind: "api", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString() },
+  { id: "src_b", name: "spend.csv", kind: "file", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString() },
 ];
 
 function renderBuilder(overrides?: { content?: BlueprintContent }) {

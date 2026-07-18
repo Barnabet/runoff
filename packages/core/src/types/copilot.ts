@@ -31,7 +31,9 @@ export type CopilotAction =
 
 export interface MemoryRow {
   id: string;
-  blueprintId: string;
+  scope: "blueprint" | "project";
+  projectId: string;
+  blueprintId: string | null;
   body: string;
   source: "copilot" | "distilled";
   originId: string | null;

@@ -47,8 +47,7 @@ const rows: SourceRow[] = [
     storedFilename: "src_fresh_spend_june.csv",
     mime: "text/csv",
     size: 2048,
-    uploadedAt: iso(90 * DAY),
-    refreshedAt: iso(2 * MIN),
+    uploadedAt: iso(2 * MIN),
     usedBy: 3,
   },
   {
@@ -59,7 +58,6 @@ const rows: SourceRow[] = [
     mime: "application/pdf",
     size: 5120,
     uploadedAt: iso(31 * DAY),
-    refreshedAt: null,
     usedBy: 1,
   },
 ];

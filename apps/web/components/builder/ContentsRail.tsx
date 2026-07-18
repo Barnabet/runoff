@@ -128,7 +128,7 @@ export function ContentsRail({
               <div className="font-serif text-[12px] italic text-ink/45">No sources bound.</div>
             ) : (
               bound.map((s) => {
-                const ts = s.refreshedAt ?? s.uploadedAt;
+                const ts = s.uploadedAt;
                 const stale = isStale(ts);
                 return (
                   <div key={s.id}>

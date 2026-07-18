@@ -35,7 +35,7 @@ export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
   const sources = db.sqlite
     .prepare(
       `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt, s.refreshed_at AS refreshedAt
+              s.uploaded_at AS uploadedAt
        FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id
        WHERE bs.blueprint_id = ?
        ORDER BY s.uploaded_at DESC, s.id DESC`,
