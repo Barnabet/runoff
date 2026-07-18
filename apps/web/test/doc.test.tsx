@@ -61,13 +61,18 @@ describe("SectionBlocks", () => {
     expect(chip.className).toContain("text-cite");
   });
 
-  it("falls back to the sourceId tail (uppercased) when no label is mapped", () => {
+  it("falls back to the src_-stripped id (uppercased, full remainder) when unmapped", () => {
     const cited: Block = {
       type: "paragraph",
-      spans: [{ text: "x", citation: { sourceId: "src_crm", locator: "a" } }],
+      spans: [
+        { text: "a", citation: { sourceId: "src_crm", locator: "1" } },
+        { text: "b", citation: { sourceId: "src_spend_june", locator: "2" } },
+      ],
     };
     const { getByText } = render(<SectionBlocks blocks={[cited]} />);
     expect(getByText("CRM")).toBeTruthy();
+    // Multi-underscore ids keep the full remainder, not just the tail segment.
+    expect(getByText("SPEND_JUNE")).toBeTruthy();
   });
 
   it("renders a negative delta cell in red pencil", () => {
@@ -80,13 +85,15 @@ describe("SectionBlocks", () => {
     expect(firstCell.textContent).toBe("Revenue");
   });
 
-  it("wraps a span with the node returned by annotate", () => {
+  it("substitutes the node returned by annotate, wrapping the given content", () => {
     const { getByTestId } = render(
       <SectionBlocks
         blocks={[paragraph]}
-        annotate={(span) =>
+        annotate={(span, _key, content) =>
           span.text.includes("cost problem") ? (
-            <mark data-testid="flag" className="bg-amber-accent/30" />
+            <mark data-testid="flag" className="bg-amber-accent/30">
+              {content}
+            </mark>
           ) : null
         }
       />
@@ -94,6 +101,27 @@ describe("SectionBlocks", () => {
     const mark = getByTestId("flag");
     expect(mark.tagName).toBe("MARK");
     expect(mark.textContent).toContain("a cost problem");
+  });
+
+  it("keeps both the content and a sibling marker the caller composes", () => {
+    const { getByTestId } = render(
+      <SectionBlocks
+        blocks={[paragraph]}
+        annotate={(span, _key, content) =>
+          span.text.includes("cost problem") ? (
+            <mark data-testid="flag">
+              {content}
+              <sup data-testid="marker">F1</sup>
+            </mark>
+          ) : null
+        }
+      />
+    );
+    const mark = getByTestId("flag");
+    // Content is preserved...
+    expect(mark.textContent).toContain("a cost problem");
+    // ...and the caller's sibling marker is NOT dropped.
+    expect(getByTestId("marker").textContent).toBe("F1");
   });
 
   it("renders plainly when annotate returns null", () => {

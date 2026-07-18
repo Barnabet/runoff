@@ -1,14 +1,21 @@
-import { cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { Block, Span } from "@runoff/core";
 import { CitationChip } from "./CitationChip";
 
 /**
- * Wraps a rendered span. Reader passes this to highlight flagged passages: it
- * returns a wrapper element (e.g. an amber `<mark/>`) for the spans it cares
- * about and `null` for everything else. When it returns an element, the span's
- * default content (text + citation chip) is rendered *inside* that element.
+ * Decorates a rendered span. Called with the span, a stable key, and the span's
+ * already-rendered `content` (text + optional citation chip). Return the full
+ * replacement node to substitute — the caller owns composition, so it must
+ * include `content` wherever it wants the text to appear (e.g.
+ * `<mark>{content}<sup>F1</sup></mark>` keeps both the passage and the marker).
+ * Return `null` to fall back to default rendering. Reader uses this to wrap
+ * flagged passages in an amber highlight.
  */
-export type Annotate = (span: Span, key: string) => ReactNode | null;
+export type Annotate = (
+  span: Span,
+  key: string,
+  content: ReactNode
+) => ReactNode | null;
 
 /**
  * Renders a document section's block AST (paragraphs + KPI tables) with the
@@ -55,12 +62,15 @@ export function SectionBlocks({
   );
 }
 
-/** Resolve a source's short chip label, falling back to the id's tail. */
+/**
+ * Resolve a source's short chip label. Falls back to the id with a leading
+ * `src_` stripped and the remainder uppercased (`src_spend_june` → `SPEND_JUNE`).
+ */
 function resolveLabel(sourceId: string, labels: Record<string, string>): string {
   const explicit = labels[sourceId];
   if (explicit) return explicit;
-  const tail = sourceId.split("_").pop() || sourceId;
-  return tail.toUpperCase();
+  const stripped = sourceId.startsWith("src_") ? sourceId.slice(4) : sourceId;
+  return stripped.toUpperCase();
 }
 
 /** Render a single span: text, optional citation chip, optional annotate wrap. */
@@ -78,11 +88,8 @@ function renderSpan(
       ) : null}
     </>
   );
-  const wrapper = annotate ? annotate(span, key) : null;
-  if (wrapper != null && isValidElement(wrapper)) {
-    return cloneElement(wrapper as ReactElement, { key }, content);
-  }
-  return <span key={key}>{content}</span>;
+  const annotated = annotate ? annotate(span, key, content) : null;
+  return <Fragment key={key}>{annotated != null ? annotated : content}</Fragment>;
 }
 
 function Paragraph({
