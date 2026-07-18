@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, waitFor, within } from "@testing-library/react";
-import type { RunDocument, RunProjection, RunStats } from "@runoff/core";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import type { RunDocument, RunEvent, RunProjection, RunStats } from "@runoff/core";
 
 const { showToast, resolveFlag, getBlueprint, saveRevision } = vi.hoisted(() => ({
   showToast: vi.fn(),
@@ -18,7 +18,14 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/Toast", () => ({ showToast, Toast: () => null }));
-vi.mock("@/lib/api", () => ({ resolveFlag, getBlueprint, saveRevision }));
+// Spread the real module so the goldens/star helpers hit the (stubbed) fetch;
+// only the three flag/delivery helpers are mocked.
+vi.mock("@/lib/api", async (importActual) => ({
+  ...(await importActual<typeof import("@/lib/api")>()),
+  resolveFlag,
+  getBlueprint,
+  saveRevision,
+}));
 
 import { ReaderView } from "../components/reader/ReaderView";
 import type { FlagRow, GetRunResponse } from "../lib/api";
@@ -81,7 +88,11 @@ const projection: RunProjection = {
   memoryIds: [],
 };
 
-function payload(flags: FlagRow[], previous: GetRunResponse["previous"] = null): GetRunResponse {
+// A complete-on-load run's document + stats arrive as JSON columns, so `baseEvents`
+// can be empty; overrides let a test seed `run_started` (for `memoryIds`) or `memories`.
+const baseEvents: RunEvent[] = [];
+
+function payload(flags: FlagRow[], over: Partial<GetRunResponse> = {}): GetRunResponse {
   return {
     run: {
       id: "run_abcd1234ef56",
@@ -110,7 +121,9 @@ function payload(flags: FlagRow[], previous: GetRunResponse["previous"] = null):
       dateline: "July 2026",
       delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: false },
     },
-    previous,
+    previous: null,
+    memories: [],
+    ...over,
   };
 }
 
@@ -132,6 +145,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("Reader — run report ledger", () => {
@@ -290,13 +304,13 @@ describe("Reader — since last run", () => {
   };
 
   it("renders an inline delta badge next to a changed cited figure", () => {
-    const { container } = render(<ReaderView payload={payload([], previous)} projection={projection} />);
+    const { container } = render(<ReaderView payload={payload([], { previous })} projection={projection} />);
     const text = container.textContent ?? "";
     expect(text).toContain("▲ 12,300");
   });
 
   it("renders the DeltaCard with rows, summary, and no-print", () => {
-    const { getByTestId } = render(<ReaderView payload={payload([], previous)} projection={projection} />);
+    const { getByTestId } = render(<ReaderView payload={payload([], { previous })} projection={projection} />);
     const card = getByTestId("delta-card");
     expect(card.className).toContain("no-print");
     expect(card.textContent).toContain("Since last run");
@@ -361,7 +375,7 @@ describe("Reader — since last run", () => {
         ],
       },
     };
-    const p = payload([], prev);
+    const p = payload([], { previous: prev });
     p.run.document = JSON.stringify(current);
     const { container, getByText } = render(<ReaderView payload={p} projection={projection} />);
 
@@ -384,5 +398,40 @@ describe("Reader — since last run", () => {
     const { container, queryByTestId } = render(<ReaderView payload={payload([])} projection={projection} />);
     expect(queryByTestId("delta-card")).toBeNull();
     expect(container.textContent).not.toContain("▲");
+  });
+});
+
+describe("Reader — memory line + stars", () => {
+  it("run report lists the memories the run used, expandable, no-print", () => {
+    render(
+      <ReaderView
+        payload={payload([], {
+          memories: [{ id: "mem_1", body: "Express deltas as percentages." }, { id: "mem_2", body: "Unused." }],
+          events: [
+            { type: "run_started", blueprintRev: 1, sectionKeys: ["s1", "s2"], memoryIds: ["mem_1"] },
+            ...baseEvents,
+          ],
+        })}
+      />,
+    );
+    const line = screen.getByTestId("memory-line");
+    expect(line.textContent).toContain("1 standing note");
+    expect(line.className).toContain("no-print");
+    fireEvent.click(line.querySelector("button")!);
+    expect(screen.getByText("Express deltas as percentages.")).toBeTruthy();
+    expect(screen.queryByText("Unused.")).toBeNull();
+  });
+
+  it("star buttons post goldens for the run and for a section", async () => {
+    const calls: { url: string; body: unknown }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST") { calls.push({ url: String(url), body: JSON.parse(String(init.body)) }); return Response.json({ id: "gold_1" }); }
+      return Response.json({ goldens: [] });
+    }));
+    render(<ReaderView payload={payload([])} />);
+    fireEvent.click(screen.getByRole("button", { name: /star this run/i }));
+    await waitFor(() => expect(calls[0]?.body).toMatchObject({ kind: "run" }));
+    fireEvent.click(screen.getAllByRole("button", { name: /star section/i })[0]);
+    await waitFor(() => expect(calls[1]?.body).toMatchObject({ kind: "section", sectionKey: "s1" }));
   });
 });

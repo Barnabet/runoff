@@ -93,6 +93,10 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     createdAt: run.createdAt,
   });
 
+  const memories = db.sqlite
+    .prepare("SELECT id, body FROM memories WHERE blueprint_id = ? ORDER BY rowid")
+    .all(run.blueprintId) as { id: string; body: string }[];
+
   const blueprint = db.sqlite
     .prepare("SELECT id, name, client_name AS clientName FROM blueprints WHERE id = ?")
     .get(run.blueprintId) as { id: string; name: string; clientName: string } | undefined;
@@ -162,7 +166,7 @@ export function getRunPayload(db: RunoffDb, id: string): GetRunResponse | null {
     sourceRows.map((s) => [s.id, s.name]),
   );
 
-  return { run, events, flags, sectionMeta, sourceLabels, blueprint, content: masthead, previous };
+  return { run, events, flags, sectionMeta, sourceLabels, blueprint, content: masthead, previous, memories };
 }
 
 /**

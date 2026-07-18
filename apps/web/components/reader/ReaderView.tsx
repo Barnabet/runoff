@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import type { Block, DocSection, RunDocument, RunProjection, RunStats } from "@runoff/core";
+import type { Block, DocSection, GoldenRow, RunDocument, RunProjection, RunStats } from "@runoff/core";
 import { diffRuns } from "@runoff/core/src/diff.js";
+// Deep import the reducer (not the barrel) so this client bundle never pulls in
+// the SQLite db layer — same guard the diff import above follows. Type-only
+// imports from the barrel are erased and stay safe.
+import { reduceRun } from "@runoff/core/src/reducer.js";
 import type { FlagRow, GetRunResponse } from "@/lib/api";
-import { getBlueprint, resolveFlag, saveRevision } from "@/lib/api";
+import { deleteGolden, getBlueprint, getGoldens, resolveFlag, saveRevision, starGolden } from "@/lib/api";
 import { showToast } from "@/components/Toast";
 import { Topbar } from "@/components/Topbar";
 import { DocumentPage } from "@/components/doc/DocumentPage";
@@ -50,12 +54,19 @@ function parseJson<T>(raw: string | null): T | null {
  */
 export function ReaderView({
   payload,
-  projection,
+  projection: projectionProp,
 }: {
   payload: GetRunResponse;
-  projection: RunProjection;
+  projection?: RunProjection;
 }) {
   const { run, blueprint, sourceLabels, content } = payload;
+
+  // The live surface hands its projection down; a run opened cold (or a test that
+  // renders the Reader directly) has none, so derive it from the seeded events.
+  const projection = useMemo(
+    () => projectionProp ?? reduceRun(payload.events, payload.sectionMeta),
+    [projectionProp, payload.events, payload.sectionMeta],
+  );
 
   // A run complete on load carries its final document + stats as JSON columns;
   // a run that just completed live has them on the projection instead.
@@ -77,6 +88,54 @@ export function ReaderView({
 
   const [flags, setFlags] = useState<FlagRow[]>(payload.flags);
   const [autoDeliver, setAutoDeliver] = useState(content.delivery.autoDeliverOnClear);
+
+  // The standing notes that shaped this run: all of the blueprint's memories,
+  // filtered to the ones the run actually loaded (`projection.memoryIds`).
+  const [memoriesOpen, setMemoriesOpen] = useState(false);
+  const usedMemories = payload.memories.filter((m) => projection.memoryIds.includes(m.id));
+
+  // Star state is orthogonal to the run payload: load the blueprint's goldens once
+  // on mount so the run/section stars can render filled. Mutations update this list
+  // optimistically (the POST/DELETE reconcile server-side).
+  const [goldens, setGoldens] = useState<GoldenRow[]>([]);
+  useEffect(() => {
+    getGoldens(blueprint.id)
+      .then((r) => setGoldens(r.goldens))
+      .catch(() => {});
+  }, [blueprint.id]);
+
+  const runStar = goldens.find((g) => g.kind === "run" && g.runId === run.id) ?? null;
+  const sectionStar = (key: string) =>
+    goldens.find((g) => g.kind === "section" && g.runId === run.id && g.sectionKey === key) ?? null;
+
+  const addStar = (id: string, kind: "run" | "section", sectionKey: string | null) =>
+    setGoldens((cur) => [
+      ...cur,
+      { id, blueprintId: blueprint.id, kind, runId: run.id, sectionKey, name: null, mime: null, storedFilename: null, note: null, createdAt: "" },
+    ]);
+
+  function toggleRunStar() {
+    if (runStar) {
+      setGoldens((cur) => cur.filter((g) => g.id !== runStar.id));
+      deleteGolden(runStar.id).catch(() => showToast("Could not update stars."));
+      return;
+    }
+    starGolden(blueprint.id, { kind: "run", runId: run.id })
+      .then((r) => addStar(r.id, "run", null))
+      .catch(() => showToast("Could not update stars."));
+  }
+
+  function toggleSectionStar(key: string) {
+    const existing = sectionStar(key);
+    if (existing) {
+      setGoldens((cur) => cur.filter((g) => g.id !== existing.id));
+      deleteGolden(existing.id).catch(() => showToast("Could not update stars."));
+      return;
+    }
+    starGolden(blueprint.id, { kind: "section", runId: run.id, sectionKey: key })
+      .then((r) => addStar(r.id, "section", key))
+      .catch(() => showToast("Could not update stars."));
+  }
 
   const openCount = flags.filter((f) => f.status === "open").length;
   const resolvedCount = flags.filter((f) => f.status !== "open").length;
@@ -203,7 +262,17 @@ export function ReaderView({
           <DocumentPage eyebrow={eyebrow} title={title} dateline={dateline}>
             {sections.map((s) => (
               <section key={s.key} className="mt-[28px] first:mt-0">
-                <h2 className="mb-[10px] font-serif text-[19px] font-medium text-ink">{s.heading}</h2>
+                <div className="mb-[10px] flex items-baseline gap-[8px]">
+                  <h2 className="font-serif text-[19px] font-medium text-ink">{s.heading}</h2>
+                  <button
+                    type="button"
+                    aria-label="Star section"
+                    onClick={() => toggleSectionStar(s.key)}
+                    className="no-print font-mono text-[13px] leading-none text-ink/35 transition-colors hover:text-amber"
+                  >
+                    {sectionStar(s.key) ? "★" : "☆"}
+                  </button>
+                </div>
                 <SectionBlocks blocks={s.blocks} sourceLabels={sourceLabels} annotate={makeAnnotate(s)} figureDeltas={deltasFor(s.key)} />
               </section>
             ))}
@@ -213,6 +282,38 @@ export function ReaderView({
         <aside className="no-print flex flex-col gap-[14px]">
           {stats ? (
             <RunReport stats={stats} resolvedCount={resolvedCount} allCleared={allCleared} />
+          ) : null}
+
+          {stats ? (
+            <div className="no-print border border-ink/12 bg-card px-[16px] py-[10px]">
+              <button
+                type="button"
+                aria-label="Star this run"
+                onClick={toggleRunStar}
+                className="flex items-center gap-[6px] font-sans text-[11px] font-medium text-ink/65 transition-colors hover:text-amber"
+              >
+                <span className="text-[13px] leading-none">{runStar ? "★" : "☆"}</span>
+                Star this run
+              </button>
+              {usedMemories.length > 0 ? (
+                <div data-testid="memory-line" className="no-print mt-2 border-t border-ink/10 pt-2">
+                  <button
+                    type="button"
+                    className="font-mono text-[8.5px] uppercase tracking-[1px] text-ink/45"
+                    onClick={() => setMemoriesOpen((v) => !v)}
+                  >
+                    Memory — {usedMemories.length} standing note{usedMemories.length === 1 ? "" : "s"}
+                  </button>
+                  {memoriesOpen
+                    ? usedMemories.map((m) => (
+                        <p key={m.id} className="mt-1 font-serif text-[12px] leading-[1.5] text-ink/70">
+                          {m.body}
+                        </p>
+                      ))
+                    : null}
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {showDeltaCard ? (

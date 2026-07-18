@@ -160,6 +160,9 @@ export interface GetRunResponse {
   // completion date), or null for a first run. The Reader diffs against it;
   // the Live page ignores it.
   previous: PreviousRun | null;
+  // Every memory for the blueprint (id + body). The Reader filters these to the
+  // run's `memoryIds` to show which standing notes shaped this run.
+  memories: { id: string; body: string }[];
 }
 
 export type RunInput = { kind: "pause" | "resume" | "steer" | "answer"; text?: string; questionId?: string };

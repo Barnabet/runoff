@@ -21,7 +21,17 @@ vi.mock("next/link", () => ({
   ),
 }));
 vi.mock("@/components/Toast", () => ({ showToast, Toast: () => null }));
-vi.mock("@/lib/api", () => ({ postRunInput, createRun, getRun, resolveFlag: vi.fn(), getBlueprint: vi.fn(), saveRevision: vi.fn() }));
+vi.mock("@/lib/api", () => ({
+  postRunInput,
+  createRun,
+  getRun,
+  resolveFlag: vi.fn(),
+  getBlueprint: vi.fn(),
+  saveRevision: vi.fn(),
+  getGoldens: vi.fn(async () => ({ goldens: [] })),
+  starGolden: vi.fn(async () => ({ id: "gold_1" })),
+  deleteGolden: vi.fn(async () => undefined),
+}));
 
 import { RunView } from "../components/run/RunView";
 import type { GetRunResponse } from "../lib/api";
@@ -85,6 +95,7 @@ function basePayload(events: RunEvent[], status = "running"): GetRunResponse {
       delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: false },
     },
     previous: null,
+    memories: [],
   };
 }
 
