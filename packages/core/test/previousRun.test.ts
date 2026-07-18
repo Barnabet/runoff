@@ -85,4 +85,16 @@ describe("previousCompletedDocument", () => {
       previousCompletedDocument(db.sqlite, "bp_1", { runId: "run_cur", createdAt: "2026-07-18 09:00:00" }),
     ).toBeNull();
   });
+
+  it("breaks same-second created_at ties by id DESC (higher id wins)", () => {
+    insertRun(db, "run_a", { createdAt: "2026-07-01 09:00:00" });
+    insertRun(db, "run_b", { createdAt: "2026-07-01 09:00:00" });
+
+    const prev = previousCompletedDocument(db.sqlite, "bp_1", {
+      runId: "run_cur",
+      createdAt: "2026-07-18 09:00:00",
+    });
+    expect(prev?.runId).toBe("run_b");
+    expect(prev?.document.title).toBe("Prev");
+  });
 });
