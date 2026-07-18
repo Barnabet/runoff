@@ -2,10 +2,10 @@
   "name": "runoff",
   "private": true,
   "scripts": {
-    "dev": "RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
+    "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
     "test": "vitest run --passWithNoTests",
-    "seed": "tsx scripts/seed.ts",
-    "eval": "tsx scripts/eval.ts"
+    "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
+    "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts"
   },
   "dependencies": {
     "@runoff/core": "workspace:*",

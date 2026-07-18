@@ -5,3 +5,4 @@ data/
 .env*
 .superpowers/
 next-env.d.ts
+!.env.example
