@@ -134,7 +134,7 @@ function SelectedSection({
   touched?: Set<string>;
 }) {
   const caption =
-    section.sourceIds.map(labelFor).join(" · ") || "no sources bound";
+    section.familyIds.map(labelFor).join(" · ") || "no sources bound";
   // A field the copilot just edited gets a brief amber wash so the change is
   // visible in the center editor; `${key}.*` flashes the whole section.
   const flash = (key: string, field: string) =>
@@ -194,7 +194,7 @@ function SelectedSection({
               className={`font-serif text-[14.5px] italic leading-[1.7] text-ink/65 placeholder:text-ink/40${flash(section.key, "instruction")}`}
             />
           </div>
-          <div className={`mt-[18px]${flash(section.key, "sourceIds")}`}>
+          <div className={`mt-[18px]${flash(section.key, "familyIds")}`}>
             <Greeked lines={4} caption={caption} />
           </div>
         </>

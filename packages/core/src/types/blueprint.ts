@@ -14,7 +14,7 @@ export const BlueprintSectionSchema = z.object({
   mode: z.enum(["fixed", "auto", "review"]),
   instruction: z.string(),
   fixedText: z.string().optional(),
-  sourceIds: z.array(z.string()),
+  familyIds: z.array(z.string()),
   rules: z.array(RuleSchema),
 });
 export type BlueprintSection = z.infer<typeof BlueprintSectionSchema>;

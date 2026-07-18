@@ -60,7 +60,7 @@ export function sectionUserPrompt(args: {
   const parts: string[] = [
     `Section ${section.number}: ${section.heading}`,
     `Instruction: ${section.instruction}`,
-    `\nSources bound to this section:\n${packForPrompt(pack, section.sourceIds)}`,
+    `\nSources bound to this section:\n${packForPrompt(pack, section.familyIds)}`,
   ];
 
   if (section.rules.length) {

@@ -6,7 +6,7 @@ import type { BlueprintContent } from "@runoff/core";
 
 const DRAFT: BlueprintContent = {
   title: "R", clientName: "C", eyebrow: "E", dateline: "D",
-  sections: [{ key: "exec", number: 1, heading: "Exec", mode: "auto", instruction: "old", sourceIds: [], rules: [] }],
+  sections: [{ key: "exec", number: 1, heading: "Exec", mode: "auto", instruction: "old", familyIds: [], rules: [] }],
   globalRules: [], delivery: { recipient: "a@b.c", autoDeliverOnClear: false },
 };
 

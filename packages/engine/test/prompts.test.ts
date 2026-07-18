@@ -19,7 +19,7 @@ function section(rules: BlueprintSection["rules"]): BlueprintSection {
     heading: "Executive summary",
     mode: "auto",
     instruction: "Summarize the quarter.",
-    sourceIds: [],
+    familyIds: [],
     rules,
   };
 }

@@ -8,7 +8,7 @@ describe("domain types", () => {
       title: "Monthly Performance Report", clientName: "Meridian Retail Group",
       eyebrow: "PREPARED FOR MERIDIAN RETAIL GROUP · JULY 2026", dateline: "July 2026",
       sections: [{ key: "exec", number: 2, heading: "Executive summary", mode: "review",
-        instruction: "Summarize the month.", sourceIds: ["src_a"],
+        instruction: "Summarize the month.", familyIds: ["src_a"],
         rules: [{ kind: "assert", text: "spend within budget", expression: "sum(src_a.spend) <= 250000" }] }],
       globalRules: ["Cite every figure."],
       delivery: { recipient: "reports@meridianretail.com", autoDeliverOnClear: true },

@@ -94,7 +94,7 @@ export function Builder({
       heading: "New section",
       mode: "auto",
       instruction: "",
-      sourceIds: [],
+      familyIds: [],
       rules: [],
     };
     updateContent({ ...content, sections: [...content.sections, section] });

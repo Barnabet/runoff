@@ -26,7 +26,7 @@ const fixedOnlyContent: BlueprintContent = {
   eyebrow: "Weekly",
   dateline: "July 2026",
   sections: [
-    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the digest.", sourceIds: [], rules: [] },
+    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the digest.", familyIds: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },
@@ -41,7 +41,7 @@ const reviewContent: BlueprintContent = {
   eyebrow: "Weekly",
   dateline: "July 2026",
   sections: [
-    { key: "summary", number: 1, heading: "Summary", mode: "review", instruction: "Review the summary.", sourceIds: [], rules: [] },
+    { key: "summary", number: 1, heading: "Summary", mode: "review", instruction: "Review the summary.", familyIds: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },

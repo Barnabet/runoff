@@ -5,7 +5,7 @@ import type { BlueprintContent } from "@runoff/core";
 
 const content: BlueprintContent = {
   title: "T", clientName: "C", eyebrow: "E", dateline: "D",
-  sections: [{ key: "exec", number: 2, heading: "Executive summary", mode: "auto", instruction: "Summarize.", sourceIds: ["src_spend"], rules: [] }],
+  sections: [{ key: "exec", number: 2, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: ["src_spend"], rules: [] }],
   globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
 };
 const pack = { sources: [{ id: "src_spend", label: "spend.csv", kind: "table" as const, summary: "2 rows", tables: [{ name: "s", columns: ["amount"], rows: [{ amount: 1 }] }] }] };

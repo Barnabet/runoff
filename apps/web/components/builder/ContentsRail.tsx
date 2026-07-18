@@ -10,7 +10,7 @@ function sectionBadge(section: BlueprintSection): { label: string; review: boole
   if (section.mode === "fixed") return { label: "FIXED", review: false };
   if (section.mode === "review") return { label: "REVIEW", review: true };
   // auto: surface the bound-source count when it carries sources, else AUTO.
-  if (section.sourceIds.length > 0) return { label: `${section.sourceIds.length} SRC`, review: false };
+  if (section.familyIds.length > 0) return { label: `${section.familyIds.length} SRC`, review: false };
   return { label: "AUTO", review: false };
 }
 

@@ -179,7 +179,7 @@ export async function executeRun(opts: {
       }
     }
 
-    const audit = auditCitations(blocks, pack, section.sourceIds);
+    const audit = auditCitations(blocks, pack, section.familyIds);
     if (audit.pass) {
       emit({ type: "check_passed", sectionKey: section.key, rule: "citations" });
       checksPassed++;

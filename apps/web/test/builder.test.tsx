@@ -54,9 +54,9 @@ const baseContent: BlueprintContent = {
   eyebrow: "PREPARED FOR MERIDIAN",
   dateline: "June 2026",
   sections: [
-    { key: "s1", number: 1, heading: "Overview", mode: "fixed", fixedText: "Fixed copy.", instruction: "", sourceIds: [], rules: [] },
-    { key: "s2", number: 2, heading: "Executive summary", mode: "review", instruction: "Summarize the month.", sourceIds: ["src_a"], rules: [] },
-    { key: "s3", number: 3, heading: "Channels", mode: "auto", instruction: "Channel breakdown.", sourceIds: ["src_a", "src_b"], rules: [] },
+    { key: "s1", number: 1, heading: "Overview", mode: "fixed", fixedText: "Fixed copy.", instruction: "", familyIds: [], rules: [] },
+    { key: "s2", number: 2, heading: "Executive summary", mode: "review", instruction: "Summarize the month.", familyIds: ["src_a"], rules: [] },
+    { key: "s3", number: 3, heading: "Channels", mode: "auto", instruction: "Channel breakdown.", familyIds: ["src_a", "src_b"], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "x@y.com", autoDeliverOnClear: false },

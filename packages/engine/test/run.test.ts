@@ -53,11 +53,11 @@ const content: BlueprintContent = {
   dateline: "July 2026",
   sections: [
     // 1: fixed — no model call
-    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the report.", sourceIds: [], rules: [] },
+    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the report.", familyIds: [], rules: [] },
     // 2: auto — first draft has an uncited figure (citation check fails), retry cites it (passes)
-    { key: "body", number: 2, heading: "Body", mode: "auto", instruction: "Write the body.", sourceIds: ["src_data"], rules: [] },
+    { key: "body", number: 2, heading: "Body", mode: "auto", instruction: "Write the body.", familyIds: ["src_data"], rules: [] },
     // 3: auto — draft raises a question whose deadline is this very section (fallback applies)
-    { key: "outlook", number: 3, heading: "Outlook", mode: "auto", instruction: "Write the outlook.", sourceIds: [], rules: [] },
+    { key: "outlook", number: 3, heading: "Outlook", mode: "auto", instruction: "Write the outlook.", familyIds: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },

@@ -9,8 +9,8 @@ const content: BlueprintContent = {
   eyebrow: "Marketing Performance",
   dateline: "June 2026",
   sections: [
-    { key: "exec", number: 1, heading: "Executive summary", mode: "auto", instruction: "Summarize.", sourceIds: [], rules: [] },
-    { key: "budget", number: 2, heading: "Budget", mode: "auto", instruction: "Cover spend.", sourceIds: ["src_data"], rules: [] },
+    { key: "exec", number: 1, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: [], rules: [] },
+    { key: "budget", number: 2, heading: "Budget", mode: "auto", instruction: "Cover spend.", familyIds: ["src_data"], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "ops@example.com", autoDeliverOnClear: false },
@@ -83,7 +83,7 @@ describe("copilotTurn", () => {
             name: "add_section",
             input: {
               afterKey: "exec",
-              section: { key: "kpis", heading: "KPI summary", mode: "auto", instruction: "Key metrics.", sourceIds: [], rules: [] },
+              section: { key: "kpis", heading: "KPI summary", mode: "auto", instruction: "Key metrics.", familyIds: [], rules: [] },
             },
           },
         },

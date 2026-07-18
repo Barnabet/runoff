@@ -17,7 +17,7 @@ const { GET: getMemories } = await import("../app/api/blueprints/[id]/memories/r
 const { PATCH: patchMemory, DELETE: deleteMemory } = await import("../app/api/memories/[id]/route");
 
 function section(key: string, number: number): BlueprintSection {
-  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, sourceIds: [], rules: [] };
+  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, familyIds: [], rules: [] };
 }
 
 const DRAFT: BlueprintContent = {

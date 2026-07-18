@@ -94,7 +94,7 @@ export function seedDatabase(db: RunoffDb): SeedResult {
         instruction:
           "Open with the month's headline numbers: total marketing spend and total GA4 sessions and conversions. " +
           "State each figure directly and cite its source. No preamble.",
-        sourceIds: [spendId, ga4Id],
+        familyIds: [spendId, ga4Id],
         rules: [
           {
             kind: "assert",
@@ -117,7 +117,7 @@ export function seedDatabase(db: RunoffDb): SeedResult {
           "In two short paragraphs, summarize how the month performed against the plan. " +
           "Follow the brand voice in the Brand Guidelines: plain, confident, no hedging. " +
           "Ground any figures in the spend and GA4 sources.",
-        sourceIds: [spendId, ga4Id, brandId],
+        familyIds: [spendId, ga4Id, brandId],
         rules: [
           { kind: "style", text: "Lead with the single most important result." },
           { kind: "judgment", text: "Flag for human review before release." },
@@ -131,7 +131,7 @@ export function seedDatabase(db: RunoffDb): SeedResult {
         instruction:
           "Break down spend by channel and pair it with GA4 sessions and conversions. " +
           "Present the comparison as a table, one row per channel, with every figure cited.",
-        sourceIds: [spendId, ga4Id],
+        familyIds: [spendId, ga4Id],
         rules: [],
       },
       {
@@ -142,7 +142,7 @@ export function seedDatabase(db: RunoffDb): SeedResult {
         instruction:
           "Report total spend and confirm no single line item exceeded the per-item ceiling. " +
           "Note the average spend per line and cite the figures.",
-        sourceIds: [spendId],
+        familyIds: [spendId],
         rules: [
           {
             kind: "assert",
@@ -161,7 +161,7 @@ export function seedDatabase(db: RunoffDb): SeedResult {
           "Figures are drawn from the June 2026 marketing spend ledger and the GA4 channel export. " +
           "Spend is reported gross of agency fees. Sessions and conversions reflect last-click attribution. " +
           "All figures are cited to their source of record.",
-        sourceIds: [],
+        familyIds: [],
         rules: [],
       },
     ],
