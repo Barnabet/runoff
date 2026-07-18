@@ -44,6 +44,22 @@ describe("applyEditOp / invertEditOp", () => {
     expect(applyEditOp(next, invertEditOp(op))).toEqual(content);
   });
 
+  it("remove_section of the head (afterKey null) inverts to a head re-add", () => {
+    const op: EditOp = { type: "remove_section", afterKey: null, removed: section("a", 1) };
+    const next = applyEditOp(content, op);
+    expect(next.sections.map((s) => s.key)).toEqual(["b", "c"]);
+    expect(next.sections.map((s) => s.number)).toEqual([1, 2]);
+    expect(applyEditOp(next, invertEditOp(op))).toEqual(content);
+  });
+
+  it("add_section with at:head inserts first, renumbers, and inverts to pristine", () => {
+    const op: EditOp = { type: "add_section", afterKey: null, at: "head", section: section("x", 0) };
+    const next = applyEditOp(content, op);
+    expect(next.sections.map((s) => s.key)).toEqual(["x", "a", "b", "c"]);
+    expect(next.sections.map((s) => s.number)).toEqual([1, 2, 3, 4]);
+    expect(applyEditOp(next, invertEditOp(op))).toEqual(content);
+  });
+
   it("update_masthead and update_global_rules round-trip", () => {
     const m: EditOp = { type: "update_masthead", before: { title: "Report" }, after: { title: "New Report" } };
     expect(applyEditOp(content, m).title).toBe("New Report");

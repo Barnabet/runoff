@@ -16,7 +16,13 @@ export function applyEditOp(content: BlueprintContent, op: EditOp): BlueprintCon
     case "edit_section":
       return { ...content, sections: content.sections.map((s) => (s.key === op.key ? { ...s, ...op.after } : s)) };
     case "add_section":
-      return { ...content, sections: insertAfter(content.sections, op.afterKey, op.section) };
+      return {
+        ...content,
+        sections:
+          op.at === "head"
+            ? renumber([op.section, ...content.sections])
+            : insertAfter(content.sections, op.afterKey, op.section),
+      };
     case "remove_section":
       return { ...content, sections: renumber(content.sections.filter((s) => s.key !== op.removed.key)) };
     case "update_masthead":
@@ -34,7 +40,9 @@ export function invertEditOp(op: EditOp): EditOp {
     case "add_section":
       return { type: "remove_section", afterKey: op.afterKey, removed: op.section };
     case "remove_section":
-      return { type: "add_section", afterKey: op.afterKey, section: op.removed };
+      return op.afterKey === null
+        ? { type: "add_section", afterKey: null, at: "head", section: op.removed }
+        : { type: "add_section", afterKey: op.afterKey, section: op.removed };
     case "update_masthead":
       return { ...op, before: op.after, after: op.before };
     case "update_global_rules":
