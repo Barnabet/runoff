@@ -7,7 +7,7 @@ export type SectionRunState = "queued" | "writing" | "done" | "failed";
 export interface RunProjection {
   status: "idle" | "running" | "paused" | "complete" | "failed";
   phase: string; // "READING SOURCES" | "DRAFTING §02" | "RENDERING" | "COMPLETE" | "FAILED" | "PAUSED"
-  sections: Record<string, { state: SectionRunState; typedText: string; blocks: Block[]; retries: number; words: number }>;
+  sections: Record<string, { state: SectionRunState; typedText: string; blocks: Block[]; retries: number; words: number; error?: string }>;
   log: { level: "info" | "warn" | "error" | "user"; message: string }[];
   questions: Record<string, { sectionKey: string; question: string; options: string[]; fallback: string; deadlineSection: string; status: "open" | "answered" | "fallback"; answer?: string }>;
   flags: { flagId: string; code: string; sectionKey: string; question: string; options: string[] }[];
@@ -91,6 +91,7 @@ export function reduceRun(
         // A section that could not be drafted (e.g. the model refused). The run
         // continues without it, so the phase is left unchanged.
         section(e.sectionKey).state = "failed";
+        section(e.sectionKey).error = e.error;
         p.log.push({ level: "error", message: `§ ${e.sectionKey} failed — ${e.error}` });
         break;
       }

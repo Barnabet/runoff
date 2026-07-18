@@ -37,6 +37,19 @@ describe("reduceRun", () => {
     expect(p.log).toContainEqual({ level: "error", message: "§ kpi failed — model refused to draft this section" });
   });
 
+  it("records the section_failed error on the section record", () => {
+    const p = reduceRun(
+      [
+        { type: "run_started", sectionKeys: ["s1"], blueprintRev: 1 },
+        { type: "section_started", sectionKey: "s1" },
+        { type: "section_failed", sectionKey: "s1", error: "model refused to draft this section" },
+      ],
+      [{ key: "s1", number: 1 }],
+    );
+    expect(p.sections.s1.state).toBe("failed");
+    expect(p.sections.s1.error).toBe("model refused to draft this section");
+  });
+
   it("tracks pause, questions and completion", () => {
     const events: RunEvent[] = [
       { type: "run_started", sectionKeys: ["kpi"], blueprintRev: 1 },
