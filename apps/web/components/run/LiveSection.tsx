@@ -1,6 +1,6 @@
 import type { Block } from "@runoff/core";
 import type { SectionRunState } from "@runoff/core";
-import { parseSectionText } from "@runoff/core";
+import { parseSectionText } from "@runoff/core/src/dialect.js";
 import { SectionBlocks } from "@/components/doc/SectionBlocks";
 
 /**
