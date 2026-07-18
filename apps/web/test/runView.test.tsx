@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
 import type { Block, RunEvent } from "@runoff/core";
 
 // `vi.mock` factories are hoisted; the fns they close over come from `vi.hoisted`.
@@ -26,15 +26,20 @@ import { RunView } from "../components/run/RunView";
 import type { GetRunResponse } from "../lib/api";
 
 // A no-op EventSource so the projection is driven purely by seeded events; the
-// streaming/dedupe path is covered by useRunProjection.test.tsx.
+// streaming/dedupe path is covered by useRunProjection.test.tsx. `last` lets a
+// test reach the live instance to simulate a stream error.
 class FakeEventSource {
+  static last: FakeEventSource | null = null;
   onmessage: ((e: { data: string }) => void) | null = null;
   onerror: (() => void) | null = null;
-  constructor(public url: string) {}
+  constructor(public url: string) {
+    FakeEventSource.last = this;
+  }
   close() {}
 }
 
 beforeEach(() => {
+  FakeEventSource.last = null;
   (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
 });
 afterEach(() => {
@@ -215,6 +220,37 @@ describe("Live Run — pause and completion", () => {
     const { getByText, queryByTestId } = render(<RunView payload={basePayload(finished, "complete")} />);
     expect(queryByTestId("completion-card")).toBeNull();
     expect(getByText(/Reader arrives in the next task/)).toBeTruthy();
+  });
+
+  it("remounts per run id so a new run does not inherit the previous projection", () => {
+    // Keying RunView by run id (as the server page does) forces a clean remount
+    // when "Run it again" navigates to a new run.
+    const first = basePayload(finished);
+    const { getByTestId, queryByTestId, rerender } = render(
+      <RunView key={first.run.id} payload={first} />,
+    );
+    expect(getByTestId("completion-card")).toBeTruthy();
+
+    const next = basePayload([
+      { type: "run_started", sectionKeys: ["s1", "s2", "s3"], blueprintRev: 15 },
+    ]);
+    next.run.id = "run_zzzz9999";
+    rerender(<RunView key={next.run.id} payload={next} />);
+
+    // Fresh queued run — the stale completion card is gone.
+    expect(queryByTestId("completion-card")).toBeNull();
+    expect(getByTestId("rail-row-s1").textContent).toContain("○");
+  });
+});
+
+describe("Live Run — connection loss", () => {
+  it("shows a banner when the SSE stream drops mid-run", () => {
+    const { getByTestId, queryByTestId } = render(<RunView payload={basePayload(midRun)} />);
+    expect(queryByTestId("connection-lost")).toBeNull();
+
+    act(() => FakeEventSource.last!.onerror?.());
+
+    expect(getByTestId("connection-lost").textContent).toContain("CONNECTION LOST");
   });
 });
 

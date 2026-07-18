@@ -12,5 +12,9 @@ export default async function RunPage({ params }: { params: Promise<{ id: string
   const { id } = await params;
   const payload = getRunPayload(getDb(), id);
   if (!payload) notFound();
-  return <RunView payload={payload} />;
+  // Key by run id: navigating "Run it again" pushes a new /runs/<id> without
+  // unmounting RunView, so without a changing key its useState initializers keep
+  // the previous run's projection until a fresh event arrives. The key forces a
+  // clean remount per run.
+  return <RunView key={payload.run.id} payload={payload} />;
 }

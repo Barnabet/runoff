@@ -40,10 +40,12 @@ function mmss(ms: number): string {
 export function LiveRunView({
   payload,
   projection,
+  connectionLost,
   onOpenReport,
 }: {
   payload: GetRunResponse;
   projection: RunProjection;
+  connectionLost: boolean;
   onOpenReport: () => void;
 }) {
   const router = useRouter();
@@ -109,7 +111,9 @@ export function LiveRunView({
       ) : (
         <span className="flex items-center gap-[6px] rounded-full border border-pencil px-[10px] py-[3px] font-mono text-[10px] tracking-[1px] text-pencil">
           <span
-            className={`inline-block h-[6px] w-[6px] rounded-full bg-pencil${terminal ? "" : " blink"}`}
+            className={`inline-block h-[6px] w-[6px] rounded-full ${
+              connectionLost ? "bg-ink/30" : `bg-pencil${terminal ? "" : " blink"}`
+            }`}
           />
           {projection.status === "paused" ? "PAUSED" : projection.phase || "STARTING"}
         </span>
@@ -137,6 +141,15 @@ export function LiveRunView({
   return (
     <>
       <Topbar center={center} right={right} />
+
+      {connectionLost ? (
+        <div
+          data-testid="connection-lost"
+          className="bg-amber-accent/14 px-[40px] py-[8px] font-mono text-[10.5px] tracking-[1px] text-amber"
+        >
+          CONNECTION LOST — refresh to resume the live view
+        </div>
+      ) : null}
 
       {projection.status === "failed" ? (
         <div

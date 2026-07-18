@@ -41,8 +41,9 @@ afterEach(cleanup);
 describe("useRunProjection", () => {
   it("seeds from the initial events", () => {
     const { result } = renderHook(() => useRunProjection("run_1", [runStarted, readA], meta));
-    expect(result.current.status).toBe("running");
-    expect(result.current.log.map((l) => l.message)).toEqual(["Read A — a"]);
+    expect(result.current.projection.status).toBe("running");
+    expect(result.current.projection.log.map((l) => l.message)).toEqual(["Read A — a"]);
+    expect(result.current.connectionLost).toBe(false);
   });
 
   it("skips the resent backlog and applies only the trailing new event once", async () => {
@@ -62,7 +63,10 @@ describe("useRunProjection", () => {
     // The two backlog messages are dropped; only readB is appended → exactly two
     // source_read log lines, in order, with no duplication.
     await waitFor(() =>
-      expect(result.current.log.map((l) => l.message)).toEqual(["Read A — a", "Read B — b"]),
+      expect(result.current.projection.log.map((l) => l.message)).toEqual([
+        "Read A — a",
+        "Read B — b",
+      ]),
     );
   });
 
@@ -88,7 +92,42 @@ describe("useRunProjection", () => {
       });
     });
 
-    await waitFor(() => expect(result.current.status).toBe("complete"));
+    await waitFor(() => expect(result.current.projection.status).toBe("complete"));
     expect(es.closed).toBe(true);
+    expect(result.current.connectionLost).toBe(false);
+  });
+
+  it("reports connection loss on a mid-run stream error", async () => {
+    const { result } = renderHook(() => useRunProjection("run_1", [runStarted], meta));
+    const es = FakeEventSource.last!;
+
+    act(() => es.onerror?.());
+
+    await waitFor(() => expect(result.current.connectionLost).toBe(true));
+    expect(es.closed).toBe(true);
+    // The projection freezes at its last-known (still running) state.
+    expect(result.current.projection.status).toBe("running");
+  });
+
+  it("does not open a stream for an already-terminal seed", () => {
+    const completed: RunEvent = {
+      type: "run_completed",
+      stats: {
+        durationMs: 1,
+        words: 0,
+        sourcesUsed: 0,
+        checksPassed: 0,
+        checksFailed: 0,
+        flagCount: 0,
+        citationCount: 0,
+        retries: 0,
+      },
+      document: { title: "t", eyebrow: "e", dateline: "d", sections: [] },
+    };
+    FakeEventSource.last = null;
+    const { result } = renderHook(() => useRunProjection("run_done", [runStarted, completed], meta));
+    expect(FakeEventSource.last).toBeNull();
+    expect(result.current.projection.status).toBe("complete");
+    expect(result.current.connectionLost).toBe(false);
   });
 });

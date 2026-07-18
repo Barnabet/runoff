@@ -15,7 +15,11 @@ import { LiveRunView } from "./LiveRunView";
  * placeholder Reader.)
  */
 export function RunView({ payload }: { payload: GetRunResponse }) {
-  const projection = useRunProjection(payload.run.id, payload.events, payload.sectionMeta);
+  const { projection, connectionLost } = useRunProjection(
+    payload.run.id,
+    payload.events,
+    payload.sectionMeta,
+  );
   const [showReader, setShowReader] = useState(payload.run.status === "complete");
 
   if (showReader) {
@@ -26,6 +30,7 @@ export function RunView({ payload }: { payload: GetRunResponse }) {
     <LiveRunView
       payload={payload}
       projection={projection}
+      connectionLost={connectionLost}
       onOpenReport={() => setShowReader(true)}
     />
   );
