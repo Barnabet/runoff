@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import type { BlueprintContent } from "@runoff/core";
 import { Builder } from "@/components/builder/Builder";
 import { getDb } from "@/lib/db";
-import type { SourceRow } from "@/lib/api";
+import { listProjectSources } from "@/lib/sourceManager";
 
 // The builder reads the live current revision and bound sources on every
 // request; a save or an applied copilot edit must show on reload without a
@@ -46,25 +46,14 @@ export default async function BlueprintPage({
   if (!revRow) notFound();
   const content = JSON.parse(revRow.content) as BlueprintContent;
 
-  const boundSources = db.sqlite
-    .prepare(
-      `SELECT s.id FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id
-       WHERE bs.blueprint_id = ?`,
-    )
-    .all(id) as { id: string }[];
-  // Task 7 replaces this global source list with project-scoped family binding;
-  // until then the builder keeps its existing "all sources" feed. Inlined here
-  // because the shared listSourcesWithUsage helper was retired with the old
-  // global /api/sources routes.
-  const allSources = db.sqlite
-    .prepare(
-      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt,
-              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.source_id = s.id) AS usedBy
-       FROM sources s
-       ORDER BY s.uploaded_at DESC, s.id DESC`,
-    )
-    .all() as SourceRow[];
+  // Project-scoped family binding: every family in the owning project is
+  // bindable, and blueprint_families records which are bound to this blueprint.
+  const { families } = listProjectSources(db, blueprint.projectId);
+  const boundFamilyIds = (
+    db.sqlite
+      .prepare("SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?")
+      .all(id) as { familyId: string }[]
+  ).map((r) => r.familyId);
 
   const initialSectionKey = content.sections[0]?.key ?? "";
 
@@ -78,8 +67,8 @@ export default async function BlueprintPage({
       initialStatus={blueprint.status}
       initialRev={blueprint.currentRev}
       initialContent={content}
-      allSources={allSources}
-      initialBoundIds={boundSources.map((s) => s.id)}
+      families={families}
+      initialBoundIds={boundFamilyIds}
       initialSectionKey={initialSectionKey}
     />
   );

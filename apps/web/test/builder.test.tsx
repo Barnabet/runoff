@@ -40,7 +40,7 @@ vi.mock("@/lib/api", () => ({
 }));
 
 import { Builder } from "../components/builder/Builder";
-import type { SourceRow } from "../lib/api";
+import type { FamilySummary } from "../lib/api";
 
 afterEach(() => {
   cleanup();
@@ -62,12 +62,23 @@ const baseContent: BlueprintContent = {
   delivery: { recipient: "x@y.com", autoDeliverOnClear: false },
 };
 
-const sources: SourceRow[] = [
-  { id: "src_a", name: "GA4", kind: "api", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString() },
-  { id: "src_b", name: "spend.csv", kind: "file", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString() },
+function fam(
+  id: string,
+  key: string,
+  label: string,
+  kind: "periodic" | "constant",
+  granularity: FamilySummary["granularity"],
+): FamilySummary {
+  return { id, key, label, kind, granularity, filedPeriods: [], filedEntries: [], liveFile: null };
+}
+
+const families: FamilySummary[] = [
+  fam("fam_q", "trade", "Trade data", "periodic", "quarter"),
+  fam("fam_m", "ga4", "GA4", "periodic", "month"),
+  fam("fam_c", "brand", "Brand", "constant", null),
 ];
 
-function renderBuilder(overrides?: { content?: BlueprintContent }) {
+function renderBuilder(overrides?: { content?: BlueprintContent; boundIds?: string[] }) {
   const content = overrides?.content ?? baseContent;
   return render(
     <Builder
@@ -79,8 +90,8 @@ function renderBuilder(overrides?: { content?: BlueprintContent }) {
       initialStatus="draft"
       initialRev={1}
       initialContent={content}
-      allSources={sources}
-      initialBoundIds={["src_a"]}
+      families={families}
+      initialBoundIds={overrides?.boundIds ?? []}
       initialSectionKey="s1"
     />,
   );
@@ -134,6 +145,45 @@ describe("save flow", () => {
     await waitFor(() => expect(saveRevision).toHaveBeenCalled());
     await waitFor(() => expect(createRun).toHaveBeenCalledWith("bp"));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/run_x"));
+  });
+});
+
+describe("ContentsRail source binding", () => {
+  it("shows the discoverable + bind sources… affordance when nothing is bound and opens edit mode", () => {
+    const { getByText, getByLabelText } = renderBuilder();
+    fireEvent.click(getByText("+ bind sources…"));
+    // Edit mode: a checkbox per project family (labelled by key).
+    expect(getByLabelText("trade")).toBeTruthy();
+    expect(getByLabelText("ga4")).toBeTruthy();
+    expect(getByLabelText("brand")).toBeTruthy();
+    expect(getByText("done")).toBeTruthy();
+  });
+
+  it("locks out mismatched-granularity periodic families once one is ticked", () => {
+    const { getByText, getByLabelText } = renderBuilder();
+    fireEvent.click(getByText("+ bind sources…"));
+    fireEvent.click(getByLabelText("trade")); // tick the quarter family
+    // The month family is now disabled with the granularity hint; the constant
+    // family stays free.
+    expect((getByLabelText("ga4") as HTMLInputElement).disabled).toBe(true);
+    expect(getByText("— granularity differs")).toBeTruthy();
+    expect((getByLabelText("brand") as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it("PATCHes { familyIds } when a family is toggled", async () => {
+    const { getByText, getByLabelText } = renderBuilder();
+    fireEvent.click(getByText("+ bind sources…"));
+    fireEvent.click(getByLabelText("brand"));
+    await waitFor(() =>
+      expect(patchBlueprint).toHaveBeenCalledWith("bp", { familyIds: ["fam_c"] }),
+    );
+  });
+
+  it("lists bound families with an edit-bindings affordance", () => {
+    const { getByText } = renderBuilder({ boundIds: ["fam_q"] });
+    expect(getByText("edit bindings…")).toBeTruthy();
+    // The bound family surfaces its mono key + granularity tag.
+    expect(getByText("quarter")).toBeTruthy();
   });
 });
 

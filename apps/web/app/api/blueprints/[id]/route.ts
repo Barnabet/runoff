@@ -1,4 +1,5 @@
 import { getDb } from "../../../../lib/db";
+import { listProjectSources } from "../../../../lib/sourceManager";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -14,7 +15,8 @@ interface BlueprintRow {
 }
 
 // GET /api/blueprints/:id — the blueprint row, its current revision content
-// (parsed), the sources bound to it, and its owning project (for a back-link).
+// (parsed), every family in the owning project (with filed periods), the ids of
+// the families bound to this blueprint, and the project itself (for a back-link).
 export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
   const db = getDb();
   const { id } = await ctx.params;
@@ -39,27 +41,28 @@ export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
     .get(id, blueprint.currentRev) as { content: string } | undefined;
   const content = revRow ? JSON.parse(revRow.content) : null;
 
-  const sources = db.sqlite
-    .prepare(
-      `SELECT s.id, s.name, s.kind, s.stored_filename AS storedFilename, s.mime, s.size,
-              s.uploaded_at AS uploadedAt
-       FROM blueprint_sources bs JOIN sources s ON s.id = bs.source_id
-       WHERE bs.blueprint_id = ?
-       ORDER BY s.uploaded_at DESC, s.id DESC`,
-    )
-    .all(id);
+  const { families } = listProjectSources(db, blueprint.projectId);
+  const boundFamilyIds = (
+    db.sqlite
+      .prepare("SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?")
+      .all(id) as { familyId: string }[]
+  ).map((r) => r.familyId);
 
-  return Response.json({ blueprint, content, sources, project });
+  return Response.json({ blueprint, content, project, families, boundFamilyIds });
 }
 
 // PATCH /api/blueprints/:id — update any of name/clientName/cadenceLabel/status
-// and, when `sourceIds` is present, replace the blueprint_sources rows.
+// and, when `familyIds` is present, replace the blueprint_families rows. Every
+// bound family must belong to the blueprint's project, and all bound *periodic*
+// families must share one granularity (a mixed set can't resolve a run period).
 export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
   const db = getDb();
   const { id } = await ctx.params;
 
-  const exists = db.sqlite.prepare("SELECT id FROM blueprints WHERE id = ?").get(id);
-  if (!exists) return Response.json({ error: "blueprint not found" }, { status: 404 });
+  const bp = db.sqlite
+    .prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?")
+    .get(id) as { projectId: string } | undefined;
+  if (!bp) return Response.json({ error: "blueprint not found" }, { status: 404 });
 
   let body: Record<string, unknown>;
   try {
@@ -75,6 +78,27 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
     status: "status",
   };
 
+  // Validate the family set BEFORE the write transaction: every id must exist
+  // and belong to this blueprint's project, and the periodic granularities must
+  // agree. Bad requests get a 400 with the rows left untouched.
+  let familyIds: string[] | null = null;
+  if (Array.isArray(body.familyIds)) {
+    familyIds = body.familyIds.filter((f): f is string => typeof f === "string");
+    const granularities = new Set<string>();
+    for (const famId of familyIds) {
+      const fam = db.sqlite
+        .prepare("SELECT kind, granularity, project_id AS projectId FROM source_families WHERE id = ?")
+        .get(famId) as { kind: string; granularity: string | null; projectId: string } | undefined;
+      if (!fam || fam.projectId !== bp.projectId) {
+        return Response.json({ error: "unknown family for this project" }, { status: 400 });
+      }
+      if (fam.kind === "periodic" && fam.granularity) granularities.add(fam.granularity);
+    }
+    if (granularities.size > 1) {
+      return Response.json({ error: "granularity differs among bound periodic families" }, { status: 400 });
+    }
+  }
+
   const tx = db.sqlite.transaction(() => {
     const sets: string[] = [];
     const values: unknown[] = [];
@@ -87,14 +111,12 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
     if (sets.length) {
       db.sqlite.prepare(`UPDATE blueprints SET ${sets.join(", ")} WHERE id = ?`).run(...values, id);
     }
-    if (Array.isArray(body.sourceIds)) {
-      db.sqlite.prepare("DELETE FROM blueprint_sources WHERE blueprint_id = ?").run(id);
+    if (familyIds) {
+      db.sqlite.prepare("DELETE FROM blueprint_families WHERE blueprint_id = ?").run(id);
       const ins = db.sqlite.prepare(
-        "INSERT OR IGNORE INTO blueprint_sources (blueprint_id, source_id) VALUES (?, ?)",
+        "INSERT OR IGNORE INTO blueprint_families (blueprint_id, family_id) VALUES (?, ?)",
       );
-      for (const sid of body.sourceIds) {
-        if (typeof sid === "string") ins.run(id, sid);
-      }
+      for (const famId of familyIds) ins.run(id, famId);
     }
   });
   tx();

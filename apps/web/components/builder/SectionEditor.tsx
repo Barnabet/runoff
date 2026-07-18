@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import type { BlueprintContent, BlueprintSection, Rule } from "@runoff/core";
+import type { FamilySummary } from "@/lib/api";
 import { DocumentPage } from "@/components/doc/DocumentPage";
 import { Greeked } from "@/components/doc/Greeked";
 
@@ -121,20 +122,74 @@ function RulesEditor({
 
 const MODES: BlueprintSection["mode"][] = ["fixed", "auto", "review"];
 
+/**
+ * The per-section source picker: one checkbox per family bound to the blueprint,
+ * toggling this section's `familyIds` in the draft. Shows the human label with
+ * the mono `key` beside it; an empty pool nudges the builder to bind at the rail.
+ */
+function SectionSourcePicker({
+  familyIds,
+  boundFamilies,
+  onToggle,
+}: {
+  familyIds: string[];
+  boundFamilies: FamilySummary[];
+  onToggle: (id: string) => void;
+}) {
+  return (
+    <div className="mt-[18px]">
+      <div className="mb-[8px] font-sans text-[9.5px] font-semibold uppercase tracking-[1.8px] text-ink/50">
+        Sources
+      </div>
+      {boundFamilies.length === 0 ? (
+        <div className="font-serif text-[12.5px] italic text-ink/45">
+          No families bound to this blueprint yet.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-[6px]">
+          {boundFamilies.map((f) => (
+            <label
+              key={f.id}
+              className="flex cursor-pointer items-center gap-[7px] font-serif text-[13px] text-ink/70"
+            >
+              <input
+                type="checkbox"
+                checked={familyIds.includes(f.id)}
+                onChange={() => onToggle(f.id)}
+                aria-label={f.label}
+              />
+              <span>{f.label}</span>
+              <span className="font-mono text-[10px] text-ink/40">{f.key}</span>
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** The fully-editable body for the selected section. */
 function SelectedSection({
   section,
   onChange,
   labelFor,
+  boundFamilies,
   touched,
 }: {
   section: BlueprintSection;
   onChange: (patch: Partial<BlueprintSection>) => void;
   labelFor: (id: string) => string;
+  boundFamilies: FamilySummary[];
   touched?: Set<string>;
 }) {
   const caption =
     section.familyIds.map(labelFor).join(" · ") || "no sources bound";
+  function toggleFamily(id: string) {
+    const next = section.familyIds.includes(id)
+      ? section.familyIds.filter((x) => x !== id)
+      : [...section.familyIds, id];
+    onChange({ familyIds: next });
+  }
   // A field the copilot just edited gets a brief amber wash so the change is
   // visible in the center editor; `${key}.*` flashes the whole section.
   const flash = (key: string, field: string) =>
@@ -195,7 +250,14 @@ function SelectedSection({
             />
           </div>
           <div className={`mt-[18px]${flash(section.key, "familyIds")}`}>
-            <Greeked lines={4} caption={caption} />
+            <SectionSourcePicker
+              familyIds={section.familyIds}
+              boundFamilies={boundFamilies}
+              onToggle={toggleFamily}
+            />
+            <div className="mt-[18px]">
+              <Greeked lines={4} caption={caption} />
+            </div>
           </div>
         </>
       )}
@@ -252,6 +314,7 @@ export function SectionEditor({
   onChange,
   onSelect,
   labelFor,
+  boundFamilies,
   touched,
 }: {
   content: BlueprintContent;
@@ -259,6 +322,7 @@ export function SectionEditor({
   onChange: (next: BlueprintContent) => void;
   onSelect: (key: string) => void;
   labelFor: (id: string) => string;
+  boundFamilies: FamilySummary[];
   touched?: Set<string>;
 }) {
   function patchContent(patch: Partial<BlueprintContent>) {
@@ -304,6 +368,7 @@ export function SectionEditor({
             key={section.key}
             section={section}
             labelFor={labelFor}
+            boundFamilies={boundFamilies}
             touched={touched}
             onChange={(patch) => patchSection(section.key, patch)}
           />

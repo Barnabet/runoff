@@ -41,23 +41,12 @@ export interface BlueprintRow {
   createdAt: string;
 }
 
-export interface SourceRow {
-  id: string;
-  name: string;
-  kind: string;
-  storedFilename: string;
-  mime: string;
-  size: number;
-  uploadedAt: string;
-  usedBy?: number;
-}
-
 export type PatchBlueprintBody = Partial<{
   name: string;
   clientName: string;
   cadenceLabel: string;
   status: string;
-  sourceIds: string[];
+  familyIds: string[];
 }>;
 
 const JSON_HEADERS = { "content-type": "application/json" };
@@ -81,7 +70,13 @@ export function createBlueprint(body: { name: string; clientName: string; projec
 
 export function getBlueprint(
   id: string,
-): Promise<{ blueprint: BlueprintRow; content: BlueprintContent; sources: SourceRow[]; project: { id: string; name: string } }> {
+): Promise<{
+  blueprint: BlueprintRow;
+  content: BlueprintContent;
+  project: { id: string; name: string };
+  families: FamilySummary[];
+  boundFamilyIds: string[];
+}> {
   return fetchJson(`/api/blueprints/${id}`);
 }
 

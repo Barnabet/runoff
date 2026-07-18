@@ -7,7 +7,7 @@ import { GET as listBlueprints, POST as createBlueprint } from "../app/api/bluep
 import { GET as getBlueprint, PATCH as patchBlueprint } from "../app/api/blueprints/[id]/route";
 import { POST as saveRevision } from "../app/api/blueprints/[id]/revisions/route";
 import { getDb } from "../lib/db";
-import { newId, type BlueprintContent } from "@runoff/core";
+import type { BlueprintContent } from "@runoff/core";
 
 // A fresh temp DB + files dir per test; clear the cached connection getDb()
 // memoises on globalThis so each test opens its own database.
@@ -37,17 +37,7 @@ async function makeBlueprint(name = "R", clientName = "C"): Promise<string> {
   return (await res.json()).id as string;
 }
 
-// Project-scoped upload/classify/confirm live in test/sourceManager.test.ts.
-// Here we only need a bindable source row, so insert one directly.
-function makeSource(origName = "spend.csv", type = "text/csv", label = "Spend Data"): string {
-  const id = newId("src");
-  getDb()
-    .sqlite.prepare(
-      "INSERT INTO sources (id, project_id, name, kind, stored_filename, mime, size, status) VALUES (?, ?, ?, 'file', ?, ?, 8, 'unfiled')",
-    )
-    .run(id, PROJECT_ID, label, `${id}_${origName}`, type);
-  return id;
-}
+// Project-scoped family binding is exercised in test/binding.test.ts.
 
 const validContent: BlueprintContent = {
   title: "R2",
@@ -107,17 +97,19 @@ describe("POST /api/blueprints + GET /api/blueprints", () => {
 });
 
 describe("GET /api/blueprints/:id", () => {
-  it("returns the blueprint, its current revision content, and (empty) sources", async () => {
+  it("returns the blueprint, its current revision content, project, and (empty) families/boundFamilyIds", async () => {
     const id = await makeBlueprint("R", "C");
     const res = await getBlueprint(new Request("http://x"), ctx(id));
     expect(res.status).toBe(200);
-    const { blueprint, content, sources } = await res.json();
+    const { blueprint, content, project, families, boundFamilyIds } = await res.json();
     expect(blueprint.id).toBe(id);
     expect(content.title).toBe("R");
     expect(content.clientName).toBe("C");
     expect(content.sections).toEqual([]);
     expect(content.delivery).toEqual({ recipient: "", autoDeliverOnClear: false });
-    expect(sources).toEqual([]);
+    expect(project).toEqual({ id: PROJECT_ID, name: "Test Project" });
+    expect(families).toEqual([]);
+    expect(boundFamilyIds).toEqual([]);
   });
 
   it("returns 404 for a missing blueprint", async () => {
@@ -161,24 +153,24 @@ describe("PATCH /api/blueprints/:id", () => {
     expect(blueprint.status).toBe("active");
   });
 
-  it("binds sourceIds (replacing existing rows) and reflects in GET + counts", async () => {
+  it("binds familyIds (replacing existing rows) and reflects in GET", async () => {
     const id = await makeBlueprint();
-    const srcId = makeSource();
+    getDb()
+      .sqlite.prepare(
+        "INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_x', ?, 'ga4', 'GA4', 'periodic', 'month')",
+      )
+      .run(PROJECT_ID);
 
-    const res = await patchBlueprint(jsonReq({ sourceIds: [srcId] }, "PATCH"), ctx(id));
+    const res = await patchBlueprint(jsonReq({ familyIds: ["fam_x"] }, "PATCH"), ctx(id));
     expect(res.status).toBe(200);
 
-    const { sources } = await (await getBlueprint(new Request("http://x"), ctx(id))).json();
-    expect(sources).toHaveLength(1);
-    expect(sources[0].id).toBe(srcId);
-
-    const bpList = await (await listBps()).json();
-    expect(bpList.blueprints[0].sourceCount).toBe(1);
+    const { boundFamilyIds } = await (await getBlueprint(new Request("http://x"), ctx(id))).json();
+    expect(boundFamilyIds).toEqual(["fam_x"]);
 
     // Replace with empty -> unbinds.
-    await patchBlueprint(jsonReq({ sourceIds: [] }, "PATCH"), ctx(id));
+    await patchBlueprint(jsonReq({ familyIds: [] }, "PATCH"), ctx(id));
     const after = await (await getBlueprint(new Request("http://x"), ctx(id))).json();
-    expect(after.sources).toHaveLength(0);
+    expect(after.boundFamilyIds).toEqual([]);
   });
 });
 

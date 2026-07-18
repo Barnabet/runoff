@@ -10,7 +10,7 @@ import {
   createRun,
   patchBlueprint,
   saveRevision,
-  type SourceRow,
+  type FamilySummary,
 } from "@/lib/api";
 import { applyEditOp } from "@/lib/editOps";
 import { ContentsRail } from "./ContentsRail";
@@ -20,6 +20,21 @@ import { CopilotRail } from "./CopilotRail";
 /** Best-effort human message from a rejected API promise. */
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
+}
+
+/** The server's `{ error }` string out of a rejected fetchJson promise. */
+function bindErrMsg(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const m = raw.match(/\{.*\}/);
+  if (m) {
+    try {
+      const parsed = JSON.parse(m[0]) as { error?: unknown };
+      if (typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // fall through to the generic message
+    }
+  }
+  return "Could not update sources.";
 }
 
 /** A client-side section key — browsers can't import the server-only `newId`. */
@@ -40,7 +55,7 @@ export interface BuilderProps {
   initialStatus: string;
   initialRev: number;
   initialContent: BlueprintContent;
-  allSources: SourceRow[];
+  families: FamilySummary[];
   initialBoundIds: string[];
   initialSectionKey: string;
 }
@@ -60,7 +75,7 @@ export function Builder({
   initialStatus,
   initialRev,
   initialContent,
-  allSources,
+  families,
   initialBoundIds,
   initialSectionKey,
 }: BuilderProps) {
@@ -71,6 +86,7 @@ export function Builder({
   const [rev, setRev] = useState(initialRev);
   const [status, setStatus] = useState(initialStatus);
   const [boundIds, setBoundIds] = useState<string[]>(initialBoundIds);
+  const [bindError, setBindError] = useState<string | null>(null);
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
   // Refs keep the stable Cmd/Ctrl+S handler reading the latest draft.
@@ -81,9 +97,15 @@ export function Builder({
 
   const labelFor = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const s of allSources) map[s.id] = s.name;
+    for (const f of families) map[f.id] = f.label;
     return (id: string) => map[id] ?? id;
-  }, [allSources]);
+  }, [families]);
+
+  // The families bound to the blueprint — the pool a section may draw from.
+  const boundFamilies = useMemo(
+    () => families.filter((f) => boundIds.includes(f.id)),
+    [families, boundIds],
+  );
 
   function updateContent(next: BlueprintContent) {
     setContent(next);
@@ -141,10 +163,15 @@ export function Builder({
   }
 
   function changeBoundIds(ids: string[]) {
+    const prev = boundIds;
     setBoundIds(ids);
-    patchBlueprint(blueprintId, { sourceIds: ids }).catch(() =>
-      showToast("Could not update sources."),
-    );
+    setBindError(null);
+    patchBlueprint(blueprintId, { familyIds: ids }).catch((err) => {
+      // The server enforces the granularity guard too; on a rejection revert the
+      // optimistic change and surface the reason inline (pencil italic, no alert).
+      setBoundIds(prev);
+      setBindError(bindErrMsg(err));
+    });
   }
 
   // A copilot edit op applies to the client draft (marking it dirty, like any
@@ -230,9 +257,10 @@ export function Builder({
           selectedKey={selectedKey}
           onSelect={setSelectedKey}
           onAddSection={addSection}
-          allSources={allSources}
+          families={families}
           boundIds={boundIds}
           onBoundIdsChange={changeBoundIds}
+          bindError={bindError}
         />
 
         <div className="relative flex flex-col items-center">
@@ -242,6 +270,7 @@ export function Builder({
             onChange={updateContent}
             onSelect={setSelectedKey}
             labelFor={labelFor}
+            boundFamilies={boundFamilies}
             touched={touched}
           />
           {dirty ? (

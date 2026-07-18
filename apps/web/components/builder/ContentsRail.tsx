@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import type { BlueprintContent, BlueprintSection } from "@runoff/core";
-import type { SourceRow } from "@/lib/api";
-import { fmtRel, isStale } from "@/lib/format";
+import type { FamilySummary } from "@/lib/api";
 
 /** The badge shown at the right of a ToC row, derived from the section's mode. */
 function sectionBadge(section: BlueprintSection): { label: string; review: boolean } {
   if (section.mode === "fixed") return { label: "FIXED", review: false };
   if (section.mode === "review") return { label: "REVIEW", review: true };
-  // auto: surface the bound-source count when it carries sources, else AUTO.
+  // auto: surface the bound-family count when it carries sources, else AUTO.
   if (section.familyIds.length > 0) return { label: `${section.familyIds.length} SRC`, review: false };
   return { label: "AUTO", review: false };
 }
@@ -25,30 +24,43 @@ function Badge({ label, review }: { label: string; review: boolean }) {
   );
 }
 
+/** The mono granularity/kind tag for a family (e.g. `quarter`, `constant`). */
+function familyTag(f: FamilySummary): string {
+  return f.kind === "constant" ? "constant" : (f.granularity ?? "periodic");
+}
+
 /**
  * The left ToC rail: numbered section rows with mode badges, an add-section
- * affordance, and a bound-source mini-list pinned to the bottom that expands
- * into a checkbox binding editor over every connected source.
+ * affordance, and a bound-family binder pinned to the bottom. When nothing is
+ * bound the binder offers a discoverable `+ bind sources…` affordance; edit mode
+ * exposes one checkbox per project family and disables periodic families whose
+ * granularity would clash with an already-ticked one.
  */
 export function ContentsRail({
   content,
   selectedKey,
   onSelect,
   onAddSection,
-  allSources,
+  families,
   boundIds,
   onBoundIdsChange,
+  bindError,
 }: {
   content: BlueprintContent;
   selectedKey: string;
   onSelect: (key: string) => void;
   onAddSection: () => void;
-  allSources: SourceRow[];
+  families: FamilySummary[];
   boundIds: string[];
   onBoundIdsChange: (ids: string[]) => void;
+  bindError?: string | null;
 }) {
-  const [editingSources, setEditingSources] = useState(false);
-  const bound = allSources.filter((s) => boundIds.includes(s.id));
+  const [editing, setEditing] = useState(false);
+  const bound = families.filter((f) => boundIds.includes(f.id));
+
+  // The single granularity already anchored by a ticked periodic family; any
+  // periodic family of a different granularity is then locked out.
+  const activeGran = bound.find((f) => f.kind === "periodic" && f.granularity)?.granularity ?? null;
 
   function toggle(id: string) {
     const next = boundIds.includes(id) ? boundIds.filter((x) => x !== id) : [...boundIds, id];
@@ -93,54 +105,82 @@ export function ContentsRail({
       </button>
 
       <div className="mt-auto border-t border-ink/12 pr-[18px] pt-[14px]">
-        <button
-          type="button"
-          onClick={() => setEditingSources((v) => !v)}
-          className="mb-[10px] mt-[4px] block font-sans text-[9.5px] font-semibold uppercase tracking-[2.5px] text-ink/45"
-        >
+        <div className="mb-[10px] mt-[4px] font-sans text-[9.5px] font-semibold uppercase tracking-[2.5px] text-ink/45">
           Sources
-        </button>
+        </div>
 
-        {editingSources ? (
+        {editing ? (
           <div className="flex flex-col gap-[6px]">
-            {allSources.length === 0 ? (
-              <div className="font-serif text-[12px] italic text-ink/45">No sources connected.</div>
+            {families.length === 0 ? (
+              <div className="font-serif text-[12px] italic text-ink/45">No families in this project.</div>
             ) : (
-              allSources.map((s) => (
-                <label
-                  key={s.id}
-                  className="flex cursor-pointer items-center gap-[7px] font-mono text-[10.5px] text-ink/70"
-                >
-                  <input
-                    type="checkbox"
-                    checked={boundIds.includes(s.id)}
-                    onChange={() => toggle(s.id)}
-                    aria-label={s.name}
-                  />
-                  {s.name}
-                </label>
-              ))
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-[6px] font-mono text-[10.5px] text-ink/70">
-            {bound.length === 0 ? (
-              <div className="font-serif text-[12px] italic text-ink/45">No sources bound.</div>
-            ) : (
-              bound.map((s) => {
-                const ts = s.uploadedAt;
-                const stale = isStale(ts);
+              families.map((f) => {
+                const checked = boundIds.includes(f.id);
+                const locked =
+                  !checked &&
+                  f.kind === "periodic" &&
+                  !!f.granularity &&
+                  !!activeGran &&
+                  f.granularity !== activeGran;
                 return (
-                  <div key={s.id}>
-                    {s.name}{" "}
-                    <span className={stale ? "text-amber" : "text-ink/40"}>
-                      — {fmtRel(ts)}
-                      {stale ? " stale" : ""}
-                    </span>
-                  </div>
+                  <label
+                    key={f.id}
+                    className={`flex cursor-pointer items-center gap-[7px] font-mono text-[10.5px] ${
+                      locked ? "text-ink/30" : "text-ink/70"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      disabled={locked}
+                      onChange={() => toggle(f.id)}
+                      aria-label={f.key}
+                    />
+                    <span>{f.key}</span>
+                    <span className="text-ink/40">{familyTag(f)}</span>
+                    {locked ? (
+                      <span className="ml-auto font-mono text-[9px] text-ink/40">— granularity differs</span>
+                    ) : null}
+                  </label>
                 );
               })
             )}
+            {bindError ? (
+              <div className="font-serif text-[11.5px] italic text-pencil">{bindError}</div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setEditing(false)}
+              className="mt-[2px] text-left font-serif text-[12px] italic text-ink/50"
+            >
+              done
+            </button>
+          </div>
+        ) : bound.length === 0 ? (
+          <button
+            type="button"
+            onClick={() => setEditing(true)}
+            className="text-left font-serif text-[13px] italic text-ink/50"
+          >
+            + bind sources…
+          </button>
+        ) : (
+          <div className="flex flex-col gap-[6px]">
+            {bound.map((f) => (
+              <div key={f.id} className="font-mono text-[10.5px] text-ink/70">
+                {f.key} <span className="text-ink/40">{familyTag(f)}</span>
+              </div>
+            ))}
+            {bindError ? (
+              <div className="font-serif text-[11.5px] italic text-pencil">{bindError}</div>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="mt-[2px] text-left font-serif text-[12px] italic text-ink/50"
+            >
+              edit bindings…
+            </button>
           </div>
         )}
       </div>
