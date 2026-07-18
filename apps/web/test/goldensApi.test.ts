@@ -1,3 +1,6 @@
+import { unlinkSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, it, expect, beforeEach } from "vitest";
 import type { RunDocument } from "@runoff/core";
 
@@ -110,5 +113,34 @@ describe("goldens API", () => {
     expect(resolved).not.toBeNull();
     expect(resolved!.text).toContain("Hello world.");
     expect(resolved!.description).toContain("Exec");
+  });
+
+  it("resolveGoldenText returns null when the run document is corrupt JSON", async () => {
+    seedBlueprint("bp_1");
+    seedRun("run_1", "bp_1");
+    const { id } = await (await postGolden(jsonReq({ kind: "run", runId: "run_1" }), ctx("bp_1"))).json();
+
+    getDb().sqlite.prepare("UPDATE runs SET document = ? WHERE id = ?").run("not json{", "run_1");
+
+    const resolved = await resolveGoldenText(getDb(), id);
+    expect(resolved).toBeNull();
+  });
+
+  it("resolveGoldenText returns null when the exemplar file is missing from disk", async () => {
+    seedBlueprint("bp_1");
+
+    const form = new FormData();
+    form.set("file", new File(["golden text here"], "example.txt", { type: "text/plain" }));
+    const { id } = await (
+      await postGolden(new Request("http://x", { method: "POST", body: form }), ctx("bp_1"))
+    ).json();
+
+    const { storedFilename } = getDb()
+      .sqlite.prepare("SELECT stored_filename AS storedFilename FROM goldens WHERE id = ?")
+      .get(id) as { storedFilename: string };
+    unlinkSync(join(process.env.RUNOFF_FILES_DIR!, storedFilename));
+
+    const resolved = await resolveGoldenText(getDb(), id);
+    expect(resolved).toBeNull();
   });
 });

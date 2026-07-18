@@ -32,15 +32,24 @@ export async function resolveGoldenText(
   if (g.kind === "exemplar") {
     if (!g.storedFilename) return null;
     const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
-    const pack = await buildSourcePack([
-      { id: g.id, name: g.name ?? "exemplar", mime: g.mime ?? "text/plain", path: join(filesDir, g.storedFilename) },
-    ]);
-    return { description: `Uploaded exemplar "${g.name ?? "exemplar"}"`, text: packForPrompt(pack, [g.id], 40) };
+    try {
+      const pack = await buildSourcePack([
+        { id: g.id, name: g.name ?? "exemplar", mime: g.mime ?? "text/plain", path: join(filesDir, g.storedFilename) },
+      ]);
+      return { description: `Uploaded exemplar "${g.name ?? "exemplar"}"`, text: packForPrompt(pack, [g.id], 40) };
+    } catch {
+      return null;
+    }
   }
 
   const row = db.sqlite.prepare("SELECT document FROM runs WHERE id = ?").get(g.runId) as { document: string | null } | undefined;
   if (!row?.document) return null;
-  const doc = JSON.parse(row.document) as RunDocument;
+  let doc: RunDocument;
+  try {
+    doc = JSON.parse(row.document) as RunDocument;
+  } catch {
+    return null;
+  }
   if (g.kind === "section") {
     const s = doc.sections.find((x) => x.key === g.sectionKey);
     if (!s) return null;
