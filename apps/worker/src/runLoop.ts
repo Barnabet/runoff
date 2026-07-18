@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import type OpenAI from "openai";
-import { type RunoffDb, type RunEvent, BlueprintContentSchema } from "@runoff/core";
+import { type RunoffDb, type RunEvent, BlueprintContentSchema, previousCompletedDocument } from "@runoff/core";
 import { executeRun, type EngineIO, type RunInputMsg, type EngineFile } from "@runoff/engine";
 
 /** Atomically claim the oldest queued run (single statement; RETURNING gives us its identity). */
@@ -135,7 +135,22 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
       path: join(filesDir, s.storedFilename),
     }));
 
-    await executeRun({ client, content, files, io, blueprintRev: claimed.blueprintRev });
+    const runRow = db.sqlite
+      .prepare("SELECT created_at AS createdAt FROM runs WHERE id = ?")
+      .get(claimed.id) as { createdAt: string };
+    const previous = previousCompletedDocument(db.sqlite, claimed.blueprintId, {
+      runId: claimed.id,
+      createdAt: runRow.createdAt,
+    });
+
+    await executeRun({
+      client,
+      content,
+      files,
+      io,
+      blueprintRev: claimed.blueprintRev,
+      previousDocument: previous?.document,
+    });
     // Success is already persisted by the `run_completed` emit handler.
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
