@@ -202,15 +202,23 @@ async function distillCompletedRun(
   try {
     const events = db.sqlite
       .prepare(
-        "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('steer_received','question_answered') ORDER BY seq",
+        "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN ('steer_received','question_raised','question_answered') ORDER BY seq",
       )
       .all(runId) as { type: string; payload: string }[];
+    // `question_answered` carries only {questionId, answer}; the question text
+    // lives in the preceding `question_raised` event, so map ids -> text first.
+    const questionText = new Map<string, string>();
+    for (const e of events) {
+      if (e.type !== "question_raised") continue;
+      const p = JSON.parse(e.payload);
+      if (typeof p.questionId === "string" && typeof p.question === "string") questionText.set(p.questionId, p.question);
+    }
     const interactions: RunInteractions = { steers: [], answers: [], flagResolutions: [] };
     for (const e of events) {
       const p = JSON.parse(e.payload);
       if (e.type === "steer_received" && typeof p.text === "string") interactions.steers.push(p.text);
       if (e.type === "question_answered" && typeof p.answer === "string") {
-        interactions.answers.push({ question: String(p.question ?? p.questionId ?? ""), answer: p.answer });
+        interactions.answers.push({ question: questionText.get(p.questionId) ?? String(p.questionId ?? ""), answer: p.answer });
       }
     }
     const flagRows = db.sqlite

@@ -56,7 +56,7 @@ describe("worker memory wiring", () => {
     db.sqlite.prepare("INSERT INTO memories (id, blueprint_id, body, source, status) VALUES ('m3','bp_1','Old.','copilot','disabled')").run();
     queueRun(db, RUN_ID, "2026-07-18 09:00:00");
     executeRun.mockResolvedValue({ document: DOC, stats: STATS });
-    distillRun.mockResolvedValue([]);
+    // No interactions on this run, so the distiller is never reached.
 
     await processOne(db, {} as never);
 
@@ -71,9 +71,15 @@ describe("worker memory wiring", () => {
     const db = seedDb();
     queueRun(db, RUN_ID, "2026-07-18 09:00:00");
 
-    // Interactive run: executeRun emits a steer + completion through the run's event log.
+    // Interactive run: executeRun emits a steer, a raised+answered question, and
+    // completion through the run's event log.
     executeRun.mockImplementation(async (opts: any) => {
       opts.io.emit({ type: "steer_received", sectionKey: "exec", text: "shorter please" });
+      opts.io.emit({
+        type: "question_raised", questionId: "q_1", sectionKey: "exec",
+        question: "Which fiscal year?", options: [], fallback: "", deadlineSection: "exec",
+      });
+      opts.io.emit({ type: "question_answered", questionId: "q_1", answer: "FY2025" });
       opts.io.emit({ type: "run_completed", stats: STATS, document: DOC });
       return { document: DOC, stats: STATS };
     });
@@ -82,8 +88,12 @@ describe("worker memory wiring", () => {
     await processOne(db, {} as never);
 
     expect(distillRun).toHaveBeenCalledOnce();
-    const arg = distillRun.mock.calls[0][0] as { interactions: { steers: string[] } };
+    const arg = distillRun.mock.calls[0][0] as {
+      interactions: { steers: string[]; answers: { question: string; answer: string }[] };
+    };
     expect(arg.interactions.steers).toEqual(["shorter please"]);
+    // The distiller must receive the question TEXT, not the opaque questionId.
+    expect(arg.interactions.answers).toEqual([{ question: "Which fiscal year?", answer: "FY2025" }]);
     const rows = db.sqlite.prepare("SELECT body, source, origin_id AS originId, status FROM memories WHERE source='distilled'").all();
     expect(rows).toEqual([{ body: "Keep the executive summary short.", source: "distilled", originId: RUN_ID, status: "active" }]);
 
@@ -98,5 +108,64 @@ describe("worker memory wiring", () => {
     await processOne(db, {} as never);
 
     expect(distillRun).not.toHaveBeenCalled();
+  });
+
+  it("a distiller failure never flips a completed run to failed", async () => {
+    const db = seedDb();
+    queueRun(db, RUN_ID, "2026-07-18 09:00:00");
+
+    executeRun.mockImplementation(async (opts: any) => {
+      opts.io.emit({ type: "steer_received", sectionKey: "exec", text: "shorter please" });
+      opts.io.emit({ type: "run_completed", stats: STATS, document: DOC });
+      return { document: DOC, stats: STATS };
+    });
+    // If this throw escaped distillCompletedRun into processOne's outer catch,
+    // the run would be flipped to failed.
+    distillRun.mockRejectedValue(new Error("distill boom"));
+
+    await processOne(db, {} as never);
+
+    const run = db.sqlite.prepare("SELECT status FROM runs WHERE id = ?").get(RUN_ID) as { status: string };
+    expect(run.status).toBe("complete");
+    const failed = db.sqlite
+      .prepare("SELECT COUNT(*) AS n FROM run_events WHERE run_id = ? AND type = 'run_failed'")
+      .get(RUN_ID) as { n: number };
+    expect(failed.n).toBe(0);
+  });
+
+  it("caps active memories at 30, disabling the oldest active row", async () => {
+    const db = seedDb();
+    const insert = db.sqlite.prepare(
+      "INSERT INTO memories (id, blueprint_id, body, source) VALUES (?, 'bp_1', ?, 'distilled')",
+    );
+    for (let i = 0; i < 30; i++) insert.run(`seed_${i}`, `Memory ${i}.`);
+
+    queueRun(db, RUN_ID, "2026-07-18 09:00:00");
+    executeRun.mockImplementation(async (opts: any) => {
+      opts.io.emit({ type: "steer_received", sectionKey: "exec", text: "shorter please" });
+      opts.io.emit({ type: "run_completed", stats: STATS, document: DOC });
+      return { document: DOC, stats: STATS };
+    });
+    distillRun.mockResolvedValue(["A fresh distilled memory."]);
+
+    await processOne(db, {} as never);
+
+    // The new memory landed.
+    const fresh = db.sqlite
+      .prepare("SELECT status FROM memories WHERE body = 'A fresh distilled memory.'")
+      .get() as { status: string } | undefined;
+    expect(fresh).toEqual({ status: "active" });
+
+    // The cap holds: still exactly 30 active.
+    const active = db.sqlite
+      .prepare("SELECT COUNT(*) AS n FROM memories WHERE blueprint_id = 'bp_1' AND status = 'active'")
+      .get() as { n: number };
+    expect(active.n).toBe(30);
+
+    // The disabled row is the OLDEST of the original 30 (lowest rowid).
+    const disabled = db.sqlite
+      .prepare("SELECT id FROM memories WHERE blueprint_id = 'bp_1' AND status = 'disabled'")
+      .all() as { id: string }[];
+    expect(disabled).toEqual([{ id: "seed_0" }]);
   });
 });
