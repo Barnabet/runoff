@@ -68,6 +68,16 @@ describe("fileSource", () => {
     expect(fileSource(db, { projectId: "proj_1", sourceId: "src_b", newFamily: { key: "ga4", label: "GA4 again", kind: "periodic", granularity: "month" }, period: "2026-07" })).toMatchObject({ status: 400 });
   });
 
+  it("does not create the new family when the period fails validation, then succeeds on retry", () => {
+    const db = makeTestDb(); seedProject(db);
+    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "bad" })).toMatchObject({ status: 400 });
+    // The failed attempt must NOT have committed an orphan family row.
+    expect(db.sqlite.prepare("SELECT id FROM source_families WHERE project_id='proj_1' AND key='ga4'").get()).toBeUndefined();
+    // Retrying with a valid period now succeeds (no "already exists" collision).
+    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "2026-06" })).toEqual({ ok: true });
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE project_id='proj_1' AND key='ga4'").get()).toEqual({ n: 1 });
+  });
+
   it("listProjectSources groups by family with ascending periods and surfaces unfiled rows", () => {
     const db = makeTestDb(); seedProject(db);
     fileSource(db, { projectId: "proj_1", sourceId: "src_b", familyId: "fam_q", period: "2026-Q2" });

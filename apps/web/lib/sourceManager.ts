@@ -79,6 +79,10 @@ export function fileSource(db: RunoffDb, args: FileSourceArgs): { ok: true } | {
     let kind: "periodic" | "constant";
     let granularity: Granularity | null;
 
+    // Resolve the target family's kind/granularity WITHOUT writing yet: a
+    // `return` inside a better-sqlite3 transaction commits, so the new-family
+    // INSERT must land only after every validation (incl. the period) passes —
+    // otherwise a bad period would leave an orphan family row behind.
     if (args.newFamily) {
       const dup = db.sqlite
         .prepare("SELECT id FROM source_families WHERE project_id = ? AND key = ?")
@@ -86,10 +90,6 @@ export function fileSource(db: RunoffDb, args: FileSourceArgs): { ok: true } | {
       if (dup) { result = { error: `family key already exists: ${args.newFamily.key}`, status: 400 }; return; }
       if (args.newFamily.kind === "periodic" && !args.newFamily.granularity) { result = { error: "periodic family requires a granularity", status: 400 }; return; }
       if (args.newFamily.kind === "constant" && args.newFamily.granularity) { result = { error: "constant family cannot have a granularity", status: 400 }; return; }
-      familyId = newId("fam");
-      db.sqlite
-        .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES (?, ?, ?, ?, ?, ?)")
-        .run(familyId, args.projectId, args.newFamily.key, args.newFamily.label, args.newFamily.kind, args.newFamily.granularity);
       kind = args.newFamily.kind; granularity = args.newFamily.granularity;
     } else {
       const fam = db.sqlite
@@ -105,6 +105,14 @@ export function fileSource(db: RunoffDb, args: FileSourceArgs): { ok: true } | {
       if (args.period === null || !PERIOD_REGEX[granularity as Granularity].test(args.period)) {
         result = { error: "invalid period for granularity", status: 400 }; return;
       }
+    }
+
+    // All validation passed — now it's safe to create the new family.
+    if (args.newFamily) {
+      familyId = newId("fam");
+      db.sqlite
+        .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(familyId, args.projectId, args.newFamily.key, args.newFamily.label, args.newFamily.kind, args.newFamily.granularity);
     }
 
     // Replace any live occupant of the slot. NULLs are distinct in SQLite unique
