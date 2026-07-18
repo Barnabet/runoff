@@ -9,8 +9,6 @@ export { draftSection } from "./draft.js";
 export type { DraftCallbacks, DraftResult } from "./draft.js";
 export { executeRun } from "./run.js";
 export type { RunInputMsg, EngineIO, ExecuteRunResult } from "./run.js";
-export { marginReply, applyEdit } from "./notesAgent.js";
-export type { ProposedEdit, NoteTurn, MarginReply } from "./notesAgent.js";
 export { copilotTurn } from "./copilot.js";
 export type { CopilotIO, CopilotEvent, CopilotContext, CopilotTurnResult, RunSummary, RunSectionDetail, GoldenSummary } from "./copilot.js";
 export { computeLocator } from "./checks.js";

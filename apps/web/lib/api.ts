@@ -1,5 +1,4 @@
-import type { BlueprintContent, PreviousRun, RunEvent } from "@runoff/core";
-import type { ProposedEdit } from "@runoff/engine";
+import type { BlueprintContent, CopilotAction, GoldenRow, MemoryRow, PreviousRun, RunEvent } from "@runoff/core";
 
 // Client-side fetch helpers for the API routes. These run in the browser, so
 // this module must never import server-only code (db, node:*).
@@ -108,7 +107,7 @@ export function refreshSource(id: string): Promise<{ ok: true; refreshedAt: stri
   return fetchJson(`/api/sources/${id}`, { method: "POST" });
 }
 
-// ---- Runs, flags, notes -----------------------------------------------------
+// ---- Runs, flags ------------------------------------------------------------
 
 export interface RunRow {
   id: string;
@@ -163,15 +162,6 @@ export interface GetRunResponse {
   previous: PreviousRun | null;
 }
 
-export interface NoteRow {
-  id: string;
-  author: "user" | "agent";
-  body: string;
-  proposedEdit: ProposedEdit | null;
-  status: string;
-  createdAt: string;
-}
-
 export type RunInput = { kind: "pause" | "resume" | "steer" | "answer"; text?: string; questionId?: string };
 
 export function createRun(blueprintId: string): Promise<{ id: string }> {
@@ -190,23 +180,41 @@ export function resolveFlag(id: string, body: { option: string; note?: string })
   return fetchJson(`/api/flags/${id}`, { method: "POST", headers: JSON_HEADERS, body: JSON.stringify(body) });
 }
 
-export function getNotes(blueprintId: string, sectionKey: string): Promise<{ notes: NoteRow[] }> {
-  return fetchJson(`/api/blueprints/${blueprintId}/notes?sectionKey=${encodeURIComponent(sectionKey)}`);
+// ---- Copilot, memory, goldens -----------------------------------------------
+
+export interface CopilotMessage {
+  id: string;
+  role: "user" | "assistant";
+  body: string;
+  actions: CopilotAction[];
+  status: "ok" | "failed";
+  createdAt: string;
 }
 
-export function postNote(blueprintId: string, body: { sectionKey: string; body: string }): Promise<{ agentNote: NoteRow }> {
-  return fetchJson(`/api/blueprints/${blueprintId}/notes`, {
-    method: "POST",
-    headers: JSON_HEADERS,
-    body: JSON.stringify(body),
-  });
+export async function getCopilotThread(blueprintId: string): Promise<{ messages: CopilotMessage[] }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/copilot`);
 }
-
-export function acceptNote(noteId: string): Promise<{ rev: number }> {
-  return fetchJson(`/api/notes/${noteId}/accept`, { method: "POST" });
+export async function getMemories(blueprintId: string): Promise<{ memories: MemoryRow[] }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/memories`);
 }
-
-// Dismiss an agent note without applying its proposed edit (marks it resolved).
-export function resolveNote(noteId: string): Promise<{ ok: true }> {
-  return fetchJson(`/api/notes/${noteId}/resolve`, { method: "POST" });
+export async function patchMemory(id: string, status: "active" | "disabled"): Promise<void> {
+  await fetchJson(`/api/memories/${id}`, { method: "PATCH", body: JSON.stringify({ status }), headers: JSON_HEADERS });
+}
+export async function deleteMemory(id: string): Promise<void> {
+  await fetchJson(`/api/memories/${id}`, { method: "DELETE" });
+}
+export async function getGoldens(blueprintId: string): Promise<{ goldens: GoldenRow[] }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/goldens`);
+}
+export async function starGolden(blueprintId: string, body: { kind: "run" | "section"; runId: string; sectionKey?: string }): Promise<{ id: string }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/goldens`, { method: "POST", body: JSON.stringify(body), headers: JSON_HEADERS });
+}
+export async function deleteGolden(id: string): Promise<void> {
+  await fetchJson(`/api/goldens/${id}`, { method: "DELETE" });
+}
+export async function uploadGolden(blueprintId: string, file: File, note?: string): Promise<{ id: string }> {
+  const form = new FormData();
+  form.append("file", file);
+  if (note) form.append("note", note);
+  return fetchJson(`/api/blueprints/${blueprintId}/goldens`, { method: "POST", body: form });
 }

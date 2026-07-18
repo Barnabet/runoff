@@ -126,13 +126,21 @@ function SelectedSection({
   section,
   onChange,
   labelFor,
+  touched,
 }: {
   section: BlueprintSection;
   onChange: (patch: Partial<BlueprintSection>) => void;
   labelFor: (id: string) => string;
+  touched?: Set<string>;
 }) {
   const caption =
     section.sourceIds.map(labelFor).join(" · ") || "no sources bound";
+  // A field the copilot just edited gets a brief amber wash so the change is
+  // visible in the center editor; `${key}.*` flashes the whole section.
+  const flash = (key: string, field: string) =>
+    touched?.has(`${key}.${field}`) || touched?.has(`${key}.*`)
+      ? " bg-amber/10 transition-colors duration-1000"
+      : "";
   return (
     <div>
       <div className="flex items-baseline gap-[10px]">
@@ -140,7 +148,7 @@ function SelectedSection({
           aria-label="section heading"
           value={section.heading}
           onChange={(e) => onChange({ heading: e.target.value })}
-          className="flex-1 bg-transparent font-serif text-[19px] font-medium text-ink outline-none"
+          className={`flex-1 bg-transparent font-serif text-[19px] font-medium text-ink outline-none${flash(section.key, "heading")}`}
         />
         <select
           aria-label="section mode"
@@ -153,7 +161,7 @@ function SelectedSection({
                 : { mode },
             );
           }}
-          className="rounded-[3px] border border-ink/20 bg-transparent px-[5px] py-[2px] font-mono text-[10px] uppercase tracking-[1px] text-ink/60"
+          className={`rounded-[3px] border border-ink/20 bg-transparent px-[5px] py-[2px] font-mono text-[10px] uppercase tracking-[1px] text-ink/60${flash(section.key, "mode")}`}
         >
           {MODES.map((m) => (
             <option key={m} value={m}>
@@ -171,7 +179,7 @@ function SelectedSection({
             onChange={(v) => onChange({ fixedText: v })}
             placeholder="Write the fixed copy for this section…"
             minRows={3}
-            className="font-serif text-[14.5px] leading-[1.8] text-ink placeholder:italic placeholder:text-ink/40"
+            className={`font-serif text-[14.5px] leading-[1.8] text-ink placeholder:italic placeholder:text-ink/40${flash(section.key, "fixedText")}`}
           />
         </div>
       ) : (
@@ -183,16 +191,18 @@ function SelectedSection({
               onChange={(v) => onChange({ instruction: v })}
               placeholder="Describe what the agent should write here…"
               minRows={2}
-              className="font-serif text-[14.5px] italic leading-[1.7] text-ink/65 placeholder:text-ink/40"
+              className={`font-serif text-[14.5px] italic leading-[1.7] text-ink/65 placeholder:text-ink/40${flash(section.key, "instruction")}`}
             />
           </div>
-          <div className="mt-[18px]">
+          <div className={`mt-[18px]${flash(section.key, "sourceIds")}`}>
             <Greeked lines={4} caption={caption} />
           </div>
         </>
       )}
 
-      <RulesEditor rules={section.rules} onChange={(rules) => onChange({ rules })} />
+      <div className={flash(section.key, "rules").trim()}>
+        <RulesEditor rules={section.rules} onChange={(rules) => onChange({ rules })} />
+      </div>
     </div>
   );
 }
@@ -242,12 +252,14 @@ export function SectionEditor({
   onChange,
   onSelect,
   labelFor,
+  touched,
 }: {
   content: BlueprintContent;
   selectedKey: string;
   onChange: (next: BlueprintContent) => void;
   onSelect: (key: string) => void;
   labelFor: (id: string) => string;
+  touched?: Set<string>;
 }) {
   function patchContent(patch: Partial<BlueprintContent>) {
     onChange({ ...content, ...patch });
@@ -292,6 +304,7 @@ export function SectionEditor({
             key={section.key}
             section={section}
             labelFor={labelFor}
+            touched={touched}
             onChange={(patch) => patchSection(section.key, patch)}
           />
         ) : (

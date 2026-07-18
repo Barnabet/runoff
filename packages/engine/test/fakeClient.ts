@@ -8,7 +8,7 @@ export interface FakeTurn {
 
 /**
  * A stand-in for the `openai` client, compatible enough for draft.ts and
- * notesAgent.ts. `chat.completions.create` branches on `params.stream`:
+ * copilot.ts. `chat.completions.create` branches on `params.stream`:
  *
  *  - streaming (draft.ts): returns an async-iterable of chat-completion chunks
  *    built from the FakeTurn parts — text becomes word-split `delta.content`
@@ -17,7 +17,7 @@ export interface FakeTurn {
  *    present ONLY on the first fragment — exactly as OpenAI streams them) plus a
  *    final `finish_reason: "tool_calls"`; a `refusal` stop becomes
  *    `delta.refusal`; otherwise the final `finish_reason` is `"stop"`.
- *  - non-streaming (notesAgent.ts): returns `{ choices: [{ message }] }` with
+ *  - non-streaming (copilot.ts): returns `{ choices: [{ message }] }` with
  *    the concatenated text as `content` (and `refusal` when the turn refused).
  */
 export function makeFakeClient(script: FakeTurn[][]): any {

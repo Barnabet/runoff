@@ -3,20 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { BlueprintContent, BlueprintSection } from "@runoff/core";
+import type { BlueprintContent, BlueprintSection, EditOp } from "@runoff/core";
 import { Topbar } from "@/components/Topbar";
 import { showToast } from "@/components/Toast";
 import {
   createRun,
-  getBlueprint,
   patchBlueprint,
   saveRevision,
-  type NoteRow,
   type SourceRow,
 } from "@/lib/api";
+import { applyEditOp } from "@/lib/editOps";
 import { ContentsRail } from "./ContentsRail";
 import { SectionEditor } from "./SectionEditor";
-import { MarginNotes } from "./MarginNotes";
+import { CopilotRail } from "./CopilotRail";
 
 /** Best-effort human message from a rejected API promise. */
 function errMsg(err: unknown): string {
@@ -42,7 +41,6 @@ export interface BuilderProps {
   allSources: SourceRow[];
   initialBoundIds: string[];
   initialSectionKey: string;
-  initialNotes: NoteRow[];
 }
 
 /**
@@ -61,7 +59,6 @@ export function Builder({
   allSources,
   initialBoundIds,
   initialSectionKey,
-  initialNotes,
 }: BuilderProps) {
   const router = useRouter();
   const [content, setContent] = useState<BlueprintContent>(initialContent);
@@ -70,6 +67,7 @@ export function Builder({
   const [rev, setRev] = useState(initialRev);
   const [status, setStatus] = useState(initialStatus);
   const [boundIds, setBoundIds] = useState<string[]>(initialBoundIds);
+  const [touched, setTouched] = useState<Set<string>>(new Set());
 
   // Refs keep the stable Cmd/Ctrl+S handler reading the latest draft.
   const contentRef = useRef(content);
@@ -145,12 +143,20 @@ export function Builder({
     );
   }
 
-  async function reloadContent() {
-    const res = await getBlueprint(blueprintId);
-    if (res.content) setContent(res.content);
-    setRev(res.blueprint.currentRev);
-    setBoundIds(res.sources.map((s) => s.id));
-    setDirty(false);
+  // A copilot edit op applies to the client draft (marking it dirty, like any
+  // manual edit) and briefly flashes the fields it touched so the change is
+  // visible in the center editor.
+  function handleEditOp(op: EditOp) {
+    setContent((prev) => applyEditOp(prev, op));
+    setDirty(true);
+    const keys =
+      op.type === "edit_section" ? Object.keys(op.after).map((f) => `${op.key}.${f}`)
+      : op.type === "add_section" ? [`${op.section.key}.*`]
+      : [];
+    if (keys.length) {
+      setTouched(new Set(keys));
+      setTimeout(() => setTouched(new Set()), 2500);
+    }
   }
 
   useEffect(() => {
@@ -235,6 +241,7 @@ export function Builder({
             onChange={updateContent}
             onSelect={setSelectedKey}
             labelFor={labelFor}
+            touched={touched}
           />
           {dirty ? (
             <button
@@ -247,14 +254,12 @@ export function Builder({
           ) : null}
         </div>
 
-        <MarginNotes
+        <CopilotRail
           blueprintId={blueprintId}
-          sectionKey={selectedKey}
-          sectionHeading={selectedHeading}
-          initialSectionKey={initialSectionKey}
-          initialNotes={initialNotes}
-          onRevChange={setRev}
-          reloadContent={reloadContent}
+          selectedKey={selectedKey}
+          selectedHeading={selectedHeading}
+          getDraft={() => contentRef.current}
+          onEditOp={handleEditOp}
         />
       </main>
     </>

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import type { BlueprintContent } from "@runoff/core";
 
 import { freshDb, jsonReq, ctx } from "./helpers";
@@ -10,36 +10,8 @@ import { GET as getRun } from "../app/api/runs/[id]/route";
 import { POST as postInput } from "../app/api/runs/[id]/inputs/route";
 import { GET as sseEvents } from "../app/api/runs/[id]/events/route";
 import { POST as resolveFlag } from "../app/api/flags/[id]/route";
-import { GET as getNotes, POST as postNote } from "../app/api/blueprints/[id]/notes/route";
-import { POST as acceptNote } from "../app/api/notes/[id]/accept/route";
 import { POST as createBlueprint } from "../app/api/blueprints/route";
 import { POST as saveRevision } from "../app/api/blueprints/[id]/revisions/route";
-import { GET as getBlueprint } from "../app/api/blueprints/[id]/route";
-
-// The notes route builds its LLM client via lib/llm; replace it with a fake
-// OpenAI-shaped client whose single completion returns a canned MarginReply
-// (reply + a proposedEdit that find/replaces text present in the section).
-vi.mock("../lib/llm", () => ({
-  getLlmClient: () => ({
-    chat: {
-      completions: {
-        create: async () => ({
-          choices: [
-            {
-              message: {
-                content: JSON.stringify({
-                  reply: "Sharpened it.",
-                  proposedEdit: { field: "instruction", edits: [{ find: "clearly", replace: "vividly" }] },
-                }),
-                refusal: null,
-              },
-            },
-          ],
-        }),
-      },
-    },
-  }),
-}));
 
 beforeEach(() => freshDb());
 
@@ -226,67 +198,6 @@ describe("POST /api/flags/:id", () => {
   it("404s for a missing flag", async () => {
     const res = await resolveFlag(jsonReq({ option: "a" }), ctx("flag_missing"));
     expect(res.status).toBe(404);
-  });
-});
-
-describe("blueprint notes", () => {
-  it("POST inserts the user note, calls the agent, stores + returns the agent reply with proposedEdit", async () => {
-    const bpId = await blueprintWithSections();
-    const res = await postNote(jsonReq({ sectionKey: "body", body: "Make it punchier." }), ctx(bpId));
-    expect(res.status).toBe(200);
-    const { agentNote } = await res.json();
-    expect(agentNote.author).toBe("agent");
-    expect(agentNote.body).toBe("Sharpened it.");
-    expect(agentNote.proposedEdit).toEqual({ field: "instruction", edits: [{ find: "clearly", replace: "vividly" }] });
-
-    // GET returns the thread oldest-first: user note then agent note.
-    const thread = await (await getNotes(new Request(`http://x?sectionKey=body`), ctx(bpId))).json();
-    expect(thread.notes.map((n: { author: string }) => n.author)).toEqual(["user", "agent"]);
-    expect(thread.notes[0].body).toBe("Make it punchier.");
-  });
-
-  it("400s when marginReply throws for an unknown section", async () => {
-    const bpId = await blueprintWithSections();
-    const res = await postNote(jsonReq({ sectionKey: "ghost", body: "hi" }), ctx(bpId));
-    expect(res.status).toBe(400);
-  });
-});
-
-describe("POST /api/notes/:id/accept", () => {
-  it("applies the proposed edit, bumps the revision, and resolves the note", async () => {
-    const bpId = await blueprintWithSections(); // rev 2
-    const { agentNote } = await (await postNote(jsonReq({ sectionKey: "body", body: "punchier" }), ctx(bpId))).json();
-
-    const res = await acceptNote(new Request("http://x", { method: "POST" }), ctx(agentNote.id));
-    expect(res.status).toBe(200);
-    expect((await res.json()).rev).toBe(3);
-
-    const { content } = await (await getBlueprint(new Request("http://x"), ctx(bpId))).json();
-    const body = content.sections.find((s: { key: string }) => s.key === "body");
-    expect(body.instruction).toBe("Write vividly and concisely.");
-
-    const note = getDb().sqlite.prepare("SELECT status FROM notes WHERE id = ?").get(agentNote.id) as { status: string };
-    expect(note.status).toBe("resolved");
-  });
-
-  it("400s when the note has no proposed edit", async () => {
-    const bpId = await blueprintWithSections();
-    getDb()
-      .sqlite.prepare("INSERT INTO notes (id, blueprint_id, section_key, author, body) VALUES ('note_x', ?, 'body', 'agent', 'just a comment')")
-      .run(bpId);
-    const res = await acceptNote(new Request("http://x", { method: "POST" }), ctx("note_x"));
-    expect(res.status).toBe(400);
-  });
-
-  it("409s when the proposed edit no longer applies", async () => {
-    const bpId = await blueprintWithSections();
-    getDb()
-      .sqlite.prepare(
-        "INSERT INTO notes (id, blueprint_id, section_key, author, body, proposed_edit) VALUES ('note_y', ?, 'body', 'agent', 'edit', ?)",
-      )
-      .run(bpId, JSON.stringify({ field: "instruction", edits: [{ find: "NOT PRESENT", replace: "x" }] }));
-    const res = await acceptNote(new Request("http://x", { method: "POST" }), ctx("note_y"));
-    expect(res.status).toBe(409);
   });
 });
 

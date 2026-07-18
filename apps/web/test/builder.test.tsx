@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
 import type { BlueprintContent } from "@runoff/core";
 
 // `vi.mock` factories are hoisted; the fns they close over come from `vi.hoisted`.
@@ -10,10 +10,7 @@ const {
   patchBlueprint,
   createRun,
   getBlueprint,
-  acceptNote,
-  getNotes,
-  postNote,
-  resolveNote,
+  getCopilotThread,
   push,
 } = vi.hoisted(() => ({
   showToast: vi.fn(),
@@ -21,10 +18,7 @@ const {
   patchBlueprint: vi.fn(async () => ({ ok: true })),
   createRun: vi.fn(async () => ({ id: "run_x" })),
   getBlueprint: vi.fn(),
-  acceptNote: vi.fn(async () => ({ rev: 3 })),
-  getNotes: vi.fn(async () => ({ notes: [] })),
-  postNote: vi.fn(async () => ({ agentNote: { id: "a1", author: "agent", body: "Done.", proposedEdit: null, status: "open", createdAt: new Date().toISOString() } as NoteRow })),
-  resolveNote: vi.fn(async () => ({ ok: true })),
+  getCopilotThread: vi.fn(async () => ({ messages: [] })),
   push: vi.fn(),
 }));
 
@@ -42,19 +36,16 @@ vi.mock("@/lib/api", () => ({
   patchBlueprint,
   createRun,
   getBlueprint,
-  acceptNote,
-  getNotes,
-  postNote,
-  resolveNote,
+  getCopilotThread,
 }));
 
 import { Builder } from "../components/builder/Builder";
-import type { SourceRow, NoteRow } from "../lib/api";
+import type { SourceRow } from "../lib/api";
 
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
-  getNotes.mockResolvedValue({ notes: [] });
+  getCopilotThread.mockResolvedValue({ messages: [] });
 });
 
 const baseContent: BlueprintContent = {
@@ -76,7 +67,7 @@ const sources: SourceRow[] = [
   { id: "src_b", name: "spend.csv", kind: "file", storedFilename: "", mime: "", size: 0, uploadedAt: new Date().toISOString(), refreshedAt: null },
 ];
 
-function renderBuilder(overrides?: { initialNotes?: NoteRow[]; content?: BlueprintContent }) {
+function renderBuilder(overrides?: { content?: BlueprintContent }) {
   const content = overrides?.content ?? baseContent;
   return render(
     <Builder
@@ -89,7 +80,6 @@ function renderBuilder(overrides?: { initialNotes?: NoteRow[]; content?: Bluepri
       allSources={sources}
       initialBoundIds={["src_a"]}
       initialSectionKey="s1"
-      initialNotes={overrides?.initialNotes ?? []}
     />,
   );
 }
@@ -142,92 +132,6 @@ describe("save flow", () => {
     await waitFor(() => expect(saveRevision).toHaveBeenCalled());
     await waitFor(() => expect(createRun).toHaveBeenCalledWith("bp"));
     await waitFor(() => expect(push).toHaveBeenCalledWith("/runs/run_x"));
-  });
-});
-
-describe("MarginNotes", () => {
-  const editNote: NoteRow = {
-    id: "n1",
-    author: "agent",
-    body: "Accept the rewrite?",
-    proposedEdit: { field: "instruction", edits: [{ find: "broadly in line", replace: "down 12.4%" }] },
-    status: "open",
-    createdAt: new Date().toISOString(),
-  };
-
-  it("renders a proposed edit as strike/underline and Accept applies it", async () => {
-    getBlueprint.mockResolvedValue({
-      blueprint: { id: "bp", name: "n", clientName: "c", status: "draft", currentRev: 3, createdAt: "" },
-      content: baseContent,
-      sources: [],
-    });
-    const { getByText } = renderBuilder({ initialNotes: [editNote] });
-    expect(getByText("broadly in line").className).toContain("line-through");
-    expect(getByText("down 12.4%").className).toContain("border-b-2");
-
-    fireEvent.click(getByText("Accept"));
-    await waitFor(() => expect(acceptNote).toHaveBeenCalledWith("n1"));
-    await waitFor(() => expect(showToast).toHaveBeenCalledWith("Edit applied — REV 3"));
-    await waitFor(() => expect(getBlueprint).toHaveBeenCalledWith("bp"));
-  });
-
-  it("posts a note optimistically then shows the agent reply", async () => {
-    const d = (() => {
-      let resolve!: (v: { agentNote: NoteRow }) => void;
-      const promise = new Promise<{ agentNote: NoteRow }>((r) => (resolve = r));
-      return { promise, resolve };
-    })();
-    postNote.mockReturnValueOnce(d.promise);
-
-    const { getByLabelText, getByText, queryByText } = renderBuilder();
-    fireEvent.change(getByLabelText("note to the agent"), { target: { value: "Tighten the intro" } });
-    fireEvent.keyDown(getByLabelText("note to the agent"), { key: "Enter" });
-
-    // Optimistic user card + annotating line appear before the agent replies.
-    expect(getByText("Tighten the intro")).toBeTruthy();
-    expect(getByText("Agent is annotating…")).toBeTruthy();
-    expect(postNote).toHaveBeenCalledWith("bp", { sectionKey: "s1", body: "Tighten the intro" });
-
-    await act(async () => {
-      d.resolve({ agentNote: { id: "a9", author: "agent", body: "Done — folded in.", proposedEdit: null, status: "open", createdAt: new Date().toISOString() } });
-    });
-    expect(getByText("Done — folded in.")).toBeTruthy();
-    expect(queryByText("Agent is annotating…")).toBeNull();
-  });
-
-  it("toasts when sending an empty note", () => {
-    const { getByText } = renderBuilder();
-    fireEvent.click(getByText("Send"));
-    expect(showToast).toHaveBeenCalledWith("Type a note first.");
-  });
-
-  it("rolls back a failed send: removes the optimistic card and restores the draft", async () => {
-    const d = (() => {
-      let reject!: (e: unknown) => void;
-      const promise = new Promise<{ agentNote: NoteRow }>((_, r) => (reject = r));
-      return { promise, reject };
-    })();
-    postNote.mockReturnValueOnce(d.promise);
-
-    const { getByLabelText, getByText, queryByText } = renderBuilder();
-    const input = getByLabelText("note to the agent") as HTMLInputElement;
-    fireEvent.change(input, { target: { value: "Retry me" } });
-    fireEvent.keyDown(input, { key: "Enter" });
-
-    // Optimistically shown, and the input has cleared while sending.
-    expect(getByText("Retry me")).toBeTruthy();
-    expect((getByLabelText("note to the agent") as HTMLInputElement).value).toBe("");
-
-    await act(async () => {
-      d.reject(new Error("down"));
-      await d.promise.catch(() => {});
-    });
-
-    // Rolled back: card gone, annotating line gone, draft restored, toast shown.
-    expect(queryByText("Retry me")).toBeNull();
-    expect(queryByText("Agent is annotating…")).toBeNull();
-    expect((getByLabelText("note to the agent") as HTMLInputElement).value).toBe("Retry me");
-    expect(showToast).toHaveBeenCalledWith("Could not reach the agent.");
   });
 });
 
