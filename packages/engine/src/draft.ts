@@ -126,7 +126,7 @@ export async function draftSection(opts: {
     if (finishReason === "tool_calls") {
       const results: any[] = [];
       for (const call of toolCalls) {
-        if (!call.name) continue;
+        if (!call?.name) continue;
         const parsed = JSON.parse(call.arguments || "{}");
         let content: string;
         if (call.name === "ask_user") {
@@ -143,7 +143,7 @@ export async function draftSection(opts: {
         role: "assistant",
         content: turnText || null,
         tool_calls: toolCalls
-          .filter((c) => c.name)
+          .filter((c) => c?.name)
           .map((c) => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
       });
       for (const r of results) messages.push(r);

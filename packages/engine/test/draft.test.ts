@@ -31,4 +31,30 @@ describe("draftSection", () => {
     expect(flags).toEqual(["Tone ok?"]);
     expect(r.raw).toContain("Final text.");
   });
+
+  it("accumulates fragmented tool-call arguments across two tool calls in one turn", async () => {
+    // Both tool calls stream in one turn with distinct indexes; the fake splits
+    // each call's arguments across several delta chunks, so correctly parsed
+    // inputs prove per-index accumulation reassembled valid JSON.
+    const client = makeFakeClient([
+      [
+        { toolUse: { name: "ask_user", input: { question: "Cite them?", options: ["Cite", "Skip"], fallback: "skip", deadlineSection: "exec" } } },
+        { toolUse: { name: "raise_flag", input: { question: "Tone ok?", options: ["Keep", "Soften"] } } },
+      ],
+      [{ text: "Done." }],
+    ]);
+    const flags: { question: string; options: string[] }[] = [];
+    const questions: { question: string; options: string[]; fallback: string; deadlineSection: string }[] = [];
+    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: (q) => questions.push(q) } });
+    expect(questions).toEqual([{ question: "Cite them?", options: ["Cite", "Skip"], fallback: "skip", deadlineSection: "exec" }]);
+    expect(flags).toEqual([{ question: "Tone ok?", options: ["Keep", "Soften"] }]);
+    expect(r.raw).toContain("Done.");
+  });
+
+  it("throws when the model refuses to draft the section", async () => {
+    const client = makeFakeClient([[{ stopReason: "refusal" }]]);
+    await expect(
+      draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
+    ).rejects.toThrow("model refused to draft this section");
+  });
 });

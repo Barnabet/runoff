@@ -10,9 +10,11 @@ export interface FakeTurn {
  *
  *  - streaming (draft.ts): returns an async-iterable of chat-completion chunks
  *    built from the FakeTurn parts — text becomes word-split `delta.content`
- *    chunks, a `toolUse` becomes a `delta.tool_calls` chunk plus a
- *    `finish_reason: "tool_calls"`, a `refusal` stop becomes `delta.refusal`;
- *    otherwise the final `finish_reason` is `"stop"`.
+ *    chunks; a `toolUse` becomes several `delta.tool_calls` chunks (its
+ *    `arguments` string is split across fragments, with `id` + `function.name`
+ *    present ONLY on the first fragment — exactly as OpenAI streams them) plus a
+ *    final `finish_reason: "tool_calls"`; a `refusal` stop becomes
+ *    `delta.refusal`; otherwise the final `finish_reason` is `"stop"`.
  *  - non-streaming (notesAgent.ts): returns `{ choices: [{ message }] }` with
  *    the concatenated text as `content` (and `refusal` when the turn refused).
  */
@@ -39,16 +41,20 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
           }
         }
         if (t.toolUse) {
+          const idx = toolIndex++;
+          const fragments = chunkString(JSON.stringify(t.toolUse.input));
+          // First fragment carries id + name; later fragments carry only more
+          // argument text keyed by the same index — the OpenAI streaming shape.
           yield {
             choices: [
               {
                 delta: {
                   tool_calls: [
                     {
-                      index: toolIndex++,
-                      id: `call_${toolIndex}`,
+                      index: idx,
+                      id: `call_${idx}`,
                       type: "function",
-                      function: { name: t.toolUse.name, arguments: JSON.stringify(t.toolUse.input) },
+                      function: { name: t.toolUse.name, arguments: fragments[0] },
                     },
                   ],
                 },
@@ -56,6 +62,11 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
               },
             ],
           };
+          for (let i = 1; i < fragments.length; i++) {
+            yield {
+              choices: [{ delta: { tool_calls: [{ index: idx, function: { arguments: fragments[i] } }] }, finish_reason: null }],
+            };
+          }
           finish = "tool_calls";
         }
         if (t.stopReason === "refusal") {
@@ -67,6 +78,14 @@ function streamResponse(turns: FakeTurn[]): AsyncIterable<any> {
       yield { choices: [{ delta: {}, finish_reason: refused ? "stop" : finish }] };
     },
   };
+}
+
+/** Split a string into fixed-size fragments (at least one) to exercise accumulation. */
+function chunkString(s: string, size = 8): string[] {
+  if (s.length <= size) return [s];
+  const out: string[] = [];
+  for (let i = 0; i < s.length; i += size) out.push(s.slice(i, i + size));
+  return out;
 }
 
 function blockingResponse(turns: FakeTurn[]): any {
