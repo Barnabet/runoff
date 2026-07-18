@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import type {
   Block,
   BlueprintContent,
@@ -48,7 +48,7 @@ interface OpenQuestion {
  * Emits `run_failed` and re-throws on any unrecoverable error (rule 9).
  */
 export async function executeRun(opts: {
-  client: Anthropic;
+  client: OpenAI;
   content: BlueprintContent;
   files: EngineFile[];
   io: EngineIO;

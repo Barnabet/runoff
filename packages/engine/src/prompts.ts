@@ -2,12 +2,12 @@ import type { BlueprintContent, BlueprintSection, DocSection } from "@runoff/cor
 import { blocksToPlainText } from "@runoff/core";
 import { packForPrompt, type SourcePack } from "./sourcePack.js";
 
-export const MODEL = "claude-opus-4-8";
+export const MODEL = process.env.RUNOFF_MODEL ?? "gpt-5.6-sol";
 
 /**
  * Global rules + dialect contract. STABLE per blueprint — no timestamps or
- * per-section content — so it is byte-identical across every section of a run
- * and can carry `cache_control`. Per-section content goes in the user turn.
+ * per-section content — so it is byte-identical across every section of a run.
+ * Per-section content goes in the user turn.
  */
 export function systemPrompt(content: BlueprintContent): string {
   const globalRules = content.globalRules.length
@@ -32,9 +32,9 @@ needing review.${globalRules}`;
  * section, the plain text of completed sections (continuity), numbered steers,
  * answered questions, and an optional retry-feedback block.
  *
- * When a bound source is a PDF, returns a content-block array (document block(s)
- * with base64 + a text block) so Claude reads the PDF at run time; otherwise a
- * plain string.
+ * PDFs are text-extracted locally into the source pack (see sourcePack.ts), so
+ * they flow through `packForPrompt` like any other document — this always
+ * returns a plain string.
  */
 export function sectionUserPrompt(args: {
   section: BlueprintSection;
@@ -43,7 +43,7 @@ export function sectionUserPrompt(args: {
   steers: string[];
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
-}): string | any[] {
+}): string {
   const { section, pack, completed, steers, answers, retryFeedback } = args;
 
   const parts: string[] = [
@@ -73,20 +73,5 @@ export function sectionUserPrompt(args: {
   }
 
   parts.push(`\nWrite the section now.`);
-  const prompt = parts.join("\n");
-
-  const pdfs = pack.sources.filter(
-    (s) => section.sourceIds.includes(s.id) && s.kind === "pdf" && s.pdfBase64,
-  );
-  if (pdfs.length) {
-    return [
-      ...pdfs.map((s) => ({
-        type: "document",
-        source: { type: "base64", media_type: "application/pdf", data: s.pdfBase64 },
-      })),
-      { type: "text", text: prompt },
-    ];
-  }
-
-  return prompt;
+  return parts.join("\n");
 }

@@ -13,6 +13,11 @@ vi.mock("mammoth", () => ({
   },
 }));
 
+// PDFs are text-extracted locally; mock pdf-parse the same way as mammoth.
+vi.mock("pdf-parse/lib/pdf-parse.js", () => ({
+  default: vi.fn(async () => ({ text: "Extracted PDF body text.\nQuarter over quarter growth." })),
+}));
+
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("buildSourcePack", () => {
@@ -120,7 +125,7 @@ describe("buildSourcePack", () => {
     expect(packForPrompt(pack, ["src_notes"])).toContain("Growth held steady");
   });
 
-  it("packs a PDF as base64 with a read-at-run-time summary", async () => {
+  it("extracts PDF text locally with a read-at-run-time summary", async () => {
     const dir = await mkdtemp(join(tmpdir(), "runoff-pdf-"));
     const path = join(dir, "deck.pdf");
     try {
@@ -130,9 +135,10 @@ describe("buildSourcePack", () => {
       ]);
       const s = pack.sources[0];
       expect(s.kind).toBe("pdf");
-      expect(s.pdfBase64).toBe(Buffer.from("%PDF-1.4 minimal", "utf8").toString("base64"));
+      expect(s.text).toContain("Extracted PDF body text.");
       expect(s.summary).toContain("PDF");
       expect(s.summary).toContain("(read at run time)");
+      expect(packForPrompt(pack, ["src_deck"])).toContain("Quarter over quarter growth");
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

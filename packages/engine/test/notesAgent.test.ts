@@ -62,24 +62,20 @@ describe("applyEdit", () => {
   });
 });
 
+/** Build an OpenAI-shaped fake whose single completion returns `message`. */
+function fakeClient(message: { content: string | null; refusal?: string | null }): any {
+  return { chat: { completions: { create: async () => ({ choices: [{ message }] }) } } };
+}
+
 describe("marginReply", () => {
   it("parses the structured JSON reply and proposedEdit from the client", async () => {
-    const client = {
-      messages: {
-        create: async () => ({
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                reply: "Done",
-                proposedEdit: { field: "instruction", edits: [{ find: "pace", replace: "pacing" }] },
-              }),
-            },
-          ],
-          stop_reason: "end_turn",
-        }),
-      },
-    } as any;
+    const client = fakeClient({
+      content: JSON.stringify({
+        reply: "Done",
+        proposedEdit: { field: "instruction", edits: [{ find: "pace", replace: "pacing" }] },
+      }),
+      refusal: null,
+    });
     const r = await marginReply({
       client,
       content,
@@ -91,37 +87,29 @@ describe("marginReply", () => {
   });
 
   it("omits proposedEdit when the model returns null", async () => {
-    const client = {
-      messages: {
-        create: async () => ({
-          content: [{ type: "text", text: JSON.stringify({ reply: "Just a note.", proposedEdit: null }) }],
-          stop_reason: "end_turn",
-        }),
-      },
-    } as any;
+    const client = fakeClient({
+      content: JSON.stringify({ reply: "Just a note.", proposedEdit: null }),
+      refusal: null,
+    });
     const r = await marginReply({ client, content, sectionKey: "exec", thread: [] });
     expect(r.reply).toBe("Just a note.");
     expect(r.proposedEdit).toBeUndefined();
   });
 
   it("throws when the sectionKey matches no section", async () => {
-    const client = {
-      messages: { create: async () => ({ content: [{ type: "text", text: "{}" }], stop_reason: "end_turn" }) },
-    } as any;
+    const client = fakeClient({ content: "{}", refusal: null });
     await expect(marginReply({ client, content, sectionKey: "missing", thread: [] })).rejects.toThrow(/Unknown section "missing"/);
   });
 
   it("returns a graceful fallback on refusal", async () => {
-    const client = { messages: { create: async () => ({ content: [], stop_reason: "refusal" }) } } as any;
+    const client = fakeClient({ content: null, refusal: "I can't help with that." });
     const r = await marginReply({ client, content, sectionKey: "exec", thread: [] });
     expect(r.reply).toMatch(/couldn't process/);
     expect(r.proposedEdit).toBeUndefined();
   });
 
   it("returns a graceful fallback on JSON parse failure", async () => {
-    const client = {
-      messages: { create: async () => ({ content: [{ type: "text", text: "not json at all" }], stop_reason: "end_turn" }) },
-    } as any;
+    const client = fakeClient({ content: "not json at all", refusal: null });
     const r = await marginReply({ client, content, sectionKey: "exec", thread: [] });
     expect(r.reply).toMatch(/couldn't process/);
   });

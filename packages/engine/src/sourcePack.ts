@@ -3,6 +3,8 @@ import { extname } from "node:path";
 import Papa from "papaparse";
 import ExcelJS from "exceljs";
 import mammoth from "mammoth";
+// Import the internal entry point to avoid pdf-parse's index.js debug self-test.
+import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
 export interface ParsedTable {
   name: string;
@@ -15,8 +17,7 @@ export interface PackedSource {
   label: string;
   kind: "table" | "document" | "pdf";
   tables?: ParsedTable[]; // csv → 1 table; xlsx → 1 per worksheet
-  text?: string; // docx extracted text
-  pdfBase64?: string; // pdf passed to Claude as a document block
+  text?: string; // docx / pdf extracted text
   summary: string;
 }
 
@@ -161,11 +162,20 @@ async function buildDocument(file: EngineFile): Promise<PackedSource> {
 async function buildPdf(file: EngineFile): Promise<PackedSource> {
   const buffer = await readFile(file.path);
   const kb = Math.max(1, Math.round(buffer.byteLength / 1024));
+  // Extract text locally so the PDF's contents flow through the source pack like
+  // any document. Never let a malformed PDF crash the whole pack build.
+  let text = "";
+  try {
+    const data = await pdfParse(buffer);
+    text = data.text;
+  } catch {
+    text = "";
+  }
   return {
     id: file.id,
     label: file.name,
     kind: "pdf",
-    pdfBase64: buffer.toString("base64"),
+    text,
     summary: `${file.name} — PDF, ${kb} KB (read at run time)`,
   };
 }
@@ -204,10 +214,10 @@ function serializeSource(source: PackedSource, maxRows: number): string {
     for (const table of source.tables) {
       parts.push(serializeTable(table, source.tables.length > 1, maxRows));
     }
-  } else if (source.kind === "document" && source.text) {
+  } else if ((source.kind === "document" || source.kind === "pdf") && source.text) {
+    // PDFs are text-extracted locally, so they serialize like documents.
     parts.push(source.text.slice(0, MAX_DOCUMENT_CHARS));
   }
-  // pdf sources contribute label + summary only; Claude reads the document block at run time.
 
   return parts.join("\n");
 }

@@ -1,4 +1,4 @@
-import type Anthropic from "@anthropic-ai/sdk";
+import type OpenAI from "openai";
 import type { BlueprintContent, BlueprintSection } from "@runoff/core";
 import { MODEL } from "./prompts.js";
 
@@ -63,7 +63,7 @@ const REPLY_SCHEMA = {
  * on refusal or a JSON parse failure returns a graceful fallback (never throws).
  */
 export async function marginReply(opts: {
-  client: Anthropic;
+  client: OpenAI;
   content: BlueprintContent;
   sectionKey: string;
   thread: NoteTurn[];
@@ -73,24 +73,28 @@ export async function marginReply(opts: {
   if (!section) throw new Error(`Unknown section "${sectionKey}"`);
 
   const transcript = thread.map((t) => `${t.author === "user" ? "User" : "Agent"}: ${t.body}`).join("\n");
-  const userTurn =
+  const userPrompt =
     `Section (JSON):\n${JSON.stringify(section, null, 2)}\n\n` +
     `Note thread (oldest first):\n${transcript || "(empty)"}`;
 
-  const msg = await (client as any).messages.create({
+  const res = await (client as any).chat.completions.create({
     model: MODEL,
-    max_tokens: 16000,
-    thinking: { type: "adaptive" },
-    output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
-    system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: userTurn }],
+    max_completion_tokens: 16000,
+    messages: [
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content: userPrompt },
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: { name: "margin_reply", strict: true, schema: REPLY_SCHEMA },
+    },
   });
 
-  if (msg.stop_reason === "refusal") return { ...FALLBACK };
+  const message = res.choices?.[0]?.message;
+  if (message?.refusal) return { ...FALLBACK };
 
   try {
-    const textBlock = msg.content.find((b: any) => b.type === "text");
-    const parsed = JSON.parse(textBlock?.text ?? "");
+    const parsed = JSON.parse(message?.content ?? "");
     if (typeof parsed.reply !== "string") return { ...FALLBACK };
     const reply: MarginReply = { reply: parsed.reply };
     if (parsed.proposedEdit) reply.proposedEdit = parsed.proposedEdit;
