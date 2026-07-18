@@ -6,3 +6,5 @@ export type { CheckOutcome } from "./checks.js";
 export { MODEL, systemPrompt, sectionUserPrompt } from "./prompts.js";
 export { draftSection } from "./draft.js";
 export type { DraftCallbacks, DraftResult } from "./draft.js";
+export { executeRun } from "./run.js";
+export type { RunInputMsg, EngineIO, ExecuteRunResult } from "./run.js";
