@@ -5,7 +5,8 @@
     "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
     "test": "vitest run --passWithNoTests",
     "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
-    "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts"
+    "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
+    "eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalCopilot.ts"
   },
   "dependencies": {
     "@runoff/core": "workspace:*",
