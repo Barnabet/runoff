@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vitest/config";
 
 // The web package mixes Node API-route tests (default `node` env) with React
@@ -6,4 +7,8 @@ import { defineConfig } from "vitest/config";
 // `// @vitest-environment jsdom` pragma so the Node tests stay on `node`.
 export default defineConfig({
   esbuild: { jsx: "automatic" },
+  resolve: {
+    // Mirror the `@/*` path alias from tsconfig so components can use it.
+    alias: [{ find: /^@\//, replacement: fileURLToPath(new URL("./", import.meta.url)) }],
+  },
 });

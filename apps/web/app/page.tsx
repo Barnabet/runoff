@@ -1,11 +1,12 @@
-import { Topbar } from "@/components/Topbar";
+import { LibraryView } from "@/components/library/LibraryView";
+import { getDb } from "@/lib/db";
+import { listBlueprintsWithRuns } from "@/lib/queries";
+
+// The Library reads live from SQLite on every request; a run finishing must be
+// reflected without a rebuild.
+export const dynamic = "force-dynamic";
 
 export default function Home() {
-  return (
-    <>
-      <Topbar tab="blueprints" />
-      {/* Library ledger lands here in Task 16. */}
-      <main className="mx-auto max-w-[1360px] px-10 py-7" />
-    </>
-  );
+  const blueprints = listBlueprintsWithRuns(getDb());
+  return <LibraryView blueprints={blueprints} />;
 }

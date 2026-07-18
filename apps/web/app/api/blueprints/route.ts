@@ -1,47 +1,12 @@
 import { newId, type BlueprintContent } from "@runoff/core";
 import { getDb } from "../../../lib/db";
-
-interface BlueprintListRow {
-  id: string;
-  name: string;
-  clientName: string;
-  cadenceLabel: string;
-  status: string;
-  currentRev: number;
-  sourceCount: number;
-}
+import { listBlueprintsWithRuns } from "../../../lib/queries";
 
 // GET /api/blueprints — every blueprint with its bound-source count and the
-// latest run (by created_at) plus that run's open-flag count.
+// latest run (by created_at) plus that run's open-flag count. The Library page
+// server-renders the same join via `listBlueprintsWithRuns`.
 export async function GET(): Promise<Response> {
-  const db = getDb();
-  const rows = db.sqlite
-    .prepare(
-      `SELECT b.id, b.name, b.client_name AS clientName, b.cadence_label AS cadenceLabel,
-              b.status, b.current_rev AS currentRev,
-              (SELECT COUNT(*) FROM blueprint_sources bs WHERE bs.blueprint_id = b.id) AS sourceCount
-       FROM blueprints b
-       ORDER BY b.created_at DESC, b.id DESC`,
-    )
-    .all() as BlueprintListRow[];
-
-  const lastRunStmt = db.sqlite.prepare(
-    `SELECT id, finished_at AS finishedAt, status FROM runs
-     WHERE blueprint_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
-  );
-  const openFlagsStmt = db.sqlite.prepare(
-    "SELECT COUNT(*) AS n FROM flags WHERE run_id = ? AND status = 'open'",
-  );
-
-  const blueprints = rows.map((b) => {
-    const run = lastRunStmt.get(b.id) as { id: string; finishedAt: string | null; status: string } | undefined;
-    const lastRun = run
-      ? { id: run.id, finishedAt: run.finishedAt, status: run.status, openFlags: (openFlagsStmt.get(run.id) as { n: number }).n }
-      : null;
-    return { ...b, lastRun };
-  });
-
-  return Response.json({ blueprints });
+  return Response.json({ blueprints: listBlueprintsWithRuns(getDb()) });
 }
 
 // POST /api/blueprints — create a blueprint plus revision 1 with a default,
