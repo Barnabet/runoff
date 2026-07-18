@@ -8,3 +8,5 @@ export { draftSection } from "./draft.js";
 export type { DraftCallbacks, DraftResult } from "./draft.js";
 export { executeRun } from "./run.js";
 export type { RunInputMsg, EngineIO, ExecuteRunResult } from "./run.js";
+export { marginReply, applyEdit } from "./notesAgent.js";
+export type { ProposedEdit, NoteTurn, MarginReply } from "./notesAgent.js";
