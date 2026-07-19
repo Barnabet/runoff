@@ -26,13 +26,32 @@ interface BindingItemView {
 }
 
 /**
+ * Guarded parse of a golden's stored bindings (raw API row — not the
+ * server-guarded resolveGolden path). Malformed JSON, or a shape without an
+ * `items` array, degrades to inert (like a bad golden in Task 5): returns null
+ * so the card still renders header/badges/delete/actions rather than throwing
+ * during React render and taking down the whole Memory drawer.
+ */
+function parseBindings(bindings: string | null): { items: BindingItemView[] } | null {
+  if (!bindings) return null;
+  try {
+    const parsed = JSON.parse(bindings) as { items?: unknown };
+    return Array.isArray(parsed.items) ? { items: parsed.items as BindingItemView[] } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Boundness line, mirroring engine `boundnessLine`
  * (packages/engine/src/goldenBinding.ts) — client can't import engine, so the
  * counting rule is duplicated. Dot separators match the drawer's card idiom.
  */
 function boundness(bindings: string | null): string {
   if (!bindings) return "not yet bound";
-  const items = (JSON.parse(bindings) as { items: BindingItemView[] }).items;
+  const inv = parseBindings(bindings);
+  if (!inv) return "bindings unreadable";
+  const items = inv.items;
   if (items.length === 0) return "nothing to bind";
   const bound = items.filter((i) => i.binding?.status === "bound").length;
   const mismatch = items.filter((i) => i.binding?.status === "mismatch").length;
@@ -70,7 +89,7 @@ export function GoldenCard({ g, blueprintId, reload }: { g: GoldenRow; blueprint
   const [draftPeriod, setDraftPeriod] = useState("");
   const [periodErr, setPeriodErr] = useState<string | null>(null);
 
-  const inv = g.bindings ? (JSON.parse(g.bindings) as { items: BindingItemView[] }) : null;
+  const inv = parseBindings(g.bindings);
   const isExemplar = g.kind === "exemplar";
   const label = isExemplar ? g.name : `run ${g.runId}${g.sectionKey ? ` · §${g.sectionKey}` : ""}`;
 

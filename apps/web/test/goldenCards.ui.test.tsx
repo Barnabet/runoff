@@ -118,4 +118,15 @@ describe("GoldenCard", () => {
     fireEvent.keyDown(input2, { key: "Enter" });
     expect(await screen.findByText(/bad period: garbage/)).toBeTruthy();
   });
+
+  it("malformed bindings degrade to inert: card + delete still render, 'bindings unreadable' shown", () => {
+    render(<GoldenCard g={golden({ id: "g7", document: "{}", bindings: "{not json" })} blueprintId="bp_1" reload={vi.fn()} />);
+    // The card renders instead of throwing during React render.
+    expect(screen.getByTestId("golden-g7")).toBeTruthy();
+    // The delete escape hatch is present.
+    expect(screen.getByRole("button", { name: "delete" })).toBeTruthy();
+    // The boundness line degrades to a readable notice; no inventory panel.
+    expect(screen.getByText("bindings unreadable")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "inventory" })).toBeNull();
+  });
 });
