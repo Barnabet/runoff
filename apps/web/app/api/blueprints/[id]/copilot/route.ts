@@ -1,9 +1,9 @@
 import { BlueprintContentSchema, newId, type CopilotAction } from "@runoff/core";
-import { copilotTurn, type CopilotEvent } from "@runoff/engine";
+import { boundnessLine, copilotTurn, renderGoldenForPrompt, type CopilotEvent } from "@runoff/engine";
 import { getDb } from "../../../../../lib/db";
 import { getLlmClient } from "../../../../../lib/llm";
 import { buildCopilotContext } from "../../../../../lib/queries";
-import { listGoldens, resolveGoldenText } from "../../../../../lib/goldens";
+import { listGoldens, resolveGolden } from "../../../../../lib/goldens";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -65,8 +65,12 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
   // Pre-resolve golden texts so the engine context stays synchronous.
   const goldenCache = new Map<string, { description: string; text: string }>();
   for (const g of listGoldens(db, id)) {
-    const resolved = await resolveGoldenText(db, g.id);
-    if (resolved) goldenCache.set(g.id, resolved);
+    const resolved = resolveGolden(db, g.id);
+    if (resolved)
+      goldenCache.set(g.id, {
+        description: `${resolved.label} — ${boundnessLine(resolved.inventory)}`,
+        text: renderGoldenForPrompt(resolved),
+      });
   }
   const context = buildCopilotContext(db, id, goldenCache);
 

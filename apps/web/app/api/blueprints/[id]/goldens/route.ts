@@ -3,6 +3,7 @@ import { basename, extname, join } from "node:path";
 import { newId } from "@runoff/core";
 import { getDb } from "../../../../../lib/db";
 import { listGoldens } from "../../../../../lib/goldens";
+import { rebuildRunGoldenInventory, unifyAndBindExemplar } from "../../../../../lib/goldenPipeline";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -45,6 +46,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     db.sqlite
       .prepare("INSERT INTO goldens (id, blueprint_id, kind, name, mime, stored_filename, note) VALUES (?, ?, 'exemplar', ?, ?, ?, ?)")
       .run(goldenId, id, name, mime, storedFilename, note);
+    await unifyAndBindExemplar({ db, goldenId }); // errors are persisted (unify_error), never thrown
     return Response.json({ id: goldenId });
   }
 
@@ -69,5 +71,11 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
   db.sqlite
     .prepare("INSERT INTO goldens (id, blueprint_id, kind, run_id, section_key, note) VALUES (?, ?, ?, ?, ?, ?)")
     .run(goldenId, id, kind, runId, sectionKey, typeof body.note === "string" ? body.note : null);
+  // Copy the run's period onto the golden so resolveGolden needs no join, then
+  // build the deterministic §4 inventory from the run document's citations.
+  db.sqlite
+    .prepare("UPDATE goldens SET period = (SELECT period FROM runs WHERE id = ?) WHERE id = ?")
+    .run(runId, goldenId);
+  rebuildRunGoldenInventory({ db, goldenId });
   return Response.json({ id: goldenId });
 }

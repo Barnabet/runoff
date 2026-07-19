@@ -1,17 +1,22 @@
-import { unlinkSync } from "node:fs";
-import { join } from "node:path";
-
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import type { RunDocument } from "@runoff/core";
 
 import { freshDb, jsonReq, ctx } from "./helpers";
 import { getDb } from "../lib/db";
-import { resolveGoldenText } from "../lib/goldens";
 
-import { GET as listGoldens, POST as postGolden } from "../app/api/blueprints/[id]/goldens/route";
-import { DELETE as deleteGolden } from "../app/api/goldens/[id]/route";
+// The upload chain drives the engine's unify/bind LLM rounds; mock those entry
+// points (everything else in the engine stays real) and stub the LLM client.
+const { unifyMock, bindMock } = vi.hoisted(() => ({ unifyMock: vi.fn(), bindMock: vi.fn() }));
+vi.mock("@runoff/engine", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@runoff/engine")>()),
+  unifyGoldenReport: (...a: unknown[]) => unifyMock(...a),
+  bindGolden: (...a: unknown[]) => bindMock(...a),
+}));
+vi.mock("../lib/llm", () => ({ getLlmClient: () => ({}) }));
 
-beforeEach(() => freshDb());
+const { resolveGolden } = await import("../lib/goldens");
+const { GET: listGoldens, POST: postGolden } = await import("../app/api/blueprints/[id]/goldens/route");
+const { DELETE: deleteGolden } = await import("../app/api/goldens/[id]/route");
 
 /** A run document with one paragraph section. */
 const document: RunDocument = {
@@ -33,6 +38,12 @@ function seedRun(runId: string, blueprintId: string): void {
     )
     .run(runId, blueprintId, JSON.stringify(document));
 }
+
+beforeEach(() => {
+  freshDb();
+  unifyMock.mockReset();
+  bindMock.mockReset();
+});
 
 describe("goldens API", () => {
   it("stars a run: POST {kind:'run', runId} creates the row; GET lists it", async () => {
@@ -72,21 +83,32 @@ describe("goldens API", () => {
     expect(list.goldens).toHaveLength(0);
   });
 
-  it("uploads an exemplar via multipart and resolves its text", async () => {
+  it("uploads an exemplar via multipart, unifies it, and resolveGolden returns its document", async () => {
     seedBlueprint("bp_1");
+    const unified: RunDocument = {
+      title: "Uploaded Report",
+      eyebrow: "E",
+      dateline: "D",
+      sections: [{ key: "exec", heading: "Exec", blocks: [{ type: "paragraph", spans: [{ text: "golden text here" }] }] }],
+    };
+    unifyMock.mockResolvedValueOnce({ document: unified, period: "2026-Q1" });
+    bindMock.mockResolvedValueOnce(null); // auto-bind yields nothing → bindings stay null
 
     const form = new FormData();
-    form.set("file", new File(["golden text here"], "example.txt", { type: "text/plain" }));
+    form.set("file", new File(["golden text here"], "example.md", { type: "text/markdown" }));
     const res = await postGolden(new Request("http://x", { method: "POST", body: form }), ctx("bp_1"));
     expect(res.status).toBe(200);
     const { id } = await res.json();
 
     const list = await (await listGoldens(new Request("http://x"), ctx("bp_1"))).json();
-    expect(list.goldens[0]).toMatchObject({ id, kind: "exemplar", name: "example.txt", storedFilename: expect.any(String) });
+    expect(list.goldens[0]).toMatchObject({ id, kind: "exemplar", name: "example.md", storedFilename: expect.any(String) });
 
-    const resolved = await resolveGoldenText(getDb(), id);
+    const resolved = resolveGolden(getDb(), id);
     expect(resolved).not.toBeNull();
-    expect(resolved!.text).toContain("golden text here");
+    expect(resolved!.document?.title).toBe("Uploaded Report");
+    expect(resolved!.period).toBe("2026-Q1");
+    expect(resolved!.inventory).toBeNull();
+    expect(resolved!.unifyError).toBeNull();
   });
 
   it("DELETE removes the golden row", async () => {
@@ -102,45 +124,21 @@ describe("goldens API", () => {
     expect(list.goldens).toHaveLength(0);
   });
 
-  it("resolveGoldenText returns section text for a kind:'section' golden", async () => {
+  it("resolveGolden returns section-only document for a kind:'section' golden", async () => {
     seedBlueprint("bp_1");
     seedRun("run_1", "bp_1");
     const { id } = await (
       await postGolden(jsonReq({ kind: "section", runId: "run_1", sectionKey: "exec" }), ctx("bp_1"))
     ).json();
 
-    const resolved = await resolveGoldenText(getDb(), id);
+    const resolved = resolveGolden(getDb(), id);
     expect(resolved).not.toBeNull();
-    expect(resolved!.text).toContain("Hello world.");
-    expect(resolved!.description).toContain("Exec");
+    expect(resolved!.document?.sections).toHaveLength(1);
+    expect(resolved!.document?.sections[0].heading).toBe("Exec");
   });
 
-  it("resolveGoldenText returns null when the run document is corrupt JSON", async () => {
+  it("resolveGolden returns null for an unknown golden id", () => {
     seedBlueprint("bp_1");
-    seedRun("run_1", "bp_1");
-    const { id } = await (await postGolden(jsonReq({ kind: "run", runId: "run_1" }), ctx("bp_1"))).json();
-
-    getDb().sqlite.prepare("UPDATE runs SET document = ? WHERE id = ?").run("not json{", "run_1");
-
-    const resolved = await resolveGoldenText(getDb(), id);
-    expect(resolved).toBeNull();
-  });
-
-  it("resolveGoldenText returns null when the exemplar file is missing from disk", async () => {
-    seedBlueprint("bp_1");
-
-    const form = new FormData();
-    form.set("file", new File(["golden text here"], "example.txt", { type: "text/plain" }));
-    const { id } = await (
-      await postGolden(new Request("http://x", { method: "POST", body: form }), ctx("bp_1"))
-    ).json();
-
-    const { storedFilename } = getDb()
-      .sqlite.prepare("SELECT stored_filename AS storedFilename FROM goldens WHERE id = ?")
-      .get(id) as { storedFilename: string };
-    unlinkSync(join(process.env.RUNOFF_FILES_DIR!, storedFilename));
-
-    const resolved = await resolveGoldenText(getDb(), id);
-    expect(resolved).toBeNull();
+    expect(resolveGolden(getDb(), "gold_missing")).toBeNull();
   });
 });
