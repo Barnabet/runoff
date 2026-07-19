@@ -10,6 +10,7 @@ import {
 } from "@runoff/core";
 import { buildSourcePack, packForPrompt, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { computeLocator } from "./checks.js";
+import { serializeCatalog, type CatalogFamily } from "./catalogFormat.js";
 import { MODEL, guidanceBlocks, type ScopedMemory } from "./prompts.js";
 
 const MAX_ITERATIONS = 12;
@@ -70,6 +71,10 @@ export interface CopilotContext {
   defaultFiles: EngineFile[];
   /** Every filed periodic row of bound families; the pack keys them `${familyId}:${period}`. */
   periodFiles: { familyId: string; period: string; file: EngineFile }[];
+  /** Warehouse catalog for this project: families → tables/columns/counts. */
+  catalog: CatalogFamily[];
+  /** Read-only SQL against the project warehouse; returns the formatted result, THROWS on any error (incl. "no data ingested yet"). */
+  runSql(sql: string): string;
   listRuns(): RunSummary[];
   getRunSection(runId: string, key: string): RunSectionDetail | null;
   listGoldens(): GoldenSummary[];
@@ -151,6 +156,9 @@ const TOOLS = [
   fn("compute", "Evaluate one aggregate over a bound family's latest file: agg(familyId.column) or agg(familyId.column where col=value), agg one of sum|avg|min|max|count. To inspect an earlier period, use query_sources with that period instead.", {
     expression: { type: "string" },
   }),
+  fn("run_sql", "Run one read-only SQL SELECT against this project's ingested data (SQLite). Table and column names are in the data catalog; periodic tables have a _period column (e.g. WHERE _period = '2026-Q1'). Results are capped at 200 rows.", {
+    sql: { type: "string" },
+  }),
   fn("list_runs", "List this blueprint's most recent runs with their stats.", {}),
   fn("get_run_section", "Fetch one section of a past run: its text plus that section's check failures, retries, steers, answers, and flags.", {
     runId: { type: "string" }, key: { type: "string" },
@@ -175,9 +183,10 @@ function fn(name: string, description: string, properties: Record<string, unknow
   };
 }
 
-function copilotSystemPrompt(draft: BlueprintContent, selectedKey: string | null, memories: ScopedMemory[]): string {
+function copilotSystemPrompt(draft: BlueprintContent, selectedKey: string | null, memories: ScopedMemory[], catalog: CatalogFamily[]): string {
   const memoryBlock = guidanceBlocks(memories);
   const selected = selectedKey ? `\nThe user currently has section "${selectedKey}" selected in the editor.` : "";
+  const catalogBlock = catalog.length ? `\n\nData catalog (tables you can query with run_sql):\n${serializeCatalog(catalog)}` : "";
   return `You are the builder copilot for a Runoff blueprint — a template that generates a recurring, \
 fact-checked business report. You edit the blueprint itself (instructions, rules, structure), never \
 the report output. Use your tools to inspect the bound data, past runs, and golden examples before \
@@ -186,7 +195,7 @@ instructions concrete and grounded in the actual source columns. Figures in gene
 audited against locator expressions like sum(src.amount where channel=search) — prefer assert rules \
 and instructions that reference real columns. Data is organized into families (one file per period, or \
 constant reference files); query_sources shows what periods exist. When the user states a durable \
-preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}
+preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}${catalogBlock}
 
 Current draft (JSON):
 ${JSON.stringify(draft)}${memoryBlock}`;
@@ -205,6 +214,7 @@ function activityLabel(name: string, args: any, families: FamilyInfo[]): string 
       return `reading ${key}${args.period ? ` @ ${args.period}` : ""}`;
     }
     case "compute": return `computing ${args?.expression ?? "?"}`;
+    case "run_sql": return "running SQL";
     case "list_runs": return "listing recent runs";
     case "get_run_section": return `reading run ${args?.runId ?? "?"} §${args?.key ?? "?"}`;
     case "list_goldens": return "listing goldens";
@@ -238,7 +248,7 @@ export async function copilotTurn(opts: {
   );
 
   const messages: any[] = [
-    { role: "system", content: copilotSystemPrompt(draft, opts.selectedKey, opts.memories) },
+    { role: "system", content: copilotSystemPrompt(draft, opts.selectedKey, opts.memories, ctx.catalog) },
     ...opts.thread.map((t) => ({ role: t.role, content: t.body })),
     { role: "user", content: opts.message },
   ];
@@ -351,18 +361,6 @@ function familyLine(f: FamilyInfo): string {
   return `${f.key} · ${f.kind}${gran} · ${data}`;
 }
 
-/** The family tree: bound families first, unbound families under a trailer line. */
-function familyTree(families: FamilyInfo[]): string {
-  if (!families.length) return "No data families in this project.";
-  const bound = families.filter((f) => f.bound);
-  const unbound = families.filter((f) => !f.bound);
-  const lines = bound.map(familyLine);
-  if (unbound.length) {
-    lines.push("Not bound to this blueprint:", ...unbound.map(familyLine));
-  }
-  return lines.join("\n");
-}
-
 function executeTool(
   name: string,
   args: any,
@@ -439,8 +437,41 @@ function executeTool(
       return commit({ ...draft, globalRules: rules }, { type: "update_global_rules", before: draft.globalRules, after: rules });
     }
     case "query_sources": {
-      if (!args.familyId) return { draft, result: familyTree(ctx.families) };
-      const key = ctx.families.find((f) => f.id === args.familyId)?.key ?? args.familyId;
+      const catByKey = new Map(ctx.catalog.map((c) => [c.key, c]));
+      if (!args.familyId) {
+        // v1.2b tree, plus table/column lines for queryable families.
+        const withTables = (f: FamilyInfo): string => {
+          const cat = catByKey.get(f.key);
+          const extra = cat?.queryable
+            ? cat.tables.map((t) => `  ${t.name}(${t.columns.map((c) => `${c.name} ${c.type}`).join(", ")})`)
+            : [];
+          return [familyLine(f), ...extra].join("\n");
+        };
+        const bound = ctx.families.filter((f) => f.bound).map(withTables);
+        const unbound = ctx.families.filter((f) => !f.bound).map(withTables);
+        if (!ctx.families.length) return { draft, result: "No data families in this project." };
+        return { draft, result: [...bound, ...(unbound.length ? ["Not bound to this blueprint:", ...unbound] : [])].join("\n") };
+      }
+      const fam = ctx.families.find((f) => f.id === args.familyId);
+      const key = fam?.key ?? args.familyId;
+      const cat = fam ? catByKey.get(fam.key) : undefined;
+      if (cat?.queryable) {
+        if (args.period && !fam!.filedPeriods.includes(args.period)) {
+          return { draft, result: `Tool error: no file for ${key} at ${args.period}` };
+        }
+        const period = fam!.kind === "periodic" ? (args.period ?? fam!.filedPeriods[fam!.filedPeriods.length - 1]) : null;
+        const parts = [serializeCatalog([cat])];
+        for (const t of cat.tables) {
+          const where = period ? ` WHERE _period = '${period}'` : "";
+          try {
+            parts.push(`-- ${t.name}\n${ctx.runSql(`SELECT * FROM ${t.name}${where} LIMIT 10`)}`);
+          } catch (err) {
+            parts.push(`-- ${t.name}\nTool error: sql: ${err instanceof Error ? err.message : String(err)}`);
+          }
+        }
+        return { draft, result: parts.join("\n") };
+      }
+      // Document families: v1.2b pack behavior, byte-identical error strings.
       if (args.period) {
         const entryId = `${args.familyId}:${args.period}`;
         if (!periodPack.sources.some((s) => s.id === entryId)) {
@@ -455,6 +486,14 @@ function executeTool(
     }
     case "compute":
       return { draft, result: String(computeLocator(String(args.expression ?? ""), defaultPack)) };
+    case "run_sql": {
+      const sql = String(args.sql ?? "");
+      try {
+        return { draft, result: ctx.runSql(sql) };
+      } catch (err) {
+        return { draft, result: `Tool error: sql: ${err instanceof Error ? err.message : String(err)}` };
+      }
+    }
     case "list_runs": {
       const runs = ctx.listRuns();
       if (!runs.length) return { draft, result: "No runs yet." };

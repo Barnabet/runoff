@@ -1,11 +1,12 @@
 import { join } from "node:path";
-import { blocksToPlainText, newId, previousCompletedDocument } from "@runoff/core";
+import { blocksToPlainText, formatSqlResult, newId, previousCompletedDocument, runWarehouseSql } from "@runoff/core";
 import type { MemoryRow, RunDocument, RunEvent, RunoffDb } from "@runoff/core";
 import type { CopilotContext, EngineFile, FamilyInfo, RunSummary, RunSectionDetail } from "@runoff/engine";
 import type { BlueprintListItem, FlagRow, GetRunResponse, RunRow } from "./api";
 import { listProjectSources, type FamilySummary } from "./sourceManager";
 import type { ProjectSourceRow } from "@runoff/core";
 import { listGoldenSummaries } from "./goldens";
+import { catalog } from "./catalog";
 
 // Server-only db reads shared by the API route and the server-rendered Library
 // page so the blueprint+run join lives in exactly one place. Never import this
@@ -331,6 +332,10 @@ export function buildCopilotContext(
     families,
     defaultFiles,
     periodFiles,
+    catalog: catalog(db, projectId),
+    runSql(sql: string): string {
+      return formatSqlResult(runWarehouseSql(projectId, sql));
+    },
     listRuns(): RunSummary[] {
       const rows = db.sqlite
         .prepare(

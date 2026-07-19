@@ -6,11 +6,12 @@
  */
 import { join } from "node:path";
 import OpenAI from "openai";
-import { openDb, BlueprintContentSchema, type RunoffDb } from "@runoff/core";
+import { openDb, BlueprintContentSchema, formatSqlResult, readWarehouseTables, runWarehouseSql, type RunoffDb } from "@runoff/core";
 import {
   makeLlmClient,
   copilotTurn,
   MODEL,
+  type CatalogFamily,
   type CopilotContext,
   type EngineFile,
   type FamilyInfo,
@@ -109,7 +110,7 @@ function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; conten
  * history / goldens are stubbed empty — the eval only exercises source access,
  * edits, and saveMemory.
  */
-function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotContext {
+export function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotContext {
   const dir = filesDir();
   const projectId =
     (db.sqlite.prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?").get(blueprintId) as
@@ -178,10 +179,26 @@ function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotContext {
     }
   }
 
+  const catalog: CatalogFamily[] = families.map((f) => {
+    const tables = readWarehouseTables(projectId, f.key);
+    return {
+      id: f.id,
+      key: f.key,
+      label: f.label,
+      kind: f.kind,
+      granularity: f.granularity,
+      queryable: tables.length > 0,
+      tables,
+      filedPeriods: f.filedPeriods,
+    };
+  });
+
   return {
     families,
     defaultFiles,
     periodFiles,
+    catalog,
+    runSql: (sql: string) => formatSqlResult(runWarehouseSql(projectId, sql)),
     listRuns: () => [],
     getRunSection: () => null,
     listGoldens: () => [],

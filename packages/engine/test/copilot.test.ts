@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { BlueprintContent } from "@runoff/core";
 import { copilotTurn, type CopilotContext, type CopilotEvent, type FamilyInfo } from "../src/copilot.js";
+import type { CatalogFamily } from "../src/catalogFormat.js";
 import { makeFakeClient, type FakeTurn } from "./fakeClient.js";
 
 const content: BlueprintContent = {
@@ -24,12 +25,40 @@ function ctx(overrides: Partial<CopilotContext> = {}): CopilotContext {
     families: [],
     defaultFiles: [],
     periodFiles: [],
+    catalog: [],
+    runSql: () => { throw new Error("no data ingested yet"); },
     listRuns: () => [],
     getRunSection: () => null,
     listGoldens: () => [],
     getGolden: () => null,
     saveMemory: () => "mem_1",
     ...overrides,
+  };
+}
+
+function famInfo(over: Partial<FamilyInfo> & { key: string }): FamilyInfo {
+  return {
+    id: `fam_${over.key}`,
+    label: over.key,
+    kind: "periodic",
+    granularity: "quarter",
+    filedPeriods: ["2026-Q1"],
+    hasLiveFile: false,
+    bound: false,
+    ...over,
+  };
+}
+
+function catFam(over: Partial<CatalogFamily> & { key: string }): CatalogFamily {
+  return {
+    id: `fam_${over.key}`,
+    label: over.key,
+    kind: "periodic",
+    granularity: "quarter",
+    queryable: false,
+    tables: [],
+    filedPeriods: [],
+    ...over,
   };
 }
 
@@ -268,6 +297,76 @@ describe("copilotTurn", () => {
     expect(toolResults()[0]).toBe("Tool error: family not bound to this blueprint: fam_unbound");
     expect(events.some((e) => e.type === "edit")).toBe(false);
     expect(res.draft.sections[1].familyIds).toEqual(["src_data"]); // unchanged
+  });
+
+  it("run_sql returns the executor's formatted result", async () => {
+    const calls: string[] = [];
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "run_sql", input: { sql: "SELECT a, b FROM fam_x" } } }],
+      [{ text: "Here are the rows." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "run a query",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: (sql: string) => { calls.push(sql); return "a | b\n1 | 2"; } }), io,
+    });
+    expect(calls).toEqual(["SELECT a, b FROM fam_x"]);
+    expect(toolResults()[0]).toBe("a | b\n1 | 2");
+  });
+
+  it("run_sql failures surface as byte-exact Tool error strings", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "run_sql", input: { sql: "SELECT 1" } } }],
+      [{ text: "No data yet." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "run a query",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: () => { throw new Error("no data ingested yet"); } }), io,
+    });
+    expect(toolResults()[0]).toBe("Tool error: sql: no data ingested yet");
+  });
+
+  it("query_sources tree appends table lines for queryable families", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "query_sources", input: {} } }],
+      [{ text: "There you go." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "what data is there",
+      thread: [], memories: [],
+      ctx: ctx({
+        families: [famInfo({ key: "spend", bound: true })],
+        catalog: [catFam({ key: "spend", queryable: true, tables: [{ name: "fam_spend", columns: [{ name: "amount", type: "REAL" }], rowCounts: { "2026-Q1": 2 } }] })],
+      }), io,
+    });
+    const tree = toolResults()[0];
+    expect(tree).toContain("spend · periodic");
+    expect(tree).toContain("fam_spend(amount REAL)");
+  });
+
+  it("query_sources inspect on a queryable family returns schema + a 10-row sample via runSql", async () => {
+    const calls: string[] = [];
+    const cat = catFam({ id: "fam_1", key: "spend", queryable: true, tables: [{ name: "fam_spend", columns: [{ name: "amount", type: "REAL" }], rowCounts: { "2026-Q1": 2 } }] });
+    const fams = [famInfo({ id: "fam_1", key: "spend", kind: "periodic", filedPeriods: ["2026-Q1"], bound: true })];
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "query_sources", input: { familyId: "fam_1", period: "2026-Q1" } } }],
+      [{ toolUse: { name: "query_sources", input: { familyId: "fam_1", period: "2026-Q3" } } }],
+      [{ text: "Done inspecting." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "inspect spend",
+      thread: [], memories: [],
+      ctx: ctx({ families: fams, catalog: [cat], runSql: (sql: string) => { calls.push(sql); return "amount\n1"; } }), io,
+    });
+    expect(calls).toEqual(["SELECT * FROM fam_spend WHERE _period = '2026-Q1' LIMIT 10"]);
+    const [ok, miss] = toolResults();
+    expect(ok).toContain("amount\n1");
+    expect(miss).toBe("Tool error: no file for spend at 2026-Q3");
   });
 
   it("compute still evaluates over the default pack (ids = family ids)", async () => {
