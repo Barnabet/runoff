@@ -23,3 +23,4 @@ export * from "./catalogFormat.js";
 export * from "./runData.js";
 export * from "./unifyGolden.js";
 export * from "./goldenBinding.js";
+export * from "./bindGolden.js";
