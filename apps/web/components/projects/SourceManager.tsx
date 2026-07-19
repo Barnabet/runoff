@@ -11,9 +11,11 @@ import {
   deleteProjectSource,
   getProjectSources,
   refileSource,
+  replanSource,
   uploadProjectSources,
   type FamilySummary,
 } from "@/lib/api";
+import { renderPlanSteps } from "@/lib/planSteps";
 
 const NEW_FAMILY = "__new__";
 
@@ -28,6 +30,10 @@ interface ChipEdit {
   familyValue: string; // a family id, "__new__", or "" (unchosen)
   period: string;
   newFamily: NewFamilyDraft;
+  // Plan-path only: exclude period-mismatched rows on confirm, and the pending
+  // free-text feedback for a replan.
+  excludeMismatch?: boolean;
+  planFeedback?: string;
 }
 
 /**
@@ -158,6 +164,8 @@ export function SourceManager({
   const [unfiled, setUnfiled] = useState(initialUnfiled);
   const [edits, setEdits] = useState<Record<string, ChipEdit>>({});
   const [classifying, setClassifying] = useState<Set<string>>(new Set());
+  // The source id whose plan is currently being revised, or null.
+  const [replanning, setReplanning] = useState<string | null>(null);
   // Chip-scoped failures (confirm), keyed by source id; plus one manager-level
   // line for upload/delete/classify/confirm-all failures.
   const [chipErrors, setChipErrors] = useState<Record<string, string>>({});
@@ -234,7 +242,32 @@ export function SourceManager({
   }
 
   async function confirmOne(row: ProjectSourceRow, edit = editFor(row)) {
-    await confirmSource(projectId, { sourceId: row.id, ...bodyFor(edit, families) });
+    // Only a plan with a period check carries the keep/exclude decision.
+    const hasPeriodCheck = row.proposal?.plan?.tables.some((t) => t.periodColumn) ?? false;
+    const periodMismatch = hasPeriodCheck ? (edit.excludeMismatch ? "exclude" : "keep") : undefined;
+    await confirmSource(projectId, {
+      sourceId: row.id,
+      ...bodyFor(edit, families),
+      ...(periodMismatch ? { periodMismatch } : {}),
+    });
+  }
+
+  // Revise the plan from free-text feedback: swap the returned proposal into the
+  // row, clear the feedback box, and surface failures via the chip-error line.
+  async function doReplan(row: ProjectSourceRow) {
+    const feedback = editFor(row).planFeedback?.trim();
+    if (!feedback) return;
+    setReplanning(row.id);
+    try {
+      setChipError(row.id, null);
+      const { proposal } = await replanSource(projectId, row.id, feedback);
+      setUnfiled((prev) => prev.map((r) => (r.id === row.id ? { ...r, proposal } : r)));
+      patchEdit(row.id, { planFeedback: "" }, row);
+    } catch (err) {
+      setChipError(row.id, errText(err));
+    } finally {
+      setReplanning(null);
+    }
   }
 
   async function onConfirm(row: ProjectSourceRow) {
@@ -314,10 +347,12 @@ export function SourceManager({
               edit={editFor(r)}
               families={families}
               classifying={classifying.has(r.id)}
+              replanning={replanning === r.id}
               error={chipErrors[r.id]}
               onPatch={(patch) => patchEdit(r.id, patch, r)}
               onConfirm={() => void onConfirm(r)}
               onReclassify={() => void runClassify([r.id])}
+              onReplan={() => void doReplan(r)}
               onDelete={() => void onDeleteUnfiled(r)}
             />
           ))}
@@ -359,20 +394,24 @@ function ChipRow({
   edit,
   families,
   classifying,
+  replanning,
   error,
   onPatch,
   onConfirm,
   onReclassify,
+  onReplan,
   onDelete,
 }: {
   row: ProjectSourceRow;
   edit: ChipEdit;
   families: FamilySummary[];
   classifying: boolean;
+  replanning: boolean;
   error?: string;
   onPatch: (patch: Partial<ChipEdit>) => void;
   onConfirm: () => void;
   onReclassify: () => void;
+  onReplan: () => void;
   onDelete: () => void;
 }) {
   const occupant = occupiedBy(edit, families);
@@ -500,6 +539,59 @@ function ChipRow({
           {(row.proposal.drift ?? []).map((d) => (
             <div key={d} className="text-amber">{d}</div>
           ))}
+        </div>
+      ) : null}
+
+      {row.proposal?.plan && row.proposal.preview ? (
+        <div className="w-full space-y-2 pt-1" data-testid={`parsing-${row.id}`}>
+          <div className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink/55">
+            parsing{row.proposal.planStatus === "stored" ? " — stored plan" : row.proposal.planStatus === "amended" ? " — plan amended" : ""}
+          </div>
+          <div className="space-y-0.5 font-mono text-[10px] text-ink/40">
+            {renderPlanSteps(row.proposal.plan).map((s, i) => <div key={i}>{s}</div>)}
+          </div>
+          {row.proposal.preview.tables.map((t) => {
+            const rep = row.proposal!.report?.tables.find((r) => r.name === t.name);
+            return (
+              <div key={t.name} className="space-y-1">
+                <div className="font-mono text-[10px] text-ink/70">
+                  {t.name} — kept {rep?.rowsKept ?? 0}
+                  {rep?.rowsExcluded.length ? ` · excluded ${rep.rowsExcluded.reduce((a, e) => a + e.count, 0)}` : ""}
+                  {rep?.coercionFailures.length ? ` · coercion failures ${rep.coercionFailures.reduce((a, f) => a + f.count, 0)}` : ""}
+                  {rep?.periodMismatches?.count ? ` · period mismatches ${rep.periodMismatches.count}` : ""}
+                </div>
+                {rep?.problems.map((p) => <div key={p} className="font-mono text-[10px] text-amber">{p}</div>)}
+                <table className="font-mono text-[10px] text-ink/70">
+                  <thead><tr>{t.columns.map((c) => <th key={c} className="pr-3 text-left font-normal text-ink/40">{c}</th>)}</tr></thead>
+                  <tbody>
+                    {t.rows.map((r, i) => (
+                      <tr key={i}>{r.map((v, j) => <td key={j} className="pr-3">{v === null ? "" : String(v)}</td>)}</tr>
+                    ))}
+                  </tbody>
+                </table>
+                {rep?.rowsExcluded.flatMap((e) => e.samples).map((s) => (
+                  <div key={s} className="font-mono text-[10px] text-ink/40 line-through">{s}</div>
+                ))}
+              </div>
+            );
+          })}
+          {row.proposal.report?.tables.some((t) => t.periodMismatches?.count) ? (
+            <label className="flex items-center gap-2 font-mono text-[10px] text-ink/70">
+              <input type="checkbox" checked={edit.excludeMismatch ?? false}
+                onChange={(e) => onPatch({ excludeMismatch: e.target.checked })} />
+              exclude period-mismatched rows
+            </label>
+          ) : null}
+          <div className="flex items-center gap-2">
+            <input value={edit.planFeedback ?? ""} placeholder="what did the parse get wrong?"
+              onChange={(e) => onPatch({ planFeedback: e.target.value })}
+              className="flex-1 border-b border-ink/20 bg-transparent font-mono text-[11px] outline-none" />
+            <button type="button" disabled={!edit.planFeedback?.trim() || replanning}
+              onClick={onReplan}
+              className="font-mono text-[10px] uppercase tracking-[1.5px] text-ink/55 disabled:opacity-40">
+              {replanning ? "revising…" : "revise plan"}
+            </button>
+          </div>
         </div>
       ) : null}
 

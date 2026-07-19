@@ -140,6 +140,9 @@ export interface FileSourceBody {
   familyId?: string;
   newFamily?: NewFamilyInput;
   period: string | null;
+  // Plan-path only: how to treat rows whose period column disagrees with the
+  // target slot. Omitted for plan-less sources.
+  periodMismatch?: "keep" | "exclude";
 }
 
 export function getProjectSources(projectId: string): Promise<ProjectSourcesResponse> {
@@ -174,6 +177,18 @@ export function confirmSource(
     method: "POST",
     headers: JSON_HEADERS,
     body: JSON.stringify(body),
+  });
+}
+
+export function replanSource(
+  projectId: string,
+  sourceId: string,
+  feedback: string,
+): Promise<{ proposal: ClassifyProposal }> {
+  return fetchJson(`/api/projects/${projectId}/sources/${sourceId}/replan`, {
+    method: "POST",
+    headers: JSON_HEADERS,
+    body: JSON.stringify({ feedback }),
   });
 }
 

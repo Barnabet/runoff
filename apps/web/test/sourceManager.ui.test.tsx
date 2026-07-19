@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { cleanup, render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { SourceManager, enumeratePeriods } from "../components/projects/SourceManager";
 import type { FamilySummary } from "@/lib/api";
-import type { ProjectSourceRow } from "@runoff/core";
+import type { ClassifyProposal, ProjectSourceRow } from "@runoff/core";
 
 /** Route table keyed by URL substring, first match wins (specific routes first). */
 function mockFetch(routes: Record<string, (init?: RequestInit, url?: string) => Response | Promise<Response>>) {
@@ -50,6 +50,50 @@ function fam(over: Partial<FamilySummary> & { id: string; key: string }): Family
       over.filedEntries ?? filedPeriods.map((p, i) => ({ period: p, sourceId: `${over.id}_s${i}`, name: `${p}.csv` })),
     liveFile: over.liveFile ?? null,
     tables: over.tables ?? [],
+  };
+}
+
+/** A plan-bearing ClassifyProposal fixture (plan + preview + report). */
+function planProposal(over: Partial<ClassifyProposal> = {}): ClassifyProposal {
+  return {
+    familyKey: "trade_data",
+    period: "2026-Q2",
+    confidence: "high",
+    planStatus: "proposed",
+    plan: {
+      version: 1,
+      tables: [
+        {
+          name: "aging",
+          anchor: { headerSignature: ["customer", "amount"], minMatch: 1 },
+          headerRows: 1,
+          exclude: [{ column: null, pattern: "^total" }],
+          columns: [
+            { from: "customer", name: "customer", type: "TEXT" },
+            { from: "amount", name: "amount", type: "REAL", parse: "currency" },
+          ],
+          onPeriodMismatch: "keep",
+        },
+      ],
+    },
+    preview: {
+      tables: [{ name: "aging", columns: ["customer", "amount"], rows: [["Acme", 100], ["Beta", 200]] }],
+    },
+    report: {
+      tables: [
+        {
+          name: "aging",
+          anchor: { sheet: "s", row: 0 },
+          problems: [],
+          rowsKept: 6,
+          rowsExcluded: [{ pattern: "^total", count: 1, samples: ["Total row"] }],
+          coercionFailures: [],
+          periodMismatches: null,
+          unknownColumns: [],
+        },
+      ],
+    },
+    ...over,
   };
 }
 
@@ -348,6 +392,136 @@ describe("SourceManager", () => {
     fireEvent.click(screen.getByTestId("refile-save-src_ref"));
     await waitFor(() => expect(patchBody).toEqual({ familyId: "fam_r", period: "2026-Q3" }));
     expect(patchUrl).toContain("/sources/src_ref");
+  });
+
+  it("renders the parsing panel: plan steps, kept/excluded counts, struck excluded sample, preview cells", () => {
+    mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
+    const families = [fam({ id: "fam_trade", key: "trade_data", label: "Trade data" })];
+    const unfiled = [row({ id: "src_p", name: "aging.csv", proposal: planProposal() })];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={unfiled} />);
+
+    expect(screen.getByTestId("parsing-src_p")).toBeTruthy();
+    // A pinned plan-step line.
+    expect(screen.getByText("customer → customer (TEXT)")).toBeTruthy();
+    // Per-table counts.
+    expect(screen.getByText("aging — kept 6 · excluded 1")).toBeTruthy();
+    // Struck-through excluded sample.
+    const sample = screen.getByText("Total row");
+    expect(sample.className).toContain("line-through");
+    // Preview cell text.
+    expect(screen.getByText("Acme")).toBeTruthy();
+  });
+
+  it("labels a stored plan and renders report problem lines in amber", () => {
+    mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
+    const proposal = planProposal({
+      planStatus: "stored",
+      report: {
+        tables: [
+          {
+            name: "aging",
+            anchor: null,
+            problems: ["unanchored table: aging"],
+            rowsKept: 0,
+            rowsExcluded: [],
+            coercionFailures: [],
+            periodMismatches: null,
+            unknownColumns: [],
+          },
+        ],
+      },
+    });
+    const unfiled = [row({ id: "src_s", name: "aging.csv", proposal })];
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={unfiled} />);
+
+    expect(screen.getByText("parsing — stored plan")).toBeTruthy();
+    const problem = screen.getByText("unanchored table: aging");
+    expect(problem.className).toContain("text-amber");
+  });
+
+  it("typing feedback and clicking 'revise plan' POSTs the replan and swaps in the returned proposal", async () => {
+    let replanBody: Record<string, unknown> | null = null;
+    const revised = planProposal({
+      planStatus: "amended",
+      preview: { tables: [{ name: "aging", columns: ["customer", "amount"], rows: [["Gamma", 300]] }] },
+    });
+    mockFetch({
+      "/replan": (init) => {
+        replanBody = JSON.parse(String(init!.body));
+        return Response.json({ proposal: revised });
+      },
+      "/sources": () => Response.json({ families: [], unfiled: [] }),
+    });
+    const unfiled = [row({ id: "src_f", name: "aging.csv", proposal: planProposal() })];
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={unfiled} />);
+
+    fireEvent.change(screen.getByPlaceholderText("what did the parse get wrong?"), { target: { value: "wrong anchor" } });
+    fireEvent.click(screen.getByRole("button", { name: "revise plan" }));
+
+    await waitFor(() => expect(replanBody).toEqual({ feedback: "wrong anchor" }));
+    // The returned proposal is swapped in (new preview cell), old one gone.
+    expect(await screen.findByText("Gamma")).toBeTruthy();
+    expect(screen.queryByText("Acme")).toBeNull();
+  });
+
+  it("the mismatch checkbox appears only when periodMismatches.count > 0 and flips the confirm body", async () => {
+    let confirmBody: Record<string, unknown> | null = null;
+    mockFetch({
+      "/sources/confirm": (init) => { confirmBody = JSON.parse(String(init!.body)); return Response.json({ ok: true }); },
+      "/sources": () => Response.json({ families: [], unfiled: [] }),
+    });
+    const families = [fam({ id: "fam_trade", key: "trade_data", label: "Trade data" })];
+
+    // No mismatches: checkbox absent.
+    const { unmount } = render(
+      <SourceManager projectId="prj_1" families={families} unfiled={[row({ id: "src_ok", proposal: planProposal() })]} />,
+    );
+    expect(screen.queryByText("exclude period-mismatched rows")).toBeNull();
+    unmount();
+
+    // With mismatches + a period check: checkbox appears and drives the confirm body.
+    const withMismatch = planProposal({
+      plan: {
+        version: 1,
+        tables: [
+          {
+            name: "aging",
+            anchor: { headerSignature: ["customer", "amount"], minMatch: 1 },
+            headerRows: 1,
+            exclude: [],
+            columns: [
+              { from: "customer", name: "customer", type: "TEXT" },
+              { from: "as of", name: "as_of", type: "TEXT", parse: "date" },
+            ],
+            periodColumn: "as_of",
+            onPeriodMismatch: "keep",
+          },
+        ],
+      },
+      report: {
+        tables: [
+          {
+            name: "aging",
+            anchor: { sheet: "s", row: 0 },
+            problems: [],
+            rowsKept: 6,
+            rowsExcluded: [],
+            coercionFailures: [],
+            periodMismatches: { count: 3, samples: ["2025-Q4"] },
+            unknownColumns: [],
+          },
+        ],
+      },
+    });
+    render(<SourceManager projectId="prj_1" families={families} unfiled={[row({ id: "src_m", proposal: withMismatch })]} />);
+
+    const checkbox = screen.getByText("exclude period-mismatched rows").querySelector("input") as HTMLInputElement;
+    expect(checkbox).toBeTruthy();
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(confirmBody).toEqual({ sourceId: "src_m", familyId: "fam_trade", period: "2026-Q2", periodMismatch: "exclude" }),
+    );
   });
 });
 
