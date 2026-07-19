@@ -14,10 +14,14 @@
  *
  * Run:  pnpm seed
  */
-import { readFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { openDb, newId, type RunoffDb, type BlueprintContent } from "@runoff/core";
+import {
+  openDb, newId, attachWarehouse, detachWarehouse, applySchema, deleteRows, insertRows,
+  whFamilyTables, type RunoffDb, type BlueprintContent, type WhTableSchema,
+} from "@runoff/core";
+import { isTabular, readTabular, type DetectedTable } from "@runoff/engine";
 
 const BLUEPRINT_NAME = "Quarterly Performance Report";
 const PROJECT_NAME = "Meridian Retail";
@@ -33,6 +37,68 @@ function filesDir(): string {
   return process.env.RUNOFF_FILES_DIR ?? "data/files";
 }
 
+/** mulberry32 — deterministic tiny PRNG so every seed produces identical data. */
+function mulberry32(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const AR_CUSTOMERS = ["Northwind", "Contoso", "Fabrikam", "Adventure Works", "Tailspin", "Wingtip", "Proseware", "Litware"];
+const AR_STATUSES = ["paid", "open", "overdue"];
+
+/** ~10k-row AR extract for one quarter; seed differs per period → different but stable data. */
+function arCsv(period: string, seed: number): string {
+  const rand = mulberry32(seed);
+  const year = period.slice(0, 4);
+  const q = Number(period.slice(6));
+  const lines = ["invoice_id,customer,amount,issued_date,status"];
+  for (let i = 0; i < 10_000; i++) {
+    const month = String((q - 1) * 3 + 1 + Math.floor(rand() * 3)).padStart(2, "0");
+    const day = String(1 + Math.floor(rand() * 28)).padStart(2, "0");
+    const amount = Math.round(rand() * 9_900 + 100 + rand() * 100) / 1; // integer dollars
+    const customer = AR_CUSTOMERS[Math.floor(rand() * AR_CUSTOMERS.length)];
+    const status = AR_STATUSES[Math.floor(rand() * AR_STATUSES.length)];
+    lines.push(`INV-${period}-${String(i + 1).padStart(5, "0")},${customer},${amount},${year}-${month}-${day},${status}`);
+  }
+  return lines.join("\n") + "\n";
+}
+
+/**
+ * Ingest one tabular seed source into the project warehouse. Mirror of the app's
+ * fileSource ingest path (single/multi naming rule included): a lone detected
+ * table lands as `fam_<key>`, multiple tables as `fam_<key>__<slug>`.
+ */
+async function ingestSeedSource(
+  db: RunoffDb, projectId: string, familyKey: string, periodic: boolean, period: string | null,
+  path: string, mime: string, name: string,
+): Promise<void> {
+  attachWarehouse(db.sqlite, projectId);
+  try {
+    const tables: { table: DetectedTable; rows: unknown[][][] }[] = [];
+    await readTabular(path, mime, name, (table) => {
+      const entry = { table, rows: [] as unknown[][][] };
+      tables.push(entry);
+      return (batch) => { entry.rows.push(batch); };
+    });
+    const single = tables.length === 1;
+    const nameOf = (slug: string): string => (single ? `fam_${familyKey}` : `fam_${familyKey}__${slug}`);
+    const incoming: WhTableSchema[] = tables.map((t) => ({ name: nameOf(t.table.slug), columns: t.table.columns }));
+    applySchema(db.sqlite, periodic, incoming);
+    deleteRows(db.sqlite, whFamilyTables(db.sqlite, familyKey).map((t) => t.name), period);
+    for (const t of tables) {
+      const cols = t.table.columns.map((c) => c.name);
+      for (const batch of t.rows) insertRows(db.sqlite, nameOf(t.table.slug), cols, batch, period);
+    }
+  } finally {
+    detachWarehouse(db.sqlite);
+  }
+}
+
 interface SeedResult {
   projectId: string;
   blueprintId: string;
@@ -44,7 +110,7 @@ interface SeedResult {
  * Returns the project + blueprint ids and whether they were freshly created.
  * Safe to call repeatedly (idempotent by blueprint name).
  */
-export function seedDatabase(db: RunoffDb): SeedResult {
+export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
   const existing = db.sqlite
     .prepare("SELECT id, project_id AS projectId FROM blueprints WHERE name = ?")
     .get(BLUEPRINT_NAME) as { id: string; projectId: string } | undefined;
@@ -80,24 +146,42 @@ export function seedDatabase(db: RunoffDb): SeedResult {
     return { id, name, familyId, period, storedFilename, mime, size };
   }
 
+  // Write a generated (non-fixture) CSV under a freshly-minted source id. Used
+  // for the large deterministic AR extracts, which are produced at seed time.
+  function generatedSource(name: string, csv: string, familyId: string, period: string): SourceRow {
+    const id = newId("src");
+    const storedFilename = `${id}_${name}`;
+    writeFileSync(join(dir, storedFilename), csv);
+    return { id, name, familyId, period, storedFilename, mime: "text/csv", size: csv.length };
+  }
+
   const projectId = newId("proj");
   const spendFam = newId("fam");
   const ga4Fam = newId("fam");
   const brandFam = newId("fam");
+  const arFam = newId("fam");
+  const regFam = newId("fam");
   const blueprintId = newId("bp");
 
   const families = [
     { id: spendFam, key: "marketing_spend", label: "Marketing spend", kind: "periodic", granularity: "quarter" },
     { id: ga4Fam, key: "ga4_analytics", label: "GA4 analytics", kind: "periodic", granularity: "quarter" },
     { id: brandFam, key: "brand_guidelines", label: "Brand guidelines", kind: "constant", granularity: null },
+    { id: arFam, key: "ar_transactions", label: "AR transactions", kind: "periodic", granularity: "quarter" },
+    { id: regFam, key: "regional_summary", label: "Regional summary", kind: "periodic", granularity: "quarter" },
   ];
 
+  const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
   const sourceRows: SourceRow[] = [
     copyFixture("spend_june.csv", "Marketing Spend — Q1 2026", "text/csv", spendFam, "2026-Q1"),
     copyFixture("spend_june.csv", "Marketing Spend — Q2 2026", "text/csv", spendFam, "2026-Q2"),
     copyFixture("ga4_export.csv", "GA4 Channel Export — Q1 2026", "text/csv", ga4Fam, "2026-Q1"),
     copyFixture("ga4_export.csv", "GA4 Channel Export — Q2 2026", "text/csv", ga4Fam, "2026-Q2"),
     copyFixture("brand_guidelines.pdf", "Brand Guidelines", "application/pdf", brandFam, null),
+    generatedSource("ar_2026-Q1.csv", arCsv("2026-Q1", 1301), arFam, "2026-Q1"),
+    generatedSource("ar_2026-Q2.csv", arCsv("2026-Q2", 1302), arFam, "2026-Q2"),
+    copyFixture("regional_summary.xlsx", "Regional Summary — Q1 2026", XLSX_MIME, regFam, "2026-Q1"),
+    copyFixture("regional_summary.xlsx", "Regional Summary — Q2 2026", XLSX_MIME, regFam, "2026-Q2"),
   ];
 
   // Assert expressions reference the real fixture columns via FAMILY ids
@@ -232,6 +316,22 @@ export function seedDatabase(db: RunoffDb): SeedResult {
   });
   tx();
 
+  // Warehouse ingestion for every tabular filed source (CSV/XLSX). Mirrors the
+  // app's ingest so the seeded project ships with a populated warehouse; the PDF
+  // brand-guidelines source is skipped by the isTabular check.
+  const famById = new Map(families.map((f) => [f.id, f]));
+  let ingested = 0;
+  for (const r of sourceRows) {
+    if (!isTabular(r.mime, r.name)) continue;
+    const fam = famById.get(r.familyId)!;
+    await ingestSeedSource(
+      db, projectId, fam.key, fam.kind === "periodic", r.period,
+      join(dir, r.storedFilename), r.mime, r.name,
+    );
+    ingested++;
+  }
+  console.log(`Ingested warehouse tables for ${ingested} tabular sources`);
+
   return { projectId, blueprintId, created: true };
 }
 
@@ -244,7 +344,7 @@ function countCsvRows(path: string): number {
 async function main(): Promise<void> {
   const db = openDb(dbPath());
   try {
-    const { projectId, blueprintId, created } = seedDatabase(db);
+    const { projectId, blueprintId, created } = await seedDatabase(db);
     if (created) {
       console.log(`Seeded "${PROJECT_NAME}" — project id: ${projectId}`);
       console.log(`Seeded "${BLUEPRINT_NAME}" — blueprint id: ${blueprintId}`);

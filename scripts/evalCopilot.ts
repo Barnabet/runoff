@@ -80,13 +80,13 @@ async function preflight(client: OpenAI): Promise<void> {
 }
 
 /** Load the seeded blueprint (seeding first if absent). */
-function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; content: ReturnType<typeof BlueprintContentSchema.parse> } {
+async function loadBlueprint(db: RunoffDb): Promise<{ blueprintId: string; rev: number; content: ReturnType<typeof BlueprintContentSchema.parse> }> {
   let row = db.sqlite
     .prepare("SELECT id, current_rev AS rev FROM blueprints WHERE name = ?")
     .get(BLUEPRINT_NAME) as { id: string; rev: number } | undefined;
   if (!row) {
     console.log(`No "${BLUEPRINT_NAME}" found — seeding first…`);
-    const { blueprintId } = seedDatabase(db);
+    const { blueprintId } = await seedDatabase(db);
     row = db.sqlite.prepare("SELECT id, current_rev AS rev FROM blueprints WHERE id = ?").get(blueprintId) as {
       id: string;
       rev: number;
@@ -212,7 +212,7 @@ async function main(): Promise<void> {
   await preflight(client);
   const db = openDb(dbPath());
   try {
-    const { blueprintId, content } = loadBlueprint(db);
+    const { blueprintId, content } = await loadBlueprint(db);
     let editOps = 0;
     const ctx: CopilotContext = buildEvalContext(db, blueprintId);
     const res = await copilotTurn({

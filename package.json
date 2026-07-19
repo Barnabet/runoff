@@ -2,7 +2,7 @@
   "name": "runoff",
   "private": true,
   "scripts": {
-    "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
+    "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
     "test": "vitest run --passWithNoTests",
     "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
     "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
@@ -16,6 +16,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.1.0",
+    "exceljs": "^4.4.0",
+    "jszip": "^3.10.1",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0",
     "vitest": "^3.0.0"

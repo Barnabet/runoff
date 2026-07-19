@@ -90,13 +90,13 @@ async function preflight(client: OpenAI): Promise<void> {
 }
 
 /** Load the seeded blueprint (seeding first if absent). */
-function loadBlueprint(db: RunoffDb): { blueprintId: string; rev: number; files: EngineFile[]; gaps: string[]; content: ReturnType<typeof BlueprintContentSchema.parse> } {
+async function loadBlueprint(db: RunoffDb): Promise<{ blueprintId: string; rev: number; files: EngineFile[]; gaps: string[]; content: ReturnType<typeof BlueprintContentSchema.parse> }> {
   let row = db.sqlite
     .prepare("SELECT id, current_rev AS rev FROM blueprints WHERE name = ?")
     .get(BLUEPRINT_NAME) as { id: string; rev: number } | undefined;
   if (!row) {
     console.log(`No "${BLUEPRINT_NAME}" found — seeding first…`);
-    const { blueprintId } = seedDatabase(db);
+    const { blueprintId } = await seedDatabase(db);
     row = db.sqlite.prepare("SELECT id, current_rev AS rev FROM blueprints WHERE id = ?").get(blueprintId) as {
       id: string;
       rev: number;
@@ -241,7 +241,7 @@ async function main(): Promise<void> {
 
   const db = openDb(dbPath());
   try {
-    const { content, files, gaps, rev } = loadBlueprint(db);
+    const { content, files, gaps, rev } = await loadBlueprint(db);
     console.log(`Running "${content.title}" for ${content.clientName} — ${files.length} sources, period ${RUN_PERIOD}, rev ${rev}.`);
 
     // Wrap the console IO to capture the run_started event so we can assert on
