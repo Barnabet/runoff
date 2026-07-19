@@ -135,6 +135,21 @@ describe("scanTabular + readTabular", () => {
     expect(batches.reduce((a, b) => a + b, 0)).toBe(25_000);
     expect(Math.max(...batches)).toBeLessThanOrEqual(10_000);
   });
+  it("delivers empty CSV cells as null in readTabular batches", async () => {
+    const path = join(dir, "nulls.csv");
+    writeFileSync(path, "a,b\n1,\n,x\n2,y\n");
+    const batches: unknown[][][] = [];
+    await readTabular(path, "text/csv", "nulls.csv", () => (b) => { batches.push(b); });
+    const rows = batches.flat();
+    expect(rows).toEqual([[1, null], [null, "x"], [2, "y"]]);
+  });
+  it("delivers whitespace-only CSV cells as null (matching XLSX isEmpty)", async () => {
+    const path = join(dir, "ws.csv");
+    writeFileSync(path, 'a,b\n1,"   "\n2,y\n');
+    const batches: unknown[][][] = [];
+    await readTabular(path, "text/csv", "ws.csv", () => (b) => { batches.push(b); });
+    expect(batches.flat()).toEqual([[1, null], [2, "y"]]);
+  });
   it("scans a messy XLSX via the streaming reader: two islands + note", async () => {
     const path = await writeXlsx("messy.xlsx", (ws) => {
       ws.addRow(["campaign", "spend"]);

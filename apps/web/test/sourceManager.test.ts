@@ -3,7 +3,7 @@ import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
-import { applySchema, attachWarehouse, detachWarehouse, warehousePath } from "@runoff/core";
+import { applySchema, attachWarehouse, detachWarehouse, runWarehouseSql, warehousePath } from "@runoff/core";
 import { freshDb } from "./helpers";
 import { getDb } from "../lib/db";
 import { fileSource, listProjectSources } from "../lib/sourceManager";
@@ -145,6 +145,15 @@ describe("fileSource — warehouse ingestion", () => {
       { campaign: "brand", spend: 100, _period: "2026-Q1" },
       { campaign: "search", spend: 200, _period: "2026-Q1" },
     ]);
+  });
+
+  it("CSV empty cells land as SQL NULL in the warehouse", async () => {
+    writeFileSync(join(filesDir, "nulls.csv"), "customer,amount\nAcme,100\nBeta,\nGamma,50\n");
+    addSource("nulls", "nulls.csv", "nulls.csv");
+    const res = await fileSource(db, { projectId, sourceId: "nulls", newFamily: { key: "nulltest", label: "Null test", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    expect(res).toEqual({ ok: true });
+    const out = runWarehouseSql(projectId, "SELECT COUNT(amount) AS c, COUNT(*) AS n FROM fam_nulltest WHERE _period = :period", { period: "2026-Q1" });
+    expect(out.rows[0]).toEqual([2, 3]); // COUNT(col) skips the NULL; COUNT(*) sees all rows
   });
 
   it("refiling a period swaps only that period's warehouse rows", async () => {

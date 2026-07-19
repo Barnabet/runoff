@@ -263,7 +263,7 @@ export async function readTabular(
     const emit = onTable(scan.tables[0]);
     let batch: unknown[][] = [];
     await streamCsv(path, () => {}, (row) => {
-      batch.push(row);
+      batch.push(row.map((v) => (typeof v === "string" && v.trim() === "" ? null : v)));
       if (batch.length >= BATCH) { emit(batch); batch = []; }
     });
     if (batch.length) emit(batch);
