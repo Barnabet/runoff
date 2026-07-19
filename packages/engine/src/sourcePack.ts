@@ -114,6 +114,12 @@ async function buildPdf(file: EngineFile): Promise<PackedSource> {
   };
 }
 
+/** Raw extracted text of one file — the same reader buildSourcePack uses, without prompt packaging. */
+export async function extractFileText(file: EngineFile): Promise<string> {
+  const pack = await buildSourcePack([file]);
+  return pack.sources.map((s) => s.text ?? "").join("\n\n");
+}
+
 /** Serialize selected sources for a drafting prompt. */
 export function packForPrompt(pack: SourcePack, sourceIds: string[]): string {
   const chosen = pack.sources.filter((s) => sourceIds.includes(s.id));

@@ -1,6 +1,6 @@
 export { makeLlmClient } from "./llm.js";
 export { parseSectionText, spansFromInline } from "./dialect.js";
-export { buildSourcePack, packForPrompt } from "./sourcePack.js";
+export { buildSourcePack, packForPrompt, extractFileText } from "./sourcePack.js";
 export type { PackedSource, SourcePack, EngineFile } from "./sourcePack.js";
 export { evaluateAssert, auditCitations, countCitations } from "./checks.js";
 export type { CheckOutcome } from "./checks.js";
@@ -21,3 +21,4 @@ export * from "./parsePlan.js";
 export * from "./proposePlan.js";
 export * from "./catalogFormat.js";
 export * from "./runData.js";
+export * from "./unifyGolden.js";
