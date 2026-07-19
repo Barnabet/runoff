@@ -181,8 +181,20 @@ const isoDate = (y: number, m: number, d: number): string | null =>
 export function coerceCell(v: unknown, parse: "number" | "currency" | "percent" | "date" | undefined): { out: unknown; failed: boolean } {
   if (parse === undefined) return { out: v, failed: false };
   if (parse === "date") {
-    if (v instanceof Date) return { out: v.toISOString().slice(0, 10), failed: false };
+    // TOTAL guarantee: an invalid Date must fail coercion, never throw on toISOString.
+    if (v instanceof Date) return Number.isNaN(v.getTime())
+      ? { out: null, failed: true }
+      : { out: v.toISOString().slice(0, 10), failed: false };
+    // Excel serial dates: the streaming WorkbookReader has no styles cache, so a
+    // genuine date-typed cell arrives as a raw serial number. Convert finite serials
+    // in a sane range (≈1954–2119) so ordinary small integers like 7 still fail.
+    if (typeof v === "number" && Number.isFinite(v) && v >= 20000 && v <= 80000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+      return Number.isNaN(d.getTime()) ? { out: null, failed: true } : { out: d.toISOString().slice(0, 10), failed: false };
+    }
     const s = rawCell(v);
+    // ISO datetime (e.g. cellValue stringifies a real Date cell to a full ISO string).
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return { out: s.slice(0, 10), failed: false };
     let m = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/.exec(s);
     if (m) { const iso = isoDate(+m[1], +m[2], +m[3]); return iso ? { out: iso, failed: false } : { out: null, failed: true }; }
     m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s); // US month-first

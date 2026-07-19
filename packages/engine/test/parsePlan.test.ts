@@ -1,5 +1,10 @@
-import { describe, it, expect } from "vitest";
-import { executeParsePlan, fitParsePlan, type SheetGrid } from "../src/parsePlan.js";
+import { afterEach, beforeEach, describe, it, expect } from "vitest";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import ExcelJS from "exceljs";
+import JSZip from "jszip";
+import { executeParsePlan, fitParsePlan, loadGrids, type SheetGrid } from "../src/parsePlan.js";
 import type { ParsePlan } from "@runoff/core";
 
 const g = (sheet: string, grid: unknown[][]): SheetGrid => ({ sheet, grid });
@@ -199,6 +204,15 @@ describe("coercions", () => {
     expect(run(plan("date", "TEXT"), "May 7, 2026").tables[0].rows[0][1]).toBe("2026-05-07");
   });
 
+  it("date: Excel serials in range coerce; small integers still fail; ISO datetime truncates", () => {
+    // 46149 = 2026-05-07 (Excel 1900 serial, Dec 30 1899 epoch).
+    expect(run(plan("date", "TEXT"), 46149).tables[0].rows[0][1]).toBe("2026-05-07");
+    expect(run(plan("date", "TEXT"), "2026-05-07T00:00:00.000Z").tables[0].rows[0][1]).toBe("2026-05-07");
+    const smallInt = run(plan("date", "TEXT"), 7);
+    expect(smallInt.tables[0].rows[0][1]).toBeNull(); // ordinary integer, not a serial date
+    expect(smallInt.report.tables[0].coercionFailures[0].column).toBe("v");
+  });
+
   it("failed coercions become NULL and are counted with samples", () => {
     const { tables, report } = run(plan("number"), "n/a");
     expect(tables[0].rows[0][1]).toBeNull();
@@ -293,5 +307,63 @@ describe("period validation", () => {
   it("no slot period (constant/preview without period) → validation skipped", () => {
     const { report } = executeParsePlan([g("s", grid)], P, null, null);
     expect(report.tables[0].periodMismatches).toBeNull();
+  });
+});
+
+// Repack an exceljs workbook so the streaming WorkbookReader finds workbook.xml
+// before the worksheets (it crashes otherwise). Mirrors scripts/genFixtures.ts.
+async function writeXlsx(dir: string, file: string, build: (ws: ExcelJS.Worksheet) => void): Promise<string> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Report Data");
+  build(ws);
+  const raw = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+  const src = await JSZip.loadAsync(raw);
+  const rank = (n: string): number =>
+    n === "[Content_Types].xml" ? 0 :
+    n === "xl/workbook.xml" ? 1 :
+    n === "xl/_rels/workbook.xml.rels" ? 2 :
+    n === "xl/sharedStrings.xml" ? 3 :
+    n === "xl/styles.xml" ? 4 :
+    n.startsWith("xl/worksheets/") ? 8 : 6;
+  const names = Object.keys(src.files).filter((n) => !src.files[n].dir).sort((a, b) => rank(a) - rank(b));
+  const out = new JSZip();
+  for (const n of names) out.file(n, await src.files[n].async("nodebuffer"));
+  const path = join(dir, file);
+  writeFileSync(path, await out.generateAsync({ type: "nodebuffer" }));
+  return path;
+}
+
+describe("date coercion through loadGrids (genuine XLSX date cells)", () => {
+  let dir: string;
+  beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "parseplan-")); });
+  afterEach(() => { rmSync(dir, { recursive: true, force: true }); });
+
+  const DATED: ParsePlan = {
+    version: 1,
+    tables: [{
+      name: "tx",
+      anchor: { headerSignature: ["when", "amt"], minMatch: 2 },
+      headerRows: 1, exclude: [],
+      columns: [
+        { from: "when", name: "when", type: "TEXT", parse: "date" },
+        { from: "amt", name: "amt", type: "REAL" },
+      ],
+      periodColumn: "when",
+      onPeriodMismatch: "keep",
+    }],
+  };
+
+  it("a real date-typed cell (Excel serial) coerces to ISO and derives its period", async () => {
+    // exceljs stores a JS Date as a date-typed cell; the streaming reader (no
+    // styles cache) emits it as a raw serial number, which coerceCell must accept.
+    const path = await writeXlsx(dir, "dated.xlsx", (ws) => {
+      ws.addRow(["when", "amt"]);
+      ws.addRow([new Date(Date.UTC(2026, 4, 7)), 5]); // 2026-05-07 → Q2
+    });
+    const grids = await loadGrids(path, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "dated.xlsx");
+    const { tables, report } = executeParsePlan(grids, DATED, "2026-Q2", "quarter");
+    expect(tables[0].rows).toEqual([["2026-05-07", 5]]);
+    expect(report.tables[0].coercionFailures).toEqual([]);
+    expect(report.tables[0].periodMismatches).toEqual({ count: 0, samples: [] });
   });
 });
