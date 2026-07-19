@@ -21,7 +21,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   openDb, newId, attachWarehouse, detachWarehouse, applySchema, deleteRows, insertRows,
-  whFamilyTables, planTableName, ParsePlanSchema,
+  whFamilyTables, planTableName, ParsePlanSchema, runWarehouseSql,
+  BindingInventorySchema, RunDocumentSchema, validateInventoryAnchors,
   type RunoffDb, type BlueprintContent, type WhTableSchema, type ParsePlan, type Granularity,
 } from "@runoff/core";
 import { isTabular, readTabular, loadGrids, executeParsePlan, type DetectedTable } from "@runoff/engine";
@@ -427,6 +428,77 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
     ingested++;
   }
   console.log(`Ingested warehouse tables for ${ingested} tabular sources`);
+
+  // ---- v1.5: baked golden exemplar — a Q1 AR review whose figures come from the
+  // warehouse we just built, so text and data agree by construction (spec §10).
+  const whVal = (sql: string): number => runWarehouseSql(projectId, sql).rows[0][0] as number;
+  const whRows = (sql: string): [string, number][] =>
+    runWarehouseSql(projectId, sql).rows as [string, number][];
+  const arTotal = whVal(`SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = '2026-Q1'`);
+  const arCount = whVal(`SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = '2026-Q1'`);
+  const openTotal = whVal(`SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = '2026-Q1' AND status = 'open'`);
+  const statusRows = whRows(`SELECT status, ROUND(SUM(amount),2) AS t FROM fam_ar_transactions WHERE _period = '2026-Q1' GROUP BY status ORDER BY status`);
+  const fmt = (n: number): string => n.toLocaleString("en-US");
+
+  const AR_REVIEW_MD = `# Accounts Receivable Review — Q1 2026
+
+## Overview
+
+Total receivables for the quarter reached $${fmt(arTotal)} across ${fmt(arCount)} invoices.
+
+## Status mix
+
+Open invoices account for $${fmt(openTotal)} of the total.
+
+| status | total |
+| --- | --- |
+${statusRows.map(([s, t]) => `| ${s} | $${fmt(t)} |`).join("\n")}
+`;
+  const goldenId = newId("gold");
+  const goldenFile = `${goldenId}_ar_review_q1_2026.md`;
+  writeFileSync(join(dir, goldenFile), AR_REVIEW_MD);
+
+  const AR_REVIEW_DOC = {
+    title: "Accounts Receivable Review — Q1 2026", eyebrow: "Quarterly", dateline: "Q1 2026",
+    sections: [
+      { key: "overview", heading: "Overview", blocks: [
+        { type: "paragraph", spans: [
+          { text: "Total receivables for the quarter reached " }, { text: `$${fmt(arTotal)}` },
+          { text: " across " }, { text: fmt(arCount) }, { text: " invoices." } ] } ] },
+      { key: "status_mix", heading: "Status mix", blocks: [
+        { type: "paragraph", spans: [
+          { text: "Open invoices account for " }, { text: `$${fmt(openTotal)}` }, { text: " of the total." } ] },
+        { type: "table", columns: ["status", "total"],
+          rows: statusRows.map(([s, t]) => ({ cells: [[{ text: s }], [{ text: `$${fmt(t)}` }]] })) } ] } ] };
+
+  const item = (
+    id: string, anchor: { sectionKey: string; blockIndex: number; spanIndex: number },
+    raw: string, parsed: number, sql: string,
+  ) => ({ id, kind: "value", anchor, raw, parsed,
+    binding: { familyId: arFam, sql, verifiedValue: parsed, status: "bound" }, reason: null });
+  const AR_REVIEW_INVENTORY = { version: 1, items: [
+    item("overview_total", { sectionKey: "overview", blockIndex: 0, spanIndex: 1 }, `$${fmt(arTotal)}`, arTotal,
+      "SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period"),
+    item("overview_count", { sectionKey: "overview", blockIndex: 0, spanIndex: 3 }, fmt(arCount), arCount,
+      "SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = :period"),
+    item("open_total", { sectionKey: "status_mix", blockIndex: 0, spanIndex: 1 }, `$${fmt(openTotal)}`, openTotal,
+      "SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period AND status = 'open'"),
+    { id: "status_table", kind: "table", anchor: { sectionKey: "status_mix", blockIndex: 1, spanIndex: null },
+      raw: "table: status, total", parsed: null,
+      binding: { familyId: arFam, sql: "SELECT status, ROUND(SUM(amount),2) FROM fam_ar_transactions WHERE _period = :period GROUP BY status ORDER BY status",
+        verifiedValue: statusRows.length, status: "bound" }, reason: null },
+  ] };
+
+  // Seed-time assertion: a drifted literal fails the seed loudly, not silently.
+  const parsedDoc = RunDocumentSchema.parse(AR_REVIEW_DOC);
+  const parsedInventory = BindingInventorySchema.parse(AR_REVIEW_INVENTORY);
+  validateInventoryAnchors(parsedInventory, parsedDoc);
+
+  db.sqlite.prepare(
+    "INSERT INTO goldens (id, blueprint_id, kind, name, mime, stored_filename, note, period, document, bindings) VALUES (?, ?, 'exemplar', ?, 'text/markdown', ?, ?, '2026-Q1', ?, ?)",
+  ).run(goldenId, blueprintId, "AR Review — Q1 2026", goldenFile, "seeded bound exemplar",
+    JSON.stringify(parsedDoc), JSON.stringify(parsedInventory));
+  console.log(`Seeded bound exemplar golden — id: ${goldenId} (${parsedInventory.items.length} items)`);
 
   return { projectId, blueprintId, created: true };
 }
