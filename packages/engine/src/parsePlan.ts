@@ -1,4 +1,5 @@
 import type { Granularity, ParsePlan, TablePlan, ColumnPlan, ExecReport, WhColumn } from "@runoff/core";
+import { planPattern } from "@runoff/core";
 import { xlsxGrids, csvGrid, slugify } from "./tabular.js";
 import { extname } from "node:path";
 
@@ -90,7 +91,7 @@ function extractRegion(grids: SheetGrid[], plan: ParsePlan, t: TablePlan, at: Re
     claimed.add(col);
     colFor.set(cp.name, col);
   }
-  const valueRe = t.unpivot ? new RegExp(t.unpivot.valuePattern, "i") : null;
+  const valueRe = t.unpivot ? planPattern(t.unpivot.valuePattern) : null;
   const valueCols: number[] = [];
   const unknown: string[] = [];
   for (const c of matchedCols) {
@@ -251,7 +252,7 @@ function processRows(
     if (ex.matchedCols.every((c) => normCell(row[c]) === headerNormByCol.get(c))) continue;
     let dropped = false;
     for (const rule of t.exclude) {
-      const re = new RegExp(rule.pattern, "i");
+      const re = planPattern(rule.pattern);
       const hit = rule.column === null
         ? ex.matchedCols.some((c) => re.test(rawCell(row[c])))
         : re.test(rawCell(row[ex.colFor.get(rule.column) as number]));

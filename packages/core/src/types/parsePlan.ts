@@ -2,6 +2,18 @@ import { z } from "zod";
 
 const NAME_RE = /^[a-z][a-z0-9_]*$/;
 
+/**
+ * Compile a plan-authored row-rule / unpivot pattern. Matching is always
+ * case-insensitive (the "i" flag), so a leading PCRE inline-flag group like
+ * `(?i)` — which LLM proposers commonly emit but ECMAScript regex rejects as a
+ * syntax error — is redundant and stripped before compilation. Throws (like
+ * `new RegExp`) on a genuinely malformed pattern so validateParsePlan still
+ * reports it.
+ */
+export function planPattern(pattern: string): RegExp {
+  return new RegExp(pattern.replace(/^\(\?[a-z]+\)/i, ""), "i");
+}
+
 export const RowRuleSchema = z.object({
   /** Canonical column name, or null = match against any matched cell in the row. */
   column: z.string().nullable(),
@@ -107,11 +119,11 @@ export function validateParsePlan(plan: ParsePlan): void {
     };
     for (const r of t.exclude) {
       ref(r.column, "exclude");
-      try { new RegExp(r.pattern, "i"); } catch { throw new Error(`invalid pattern: ${t.name}.${r.pattern}`); }
+      try { planPattern(r.pattern); } catch { throw new Error(`invalid pattern: ${t.name}.${r.pattern}`); }
     }
     if (t.unpivot) {
       for (const k of t.unpivot.keep) ref(k, "keep");
-      try { new RegExp(t.unpivot.valuePattern, "i"); } catch { throw new Error(`invalid pattern: ${t.name}.${t.unpivot.valuePattern}`); }
+      try { planPattern(t.unpivot.valuePattern); } catch { throw new Error(`invalid pattern: ${t.name}.${t.unpivot.valuePattern}`); }
       if (canon.has(t.unpivot.keyColumn) || canon.has(t.unpivot.valueColumn) || t.unpivot.keyColumn === t.unpivot.valueColumn)
         throw new Error(`unpivot column collides: ${t.name}`);
     }

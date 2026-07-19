@@ -36,7 +36,8 @@ const PLAN_CONTRACT =
   `Header/from texts are lowercase, whitespace-collapsed. One entry per REAL data table; title rows, ` +
   `notes and total rows are NOT tables. Exclude total/subtotal rows with an exclude rule on a key column. ` +
   `Set minMatch ≈ two-thirds of the signature length. Unpivot wide period-like column layouts. ` +
-  `Use parse for formatted values ("$1,234"→currency, "12%"→percent, dates→date).`;
+  `Use parse for formatted values ("$1,234"→currency, "12%"→percent, dates→date). ` +
+  `Patterns are ECMAScript regex — no PCRE inline flags like (?i); matching is already case-insensitive.`;
 
 /**
  * One structured call proposing (or amending) a ParsePlan. Zod + structural

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  ParsePlanSchema, validateParsePlan, planTableName,
+  ParsePlanSchema, validateParsePlan, planTableName, planPattern,
   ClassifyProposalSchema, type ParsePlan,
 } from "../src/index.js";
 
@@ -73,6 +73,19 @@ describe("validateParsePlan", () => {
       version: 1,
       tables: [{ ...PLAN.tables[0], exclude: [{ column: null, pattern: "(" }] }],
     })).toThrow("invalid pattern: aging.(");
+  });
+
+  it("tolerates a leading PCRE inline-flag group in patterns", () => {
+    // LLM proposers commonly emit `(?i)` — ECMAScript rejects it, but matching
+    // is already case-insensitive so the flag is stripped, not rejected.
+    expect(() => validateParsePlan({
+      version: 1,
+      tables: [{ ...PLAN.tables[0], exclude: [{ column: null, pattern: "(?i)^grand total$" }] }],
+    })).not.toThrow();
+    const re = planPattern("(?i)^grand total$");
+    expect(re.test("Grand Total")).toBe(true);
+    expect(re.test("acme corp")).toBe(false);
+    expect(planPattern("^foo$").test("FOO")).toBe(true); // still case-insensitive
   });
 });
 
