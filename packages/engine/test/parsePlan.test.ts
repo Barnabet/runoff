@@ -155,3 +155,143 @@ describe("fitParsePlan", () => {
     expect(fit.detail).toContain("unknown column: Mystery");
   });
 });
+
+describe("coercions", () => {
+  const plan = (parse: "number" | "currency" | "percent" | "date" | undefined, type: "TEXT" | "INTEGER" | "REAL" = "REAL"): ParsePlan => ({
+    version: 1,
+    tables: [{
+      name: "t",
+      anchor: { headerSignature: ["k", "v"], minMatch: 2 },
+      headerRows: 1, exclude: [],
+      columns: [
+        { from: "k", name: "k", type: "TEXT" },
+        { from: "v", name: "v", type, ...(parse ? { parse } : {}) },
+      ],
+      onPeriodMismatch: "keep",
+    }],
+  });
+  const run = (p: ParsePlan, v: unknown) =>
+    executeParsePlan([g("s", [["k", "v"], ["a", v]])], p, null, null);
+
+  it("currency strips symbols and separators", () => {
+    expect(run(plan("currency"), "$1,234.56").tables[0].rows[0][1]).toBe(1234.56);
+    expect(run(plan("currency"), "1 234,56 €").tables[0].rows[0][1]).toBe(123456); // separators stripped; EU decimals out of scope
+  });
+
+  it("number handles thousands separators; '007' maps to 7 only with parse", () => {
+    expect(run(plan("number"), "12,000").tables[0].rows[0][1]).toBe(12000);
+    expect(run(plan(undefined, "TEXT"), "007").tables[0].rows[0][1]).toBe("007");
+    expect(run(plan("number"), "007").tables[0].rows[0][1]).toBe(7);
+  });
+
+  it("percent: strings divide by 100, XLSX numerics pass through", () => {
+    expect(run(plan("percent"), "12%").tables[0].rows[0][1]).toBe(0.12);
+    expect(run(plan("percent"), "12").tables[0].rows[0][1]).toBe(0.12);
+    expect(run(plan("percent"), 0.12).tables[0].rows[0][1]).toBe(0.12);
+  });
+
+  it("date: Date instances and each pinned string format → YYYY-MM-DD", () => {
+    expect(run(plan("date", "TEXT"), new Date(Date.UTC(2026, 4, 7))).tables[0].rows[0][1]).toBe("2026-05-07");
+    expect(run(plan("date", "TEXT"), "2026-05-07").tables[0].rows[0][1]).toBe("2026-05-07");
+    expect(run(plan("date", "TEXT"), "2026/5/7").tables[0].rows[0][1]).toBe("2026-05-07");
+    expect(run(plan("date", "TEXT"), "5/7/2026").tables[0].rows[0][1]).toBe("2026-05-07"); // US month-first
+    expect(run(plan("date", "TEXT"), "7 May 2026").tables[0].rows[0][1]).toBe("2026-05-07");
+    expect(run(plan("date", "TEXT"), "May 7, 2026").tables[0].rows[0][1]).toBe("2026-05-07");
+  });
+
+  it("failed coercions become NULL and are counted with samples", () => {
+    const { tables, report } = run(plan("number"), "n/a");
+    expect(tables[0].rows[0][1]).toBeNull();
+    expect(report.tables[0].coercionFailures).toEqual([{ column: "v", count: 1, samples: ["n/a"] }]);
+  });
+
+  it("empty cells are NULL and never counted as failures", () => {
+    const { report } = run(plan("number"), "   ");
+    expect(report.tables[0].coercionFailures).toEqual([]);
+  });
+});
+
+describe("unpivot", () => {
+  const WIDE: ParsePlan = {
+    version: 1,
+    tables: [{
+      name: "monthly",
+      anchor: { headerSignature: ["region"], minMatch: 1 },
+      headerRows: 1, exclude: [],
+      columns: [{ from: "region", name: "region", type: "TEXT" }],
+      unpivot: { keep: ["region"], valuePattern: "^[a-z]{3} \\d{4}$", keyColumn: "month", valueColumn: "amount", valueType: "REAL", valueParse: "currency" },
+      onPeriodMismatch: "keep",
+    }],
+  };
+  const grid = [
+    ["Region", "Apr 2026", "May 2026", "Note"],
+    ["EMEA", "$10.00", "$20.00", "x"],
+    ["AMER", "$5.00", null, "y"],
+  ];
+
+  it("melts matched columns into key/value rows; empty values skipped; key keeps raw casing", () => {
+    const { tables, report } = executeParsePlan([g("s", grid)], WIDE, null, null);
+    expect(tables[0].columns.map((c) => c.name)).toEqual(["region", "month", "amount"]);
+    expect(tables[0].rows).toEqual([
+      ["EMEA", "Apr 2026", 10],
+      ["EMEA", "May 2026", 20],
+      ["AMER", "Apr 2026", 5],
+    ]);
+    expect(report.tables[0].unknownColumns).toEqual(["Note"]);
+    expect(report.tables[0].rowsKept).toBe(3);
+  });
+
+  it("a NEW month column fits the pattern without any plan change", () => {
+    const grid2 = [["Region", "Jun 2026"], ["EMEA", "$7.00"]];
+    const { tables } = executeParsePlan([g("s", grid2)], WIDE, null, null);
+    expect(tables[0].rows).toEqual([["EMEA", "Jun 2026", 7]]);
+  });
+});
+
+describe("period validation", () => {
+  const P: ParsePlan = {
+    version: 1,
+    tables: [{
+      name: "tx",
+      anchor: { headerSignature: ["id", "booked"], minMatch: 2 },
+      headerRows: 1, exclude: [],
+      columns: [
+        { from: "id", name: "id", type: "TEXT" },
+        { from: "booked", name: "booked", type: "TEXT", parse: "date" },
+      ],
+      periodColumn: "booked",
+      onPeriodMismatch: "keep",
+    }],
+  };
+  const grid = [
+    ["Id", "Booked"],
+    ["a", "2026-05-01"],   // Q2 — matches
+    ["b", "2026-07-09"],   // Q3 — mismatch
+    ["c", "bogus"],        // unparseable date — mismatch AND coercion failure
+  ];
+
+  it("derivePeriod covers all three granularities", async () => {
+    const { derivePeriod } = await import("../src/parsePlan.js");
+    expect(derivePeriod("2026-05-07", "quarter")).toBe("2026-Q2");
+    expect(derivePeriod("2026-05-07", "month")).toBe("2026-05");
+    expect(derivePeriod("2026-05-07", "year")).toBe("2026");
+  });
+
+  it("keep: mismatches counted with samples, rows kept", () => {
+    const { tables, report } = executeParsePlan([g("s", grid)], P, "2026-Q2", "quarter");
+    expect(tables[0].rows).toHaveLength(3);
+    expect(report.tables[0].periodMismatches).toEqual({ count: 2, samples: ["b | 2026-07-09", "c | bogus"] });
+  });
+
+  it("exclude: mismatched rows dropped", () => {
+    const excl: ParsePlan = { version: 1, tables: [{ ...P.tables[0], onPeriodMismatch: "exclude" }] };
+    const { tables, report } = executeParsePlan([g("s", grid)], excl, "2026-Q2", "quarter");
+    expect(tables[0].rows.map((r) => r[0])).toEqual(["a"]);
+    expect(report.tables[0].periodMismatches?.count).toBe(2);
+  });
+
+  it("no slot period (constant/preview without period) → validation skipped", () => {
+    const { report } = executeParsePlan([g("s", grid)], P, null, null);
+    expect(report.tables[0].periodMismatches).toBeNull();
+  });
+});

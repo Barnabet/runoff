@@ -1,4 +1,4 @@
-import type { Granularity, ParsePlan, TablePlan, ExecReport, WhColumn } from "@runoff/core";
+import type { Granularity, ParsePlan, TablePlan, ColumnPlan, ExecReport, WhColumn } from "@runoff/core";
 import { xlsxGrids, csvGrid, slugify } from "./tabular.js";
 import { extname } from "node:path";
 
@@ -170,7 +170,50 @@ function outputColumns(t: TablePlan): WhColumn[] {
   ];
 }
 
-/** Row filtering + output building. Coercion/unpivot/period arrive in Task 3. */
+const MONTHS_3: Record<string, number> = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+const monthNo = (s: string): number | null => MONTHS_3[s.slice(0, 3).toLowerCase()] ?? null;
+const pad = (n: number): string => String(n).padStart(2, "0");
+const isoDate = (y: number, m: number, d: number): string | null =>
+  m >= 1 && m <= 12 && d >= 1 && d <= 31 ? `${y}-${pad(m)}-${pad(d)}` : null;
+
+/** Coerce one non-empty cell. `failed: true` ⇒ out is null and the failure is counted. */
+export function coerceCell(v: unknown, parse: "number" | "currency" | "percent" | "date" | undefined): { out: unknown; failed: boolean } {
+  if (parse === undefined) return { out: v, failed: false };
+  if (parse === "date") {
+    if (v instanceof Date) return { out: v.toISOString().slice(0, 10), failed: false };
+    const s = rawCell(v);
+    let m = /^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/.exec(s);
+    if (m) { const iso = isoDate(+m[1], +m[2], +m[3]); return iso ? { out: iso, failed: false } : { out: null, failed: true }; }
+    m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s); // US month-first
+    if (m) { const iso = isoDate(+m[3], +m[1], +m[2]); return iso ? { out: iso, failed: false } : { out: null, failed: true }; }
+    m = /^(\d{1,2})[ -]([A-Za-z]{3,9}),?[ -](\d{4})$/.exec(s);
+    if (m) { const mo = monthNo(m[2]); const iso = mo && isoDate(+m[3], mo, +m[1]); return iso ? { out: iso, failed: false } : { out: null, failed: true }; }
+    m = /^([A-Za-z]{3,9}) (\d{1,2}),? (\d{4})$/.exec(s);
+    if (m) { const mo = monthNo(m[1]); const iso = mo && isoDate(+m[3], mo, +m[2]); return iso ? { out: iso, failed: false } : { out: null, failed: true }; }
+    return { out: null, failed: true };
+  }
+  if (typeof v === "number" && Number.isFinite(v)) return { out: v, failed: false };
+  let s = rawCell(v);
+  if (parse === "percent") {
+    s = s.replace(/%$/, "").trim();
+    const n = Number(s.replace(/[,\s]/g, ""));
+    return Number.isFinite(n) && s !== "" ? { out: n / 100, failed: false } : { out: null, failed: true };
+  }
+  if (parse === "currency") s = s.replace(/^[$€£]\s*/, "").replace(/\s*[$€£]$/, "");
+  s = s.replace(/[,\s]/g, "");
+  const n = Number(s);
+  return Number.isFinite(n) && s !== "" ? { out: n, failed: false } : { out: null, failed: true };
+}
+
+export function derivePeriod(iso: string, granularity: Granularity): string {
+  const y = iso.slice(0, 4);
+  const m = Number(iso.slice(5, 7));
+  if (granularity === "quarter") return `${y}-Q${Math.ceil(m / 3)}`;
+  if (granularity === "month") return `${y}-${pad(m)}`;
+  return y;
+}
+
+/** Row filtering + output building: coercions, unpivot fan-out, period validation. */
 function processRows(
   t: TablePlan,
   ex: Extracted,
@@ -178,12 +221,31 @@ function processRows(
   slotPeriod: string | null,
   granularity: Granularity | null,
 ): { rows: unknown[][] } {
-  void slotPeriod; void granularity;
   const headerNormByCol = ex.mergedNorm;
   const excludeCounters = new Map<string, { count: number; samples: string[] }>();
   const rowSample = (row: unknown[]): string =>
     ex.matchedCols.map((c) => rawCell(row[c])).join(" | ").slice(0, 80);
   const rows: unknown[][] = [];
+
+  const isEmptyCell = (v: unknown): boolean =>
+    v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+  const coercionCounters = new Map<string, { count: number; samples: string[] }>();
+  const noteFailure = (column: string, raw: unknown): void => {
+    const c = coercionCounters.get(column) ?? { count: 0, samples: [] };
+    c.count++;
+    if (c.samples.length < 3) c.samples.push(rawCell(raw).slice(0, 40));
+    coercionCounters.set(column, c);
+  };
+  const coerced = (cp: { name: string; parse?: "number" | "currency" | "percent" | "date" }, raw: unknown): unknown => {
+    if (isEmptyCell(raw)) return null;
+    const { out, failed } = coerceCell(raw, cp.parse);
+    if (failed) noteFailure(cp.name, raw);
+    return out;
+  };
+  let mismatchCount = 0;
+  const mismatchSamples: string[] = [];
+  const keepCols = t.unpivot ? t.columns.filter((c) => t.unpivot!.keep.includes(c.name)) : t.columns;
+
   for (const row of ex.dataRows) {
     // repeated page header: matched cells equal the (first) header row
     if (ex.matchedCols.every((c) => normCell(row[c]) === headerNormByCol.get(c))) continue;
@@ -203,12 +265,36 @@ function processRows(
       }
     }
     if (dropped) continue;
-    rows.push(t.columns.map((cp) => {
-      const v = row[ex.colFor.get(cp.name) as number];
-      return v === null || v === undefined || (typeof v === "string" && v.trim() === "") ? null : v;
-    }));
+
+    const base = keepCols.map((cp) => coerced(cp, row[ex.colFor.get(cp.name) as number]));
+
+    // Period validation (plain and unpivot rows alike; the source row decides).
+    let periodOk = true;
+    if (t.periodColumn && slotPeriod && granularity) {
+      const cp = t.columns.find((c) => c.name === t.periodColumn) as ColumnPlan;
+      const raw = row[ex.colFor.get(cp.name) as number];
+      const { out } = isEmptyCell(raw) ? { out: null } : coerceCell(raw, "date");
+      const derived = typeof out === "string" ? derivePeriod(out, granularity) : null;
+      if (derived !== slotPeriod) {
+        mismatchCount++;
+        if (mismatchSamples.length < 3) mismatchSamples.push(rowSample(row));
+        if (t.onPeriodMismatch === "exclude") periodOk = false;
+      }
+    }
+    if (!periodOk) continue;
+
+    if (!t.unpivot) { rows.push(base); continue; }
+    for (const c of ex.valueCols) {
+      const raw = row[c];
+      if (isEmptyCell(raw)) continue;
+      const { out, failed } = coerceCell(raw, t.unpivot.valueParse);
+      if (failed) noteFailure(t.unpivot.valueColumn, raw);
+      rows.push([...base, ex.mergedRaw.get(c) as string, out]);
+    }
   }
   rep.rowsExcluded = [...excludeCounters.entries()].map(([pattern, c]) => ({ pattern, ...c }));
+  rep.coercionFailures = [...coercionCounters.entries()].map(([column, c]) => ({ column, ...c }));
+  rep.periodMismatches = t.periodColumn && slotPeriod && granularity ? { count: mismatchCount, samples: mismatchSamples } : null;
   return { rows };
 }
 
