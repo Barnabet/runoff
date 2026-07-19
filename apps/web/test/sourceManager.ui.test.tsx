@@ -285,6 +285,29 @@ describe("SourceManager", () => {
     expect(screen.getByText("new column: fam_spend.refund_flag (REAL)")).toBeTruthy();
   });
 
+  it("renders the skipped line on a chip even when no tables were detected", () => {
+    mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
+    const unfiled = [
+      row({
+        id: "src_skip",
+        name: "notes.csv",
+        proposal: {
+          familyKey: "spend",
+          period: "2026-Q1",
+          confidence: "high",
+          tables: [],
+          skippedFragments: 2,
+          drift: [],
+        },
+      }),
+    ];
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={unfiled} />);
+
+    expect(screen.getByText("skipped: 2 text fragment(s)")).toBeTruthy();
+    // No table line renders when tables is empty.
+    expect(screen.queryByText(/cols ·/)).toBeNull();
+  });
+
   it("renders per-table row counts on a family card and omits the block for document families", () => {
     mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
     const families = [

@@ -491,9 +491,9 @@ function ChipRow({
         </button>
       </span>
 
-      {row.proposal?.tables?.length ? (
+      {row.proposal && (row.proposal.tables?.length || row.proposal.skippedFragments || row.proposal.drift?.length) ? (
         <div className="w-full space-y-0.5 font-mono text-[11px] text-ink/50">
-          {row.proposal.tables.map((t) => (
+          {(row.proposal.tables ?? []).map((t) => (
             <div key={t.name}>{`${t.name} — ${t.columns.length} cols · ${t.rowCount.toLocaleString("en-US")} rows`}</div>
           ))}
           {row.proposal.skippedFragments ? <div>{`skipped: ${row.proposal.skippedFragments} text fragment(s)`}</div> : null}
