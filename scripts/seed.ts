@@ -1,13 +1,15 @@
 /**
  * Seed the Runoff database with the demo "Quarterly Performance Report" for the
- * Meridian Retail project: a three-family source taxonomy backed by real
- * fixtures, plus a five-section blueprint bound to those families whose assert
- * rules reference the real fixture columns via FAMILY ids.
+ * Meridian Retail project: a five-family source taxonomy backed by real
+ * fixtures, plus a six-section blueprint bound to those families whose assert
+ * rules and baked queries are scalar SQL over the project warehouse tables.
  *
  * Families (all in the Meridian Retail project):
  *  - marketing_spend  periodic/quarter, filed 2026-Q1 + 2026-Q2 (spend_june.csv)
  *  - ga4_analytics    periodic/quarter, filed 2026-Q1 + 2026-Q2 (ga4_export.csv)
  *  - brand_guidelines constant, one live file, period NULL (brand_guidelines.pdf)
+ *  - ar_transactions  periodic/quarter, filed 2026-Q1 + 2026-Q2 (generated ~10k-row extract)
+ *  - regional_summary periodic/quarter, filed 2026-Q1 + 2026-Q2 (regional_summary.xlsx)
  *
  * Idempotent: if a blueprint named "Quarterly Performance Report" already exists,
  * the seed is a no-op and simply reports the existing ids.
@@ -184,9 +186,9 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
     copyFixture("regional_summary.xlsx", "Regional Summary — Q2 2026", XLSX_MIME, regFam, "2026-Q2"),
   ];
 
-  // Assert expressions reference the real fixture columns via FAMILY ids
-  // (grammar: agg(familyId.column) <op> <number>); EngineFile.id is the family id
-  // at run time, so the locators stay stable across periods.
+  // Section asserts and baked queries are scalar SQL over the project warehouse:
+  // they reference warehouse TABLE names (fam_<key>) and bind :period at run time.
+  // Citations in the drafted prose still cite the bound FAMILY ids.
   const ga4Rows = countCsvRows(join(FIXTURES, "ga4_export.csv"));
 
   const content: BlueprintContent = {
@@ -204,16 +206,21 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
           "Open with the quarter's headline numbers: total marketing spend and total GA4 sessions and conversions. " +
           "State each figure directly and cite its source. No preamble.",
         familyIds: [spendFam, ga4Fam],
+        queries: [],
         rules: [
           {
             kind: "assert",
             text: "Total quarterly spend stays within the cap",
-            expression: `sum(${spendFam}.amount) <= 250000`,
+            sql: "SELECT SUM(amount) FROM fam_marketing_spend WHERE _period = :period",
+            op: "<=",
+            value: 250000,
           },
           {
             kind: "assert",
             text: "Every GA4 channel row is accounted for",
-            expression: `count(${ga4Fam}.channel) == ${ga4Rows}`,
+            sql: "SELECT COUNT(channel) FROM fam_ga4_analytics WHERE _period = :period",
+            op: "==",
+            value: ga4Rows,
           },
         ],
       },
@@ -227,6 +234,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
           "Follow the brand voice in the Brand Guidelines: plain, confident, no hedging. " +
           "Ground any figures in the spend and GA4 sources.",
         familyIds: [spendFam, ga4Fam, brandFam],
+        queries: [],
         rules: [
           { kind: "style", text: "Lead with the single most important result." },
           { kind: "judgment", text: "Flag for human review before release." },
@@ -241,6 +249,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
           "Break down spend by channel and pair it with GA4 sessions and conversions. " +
           "Present the comparison as a table, one row per channel, with every figure cited.",
         familyIds: [spendFam, ga4Fam],
+        queries: [],
         rules: [],
       },
       {
@@ -252,17 +261,43 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
           "Report total spend and confirm no single line item exceeded the per-item ceiling. " +
           "Note the average spend per line and cite the figures.",
         familyIds: [spendFam],
+        queries: [],
         rules: [
           {
             kind: "assert",
             text: "No single spend line exceeds the per-item ceiling",
-            expression: `max(${spendFam}.amount) <= 50000`,
+            sql: "SELECT MAX(amount) FROM fam_marketing_spend WHERE _period = :period",
+            op: "<=",
+            value: 50000,
           },
         ],
       },
       {
-        key: "appendix",
+        key: "receivables",
         number: 5,
+        heading: "Receivables",
+        mode: "auto",
+        instruction:
+          "Summarize accounts-receivable health for the quarter: total invoiced, the split by status, " +
+          "and the invoice count. Cite every figure.",
+        familyIds: [arFam],
+        rules: [
+          {
+            kind: "assert",
+            text: "Total invoiced is positive",
+            sql: "SELECT SUM(amount) FROM fam_ar_transactions WHERE _period = :period",
+            op: ">",
+            value: 0,
+          },
+        ],
+        queries: [
+          { name: "total_by_status", sql: "SELECT status, SUM(amount) AS total FROM fam_ar_transactions WHERE _period = :period GROUP BY status ORDER BY status" },
+          { name: "invoice_count", sql: "SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = :period" },
+        ],
+      },
+      {
+        key: "appendix",
+        number: 6,
         heading: "Appendix & Methodology",
         mode: "fixed",
         instruction: "Fixed methodology note.",
@@ -271,6 +306,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
           "Spend is reported gross of agency fees. Sessions and conversions reflect last-click attribution. " +
           "All figures are cited to their source of record.",
         familyIds: [],
+        queries: [],
         rules: [],
       },
     ],

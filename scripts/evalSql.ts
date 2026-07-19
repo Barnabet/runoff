@@ -6,7 +6,7 @@
  * Exit codes match scripts/eval.ts: 0 ok, 1 failed, 2 proxy unreachable, 3 auth.
  */
 import OpenAI from "openai";
-import { openDb, BlueprintContentSchema, type RunoffDb } from "@runoff/core";
+import { openDb, BlueprintContentSchema, runWarehouseSql, type RunoffDb } from "@runoff/core";
 import { makeLlmClient, copilotTurn, MODEL } from "@runoff/engine";
 import { buildEvalContext } from "./evalCopilot.js";
 import { seedDatabase } from "./seed.js";
@@ -97,6 +97,9 @@ async function main(): Promise<void> {
   const db = openDb(dbPath());
   try {
     const { blueprintId, content: draft } = await loadBlueprint(db);
+    const projectId = (db.sqlite
+      .prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?")
+      .get(blueprintId) as { projectId: string }).projectId;
     const ctx = buildEvalContext(db, blueprintId);
     let sqlCalls = 0;
     const rawRunSql = ctx.runSql.bind(ctx);
@@ -125,6 +128,12 @@ async function main(): Promise<void> {
     }
     if (!result.reply.trim()) {
       console.error("EVAL SQL FAIL: empty final reply");
+      process.exit(1);
+    }
+    const expectedRes = runWarehouseSql(projectId, "SELECT SUM(amount) FROM fam_ar_transactions WHERE _period = '2026-Q2'");
+    const expected = Math.trunc(expectedRes.rows[0][0] as number).toString();
+    if (!result.reply.replace(/[^0-9]/g, "").includes(expected)) {
+      console.error(`EVAL SQL FAIL: reply does not contain expected sum ${expected}`);
       process.exit(1);
     }
     console.log(`EVAL SQL OK — ${sqlCalls} successful run_sql call(s); reply: ${result.reply.slice(0, 200)}`);

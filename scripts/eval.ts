@@ -255,10 +255,12 @@ async function main(): Promise<void> {
     // its serialized payload (period present, gaps absent).
     const baseIo = consoleIO();
     let runStartedJson: string | null = null;
+    let checkPassedCount = 0;
     const io: EngineIO = {
       ...baseIo,
       emit(e: RunEvent): void {
         if (e.type === "run_started") runStartedJson = JSON.stringify(e);
+        if (e.type === "check_passed") checkPassedCount++;
         baseIo.emit(e);
       },
     };
@@ -298,6 +300,11 @@ async function main(): Promise<void> {
 
     if (failures.length > 0) {
       console.error(`\nEVAL FAILED — ${failures.join("; ")}`);
+      process.exit(1);
+    }
+
+    if (checkPassedCount === 0) {
+      console.error("EVAL FAIL: no check_passed events (SQL checks never ran)");
       process.exit(1);
     }
 
