@@ -177,6 +177,18 @@ describe("fileSource — warehouse ingestion", () => {
     expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE key = 'e'").get()).toEqual({ n: 0 });
   });
 
+  it("a corrupt file whose scan rejects returns ingest failed 500 without throwing or writing", async () => {
+    // Garbage bytes at a .xlsx path make scanTabular's zip reader reject; the
+    // rejection must surface as the contractual 500, not escape as an exception.
+    writeFileSync(join(filesDir, "bad.xlsx"), "not a real xlsx zip");
+    addSource("bad", "bad.xlsx", "bad.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    const res = await fileSource(db, { projectId, sourceId: "bad", newFamily: { key: "corrupt", label: "C", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    expect(res).toMatchObject({ error: expect.stringMatching(/^ingest failed: /), status: 500 });
+    // no family row created and the source stayed unfiled (no status change)
+    expect(db.sqlite.prepare("SELECT status FROM sources WHERE id = ?").get("bad")).toEqual({ status: "unfiled" });
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE key = 'corrupt'").get()).toEqual({ n: 0 });
+  });
+
   it("an ingest failure mid-transaction rolls back app-DB writes", async () => {
     // Force readTabular to throw after a successful scan:
     const engine = await import("@runoff/engine");

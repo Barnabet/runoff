@@ -125,18 +125,26 @@ export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ 
       return { error: "invalid period for granularity", status: 400 };
     }
 
-    // --- scan (async) before any write --------------------------------------
+    // --- scan + attach (async) before any write -----------------------------
+    // A scanTabular rejection (corrupt/missing file) or an attachWarehouse throw
+    // must surface as the contractual `ingest failed: <cause>` 500 rather than
+    // escape as a raised exception. The `no tables detected` 400 is a plain
+    // return, so this catch (which only fires on a throw) leaves it untouched.
     const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
     const filePath = join(filesDir, src.storedFilename);
     const tabular = isTabular(src.mime, src.name);
     let scan: TabularScan | null = null;
-    if (tabular) {
-      scan = await scanTabular(filePath, src.mime, src.name);
-      if (!scan.tables.length) return { error: "no tables detected in file", status: 400 };
+    try {
+      if (tabular) {
+        scan = await scanTabular(filePath, src.mime, src.name);
+        if (!scan.tables.length) return { error: "no tables detected in file", status: 400 };
+        attachWarehouse(db.sqlite, args.projectId);
+      }
+    } catch (err) {
+      return { error: `ingest failed: ${err instanceof Error ? err.message : String(err)}`, status: 500 };
     }
 
     // --- write: one explicit transaction across app DB + attached warehouse -
-    if (tabular) attachWarehouse(db.sqlite, args.projectId);
     try {
       db.sqlite.exec("BEGIN IMMEDIATE");
       try {
