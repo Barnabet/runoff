@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { basename, extname, join } from "node:path";
 import { newId } from "@runoff/core";
 import { getDb } from "../../../../../lib/db";
-import { listProjectSources } from "../../../../../lib/sourceManager";
+import { listProjectSources, withIngestLock } from "../../../../../lib/sourceManager";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -62,28 +62,34 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     }
   }
 
-  const dir = filesDir();
-  mkdirSync(dir, { recursive: true });
+  // The write phase (mkdir + per-file write + INSERT loop) serializes on the
+  // shared ingest lock so it can't interleave into an in-flight ingest's
+  // transaction gap on the shared SQLite handle. Validation above stays outside.
+  const inserted = await withIngestLock(async () => {
+    const dir = filesDir();
+    mkdirSync(dir, { recursive: true });
 
-  const insert = db.sqlite.prepare(
-    "INSERT INTO sources (id, project_id, name, kind, stored_filename, mime, size, status) VALUES (?, ?, ?, 'file', ?, ?, ?, 'unfiled')",
-  );
-  const inserted: { id: string; name: string; storedFilename: string; mime: string; size: number; status: string }[] = [];
+    const insert = db.sqlite.prepare(
+      "INSERT INTO sources (id, project_id, name, kind, stored_filename, mime, size, status) VALUES (?, ?, ?, 'file', ?, ?, ?, 'unfiled')",
+    );
+    const rows: { id: string; name: string; storedFilename: string; mime: string; size: number; status: string }[] = [];
 
-  for (const file of files) {
-    const sourceId = newId("src");
-    const safe = sanitizeName(file.name);
-    const storedFilename = `${sourceId}_${safe}`;
-    const buf = Buffer.from(await file.arrayBuffer());
-    // Multipart defaults a typeless part to application/octet-stream; treat that
-    // as "unknown" and prefer an extension-derived mime when we can.
-    const declared = file.type && file.type !== "application/octet-stream" ? file.type : "";
-    const mime = declared || EXT_MIME[extname(safe).toLowerCase()] || "application/octet-stream";
+    for (const file of files) {
+      const sourceId = newId("src");
+      const safe = sanitizeName(file.name);
+      const storedFilename = `${sourceId}_${safe}`;
+      const buf = Buffer.from(await file.arrayBuffer());
+      // Multipart defaults a typeless part to application/octet-stream; treat that
+      // as "unknown" and prefer an extension-derived mime when we can.
+      const declared = file.type && file.type !== "application/octet-stream" ? file.type : "";
+      const mime = declared || EXT_MIME[extname(safe).toLowerCase()] || "application/octet-stream";
 
-    writeFileSync(join(dir, storedFilename), buf);
-    insert.run(sourceId, id, file.name, storedFilename, mime, buf.length);
-    inserted.push({ id: sourceId, name: file.name, storedFilename, mime, size: buf.length, status: "unfiled" });
-  }
+      writeFileSync(join(dir, storedFilename), buf);
+      insert.run(sourceId, id, file.name, storedFilename, mime, buf.length);
+      rows.push({ id: sourceId, name: file.name, storedFilename, mime, size: buf.length, status: "unfiled" });
+    }
+    return rows;
+  });
 
   return Response.json({ sources: inserted });
 }

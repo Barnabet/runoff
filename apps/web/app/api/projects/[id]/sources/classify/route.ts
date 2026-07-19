@@ -53,25 +53,37 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     // A file that fails to parse must not sink the rest of the batch: treat it
     // like classifySource's own null-on-failure contract (no proposal → user
     // files it manually).
-    let proposal = null;
+    let proposal: unknown = null;
+    let scan: TabularScan | null = null;
     try {
       const path = join(dir, row.storedFilename);
-      let scan: TabularScan | null = null;
-      const contentSample = isTabular(row.mime, row.name)
-        ? scanSample((scan = await scanTabular(path, row.mime, row.name)))
-        : await readContentSample(dir, row);
+      let contentSample: string;
+      if (isTabular(row.mime, row.name)) {
+        try {
+          scan = await scanTabular(path, row.mime, row.name);
+          contentSample = scanSample(scan);
+        } catch {
+          contentSample = await readContentSample(dir, row); // corrupt tabular file: classify from raw text
+        }
+      } else {
+        contentSample = await readContentSample(dir, row);
+      }
       proposal = await classifySource({ client, filename: row.name, contentSample, families });
       if (proposal && scan) {
-        const key = proposal.newFamily?.key ?? proposal.familyKey;
-        const names = tableNamesFor(key, scan.tables.map((t) => t.slug));
-        const incoming = scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns }));
-        const existing = readWarehouseTables(id, key).map((t) => ({ name: t.name, columns: t.columns }));
-        proposal = {
-          ...proposal,
-          tables: scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns.map((c) => c.name), rowCount: t.rowCount })),
-          skippedFragments: scan.skipped.length,
-          drift: computeDrift(existing, incoming),
-        };
+        try {
+          const key = (proposal as any).newFamily?.key ?? (proposal as any).familyKey;
+          const names = tableNamesFor(key, scan.tables.map((t) => t.slug));
+          const incoming = scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns }));
+          const existing = readWarehouseTables(id, key).map((t) => ({ name: t.name, columns: t.columns }));
+          proposal = {
+            ...(proposal as object),
+            tables: scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns.map((c) => c.name), rowCount: t.rowCount })),
+            skippedFragments: scan.skipped.length,
+            drift: computeDrift(existing, incoming),
+          };
+        } catch {
+          // enrichment failure keeps the valid un-enriched proposal
+        }
       }
     } catch {
       proposal = null;

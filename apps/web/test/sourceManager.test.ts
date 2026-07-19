@@ -6,7 +6,7 @@ import JSZip from "jszip";
 import { applySchema, attachWarehouse, detachWarehouse, runWarehouseSql, warehousePath } from "@runoff/core";
 import { freshDb } from "./helpers";
 import { getDb } from "../lib/db";
-import { fileSource, listProjectSources } from "../lib/sourceManager";
+import { fileSource, listProjectSources, withIngestLock } from "../lib/sourceManager";
 
 // classifySource is mocked so no network/LLM call happens; buildSourcePack /
 // packForPrompt (used by readContentSample) stay real so readContentSample
@@ -47,6 +47,22 @@ function seedProject(db: ReturnType<typeof makeTestDb>) {
 
 const projCtx = (id: string) => ({ params: Promise.resolve({ id }) });
 const srcCtx = (id: string, sourceId: string) => ({ params: Promise.resolve({ id, sourceId }) });
+
+describe("withIngestLock", () => {
+  it("serializes non-ingest mutations behind an in-flight ingest", async () => {
+    const order: string[] = [];
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    // Occupy the lock like a slow ingest would:
+    const slow = withIngestLock(async () => { order.push("ingest-start"); await gate; order.push("ingest-end"); });
+    const other = withIngestLock(async () => { order.push("delete"); });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(order).toEqual(["ingest-start"]); // second job queued, not started
+    release();
+    await Promise.all([slow, other]);
+    expect(order).toEqual(["ingest-start", "ingest-end", "delete"]);
+  });
+});
 
 describe("fileSource", () => {
   it("files into an existing periodic family and replaces an occupant", async () => {
@@ -347,6 +363,57 @@ describe("source manager routes", () => {
     expect(proposal.skippedFragments).toBe(1);
     expect(proposal.drift.length).toBeGreaterThan(0);
     expect(proposal.drift).toContain("new table: fam_spend__report_data_2");
+  });
+
+  it("classifies from a content sample when the tabular scan fails", async () => {
+    const classify = await import("../app/api/projects/[id]/sources/classify/route");
+    const db = getDb();
+    // A .xlsx-named file (so isTabular ⇒ scanTabular is attempted) holding
+    // non-xlsx bytes with a pdf mime: the streaming scan rejects, but
+    // readContentSample's pdf parser degrades gracefully, so classify still
+    // runs from raw text. The stored proposal must be non-null and un-enriched.
+    const up = await uploadFiles("proj_1", [
+      new File([new TextEncoder().encode("not a real xlsx zip")], "corrupt.xlsx", { type: "application/pdf" }),
+    ]);
+    const { sources } = (await up.json()) as { sources: { id: string }[] };
+    const src = sources[0];
+
+    classifyMock.mockResolvedValueOnce({ familyKey: "trade_data", period: "2026-Q1", confidence: "high" as const });
+    const res = await classify.POST(new Request("http://x", { method: "POST", body: JSON.stringify({ sourceIds: [src.id] }) }), projCtx("proj_1"));
+    expect(res.status).toBe(200);
+
+    const row = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(src.id) as { proposal: string | null };
+    expect(row.proposal).not.toBeNull();
+    const proposal = JSON.parse(row.proposal!) as Record<string, unknown>;
+    expect(proposal.tables).toBeUndefined();
+    expect(proposal.skippedFragments).toBeUndefined();
+    expect(proposal.drift).toBeUndefined();
+  });
+
+  it("keeps the un-enriched proposal when enrichment throws", async () => {
+    const classify = await import("../app/api/projects/[id]/sources/classify/route");
+    const db = getDb();
+    const up = await uploadFiles("proj_1", [
+      new File([new TextEncoder().encode("a,b\n1,2\n")], "ok.csv", { type: "text/csv" }),
+    ]);
+    const { sources } = (await up.json()) as { sources: { id: string }[] };
+    const src = sources[0];
+
+    // Valid CSV ⇒ the scan succeeds and enrichment runs. Corrupt the warehouse
+    // file so readWarehouseTables throws when it opens it: the throw must be
+    // isolated, leaving the valid un-enriched proposal intact.
+    mkdirSync(process.env.RUNOFF_WAREHOUSE_DIR!, { recursive: true });
+    writeFileSync(warehousePath("proj_1"), "not a sqlite database");
+
+    classifyMock.mockResolvedValueOnce({ familyKey: "trade_data", period: "2026-Q1", confidence: "high" as const });
+    const res = await classify.POST(new Request("http://x", { method: "POST", body: JSON.stringify({ sourceIds: [src.id] }) }), projCtx("proj_1"));
+    expect(res.status).toBe(200);
+
+    const row = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(src.id) as { proposal: string | null };
+    expect(row.proposal).not.toBeNull();
+    const proposal = JSON.parse(row.proposal!) as Record<string, unknown>;
+    expect(proposal.familyKey).toBeDefined();
+    expect(proposal.tables).toBeUndefined();
   });
 
   it("GET lists a project's families and unfiled rows; 404 for a missing project", async () => {

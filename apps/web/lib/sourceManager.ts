@@ -9,7 +9,7 @@ import { buildSourcePack, packForPrompt, isTabular, scanTabular, readTabular, ty
 // between (streaming ingest); the shared SQLite handle must not see statements
 // from other requests inside that window. One promise chain = one at a time.
 let ingestChain: Promise<unknown> = Promise.resolve();
-function withIngestLock<T>(fn: () => Promise<T>): Promise<T> {
+export function withIngestLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = ingestChain.then(fn, fn);
   ingestChain = run.then(() => undefined, () => undefined);
   return run;

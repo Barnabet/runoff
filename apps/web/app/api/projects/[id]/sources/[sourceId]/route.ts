@@ -2,7 +2,7 @@ import { rmSync } from "node:fs";
 import { join } from "node:path";
 import { attachWarehouse, detachWarehouse, whFamilyTables, deleteRows, type Granularity } from "@runoff/core";
 import { getDb } from "../../../../../../lib/db";
-import { fileSource } from "../../../../../../lib/sourceManager";
+import { fileSource, withIngestLock } from "../../../../../../lib/sourceManager";
 
 type Ctx = { params: Promise<{ id: string; sourceId: string }> };
 
@@ -53,31 +53,36 @@ export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
   if (!row) return Response.json({ error: "source not found" }, { status: 404 });
   if (row.status === "replaced") return Response.json({ error: "replaced sources cannot be deleted" }, { status: 400 });
 
-  db.sqlite.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
+  // The mutation (row removal + warehouse cleanup + stored-file unlink)
+  // serializes on the shared ingest lock: no DELETE can land inside an ingest's
+  // `await readTabular` gap, and its ATTACH can't collide with the ingest's.
+  // The SELECT/validation above stays outside. Row removal precedes warehouse
+  // cleanup — no transaction needed across them: worst case on crash is orphan
+  // warehouse rows, which the next re-file of the slot clears.
+  await withIngestLock(async () => {
+    db.sqlite.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
 
-  // Row removal + warehouse cleanup, in that order — no transaction needed
-  // across them: worst case on crash is orphan warehouse rows, which the next
-  // re-file of the slot clears.
-  if (row.status === "filed" && row.familyId) {
-    const fam = db.sqlite
-      .prepare("SELECT key, kind FROM source_families WHERE id = ?")
-      .get(row.familyId) as { key: string; kind: "periodic" | "constant" } | undefined;
-    if (fam) {
-      attachWarehouse(db.sqlite, id);
-      try {
-        const tables = whFamilyTables(db.sqlite, fam.key).map((t) => t.name);
-        deleteRows(db.sqlite, tables, fam.kind === "periodic" ? row.period : null);
-      } finally {
-        detachWarehouse(db.sqlite);
+    if (row.status === "filed" && row.familyId) {
+      const fam = db.sqlite
+        .prepare("SELECT key, kind FROM source_families WHERE id = ?")
+        .get(row.familyId) as { key: string; kind: "periodic" | "constant" } | undefined;
+      if (fam) {
+        attachWarehouse(db.sqlite, id);
+        try {
+          const tables = whFamilyTables(db.sqlite, fam.key).map((t) => t.name);
+          deleteRows(db.sqlite, tables, fam.kind === "periodic" ? row.period : null);
+        } finally {
+          detachWarehouse(db.sqlite);
+        }
       }
     }
-  }
 
-  try {
-    rmSync(join(filesDir(), row.storedFilename), { force: true });
-  } catch {
-    // Stored file may already be gone; the row removal is what matters.
-  }
+    try {
+      rmSync(join(filesDir(), row.storedFilename), { force: true });
+    } catch {
+      // Stored file may already be gone; the row removal is what matters.
+    }
+  });
 
   return Response.json({ ok: true });
 }
