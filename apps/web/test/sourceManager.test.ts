@@ -390,6 +390,35 @@ describe("source manager routes", () => {
     expect(proposal.drift).toBeUndefined();
   });
 
+  it("classifies a corrupt tabular file with a real tabular mime from its raw bytes", async () => {
+    const classify = await import("../app/api/projects/[id]/sources/classify/route");
+    const db = getDb();
+    // A genuine xlsx mime carrying non-xlsx bytes: scanTabular rejects, and
+    // buildSourcePack skips csv/xlsx so its content sample is empty. The
+    // fallback must read the raw file bytes so the classifier sees real text
+    // rather than only the filename.
+    const up = await uploadFiles("proj_1", [
+      new File(
+        [new TextEncoder().encode("channel,amount\nsearch,120050\n")],
+        "corrupt.xlsx",
+        { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" },
+      ),
+    ]);
+    const { sources } = (await up.json()) as { sources: { id: string }[] };
+    const src = sources[0];
+
+    classifyMock.mockResolvedValueOnce({ familyKey: "trade_data", period: "2026-Q1", confidence: "high" as const });
+    const res = await classify.POST(new Request("http://x", { method: "POST", body: JSON.stringify({ sourceIds: [src.id] }) }), projCtx("proj_1"));
+    expect(res.status).toBe(200);
+
+    const row = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(src.id) as { proposal: string | null };
+    expect(row.proposal).not.toBeNull();
+    // The classifier stub received the raw bytes, not an empty sample.
+    const sample = classifyMock.mock.calls[0][0].contentSample as string;
+    expect(sample.length).toBeGreaterThan(0);
+    expect(sample).toContain("channel,amount");
+  });
+
   it("keeps the un-enriched proposal when enrichment throws", async () => {
     const classify = await import("../app/api/projects/[id]/sources/classify/route");
     const db = getDb();

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { classifySource, isTabular, scanTabular, scanSample, type ClassifyFamily, type TabularScan } from "@runoff/engine";
 import { computeDrift, readWarehouseTables } from "@runoff/core";
@@ -63,7 +64,12 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
           scan = await scanTabular(path, row.mime, row.name);
           contentSample = scanSample(scan);
         } catch {
-          contentSample = await readContentSample(dir, row); // corrupt tabular file: classify from raw text
+          // Corrupt tabular file: classify from raw text. buildSourcePack skips
+          // csv/xlsx entirely, so a genuine tabular mime yields an empty pack
+          // sample — fall back to the raw file bytes so the classifier sees more
+          // than a bare filename.
+          contentSample = await readContentSample(dir, row);
+          if (!contentSample) contentSample = (await readFile(path)).toString("utf8").slice(0, 2000);
         }
       } else {
         contentSample = await readContentSample(dir, row);
