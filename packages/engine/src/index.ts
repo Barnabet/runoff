@@ -18,5 +18,6 @@ export { classifySource } from "./classify.js";
 export type { ClassifyFamily } from "./classify.js";
 export * from "./tabular.js";
 export * from "./parsePlan.js";
+export * from "./proposePlan.js";
 export * from "./catalogFormat.js";
 export * from "./runData.js";
