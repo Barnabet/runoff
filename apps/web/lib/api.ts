@@ -353,3 +353,12 @@ export async function uploadGolden(blueprintId: string, file: File, note?: strin
   if (note) form.append("note", note);
   return fetchJson(`/api/blueprints/${blueprintId}/goldens`, { method: "POST", body: form });
 }
+export async function bindGoldenApi(blueprintId: string, goldenId: string, feedback?: string): Promise<{ golden: GoldenRow }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/goldens/${goldenId}/bind`, { method: "POST", body: JSON.stringify(feedback ? { feedback } : {}), headers: JSON_HEADERS });
+}
+export async function unifyGoldenApi(blueprintId: string, goldenId: string): Promise<{ golden: GoldenRow }> {
+  return fetchJson(`/api/blueprints/${blueprintId}/goldens/${goldenId}/unify`, { method: "POST", body: "{}", headers: JSON_HEADERS });
+}
+export async function patchGoldenPeriod(goldenId: string, period: string | null): Promise<{ golden: GoldenRow }> {
+  return fetchJson(`/api/goldens/${goldenId}`, { method: "PATCH", body: JSON.stringify({ period }), headers: JSON_HEADERS });
+}
