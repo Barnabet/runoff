@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { Rule, Block } from "@runoff/core";
-import { compileLocator, evaluateAssert, auditCitations } from "../src/checks.js";
+import { compileLocator, evaluateAssert, auditCitations, countCitations } from "../src/checks.js";
 import type { RunData } from "../src/runData.js";
 import { parseSectionText } from "../src/dialect.js";
 
@@ -132,5 +132,61 @@ describe("auditCitations (warehouse)", () => {
     const r = auditCitations(unbound, dataReturning(0), ["famA"]);
     expect(r.pass).toBe(false);
     expect(r.failures[0]).toMatch(/^figure cites unbound source src_other: /);
+  });
+
+  it("does not read digits embedded in identifiers like GA4 as figures", () => {
+    // "GA4 recorded…" flagged "uncited figure: 4" in a live run — the 4 belongs
+    // to the word. The FIGURE lookbehind must keep GA4/Q2 from reading as figures.
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "GA4 recorded strong Q2 growth across channels." },
+    ]}];
+    expect(auditCitations(blocks, dataReturning(1), ["famA"]).pass).toBe(true);
+  });
+
+  it("audits citations inside table cells but not header columns", () => {
+    // A digit in a header column ("Q2 Value") must NOT be flagged; a cell figure must be.
+    const cited: Block[] = [{ type: "table", columns: ["Metric", "Q2 Value"], rows: [
+      { cells: [
+        [{ text: "Total" }],
+        [{ text: "$240,100", citation: { sourceId: "famA", locator: "sum(fam_ar.amount)" } }],
+      ] },
+    ]}];
+    expect(auditCitations(cited, dataReturning(240100), ["famA"]).pass).toBe(true);
+    expect(countCitations(cited)).toBe(1);
+
+    const uncited: Block[] = [{ type: "table", columns: ["Metric", "Value"], rows: [
+      { cells: [ [{ text: "Total" }], [{ text: "$240,100" }] ] },
+    ]}];
+    const r = auditCitations(uncited, dataReturning(240100), ["famA"]);
+    expect(r.pass).toBe(false);
+    expect(r.failures[0]).toMatch(/^uncited figure: /);
+  });
+
+  it("skips recompute for a figure-bearing span whose locator is not an aggregate reference", () => {
+    // A non-aggregate locator (e.g. "invoice footnote 3") is not verifiable
+    // grammar, so the recompute branch is skipped and the cited figure passes.
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "$240,100", citation: { sourceId: "famA", locator: "invoice footnote 3" } },
+    ]}];
+    expect(auditCitations(blocks, dataReturning(0), ["famA"]).pass).toBe(true);
+  });
+});
+
+describe("countCitations", () => {
+  it("counts cited spans across paragraphs and table cells", () => {
+    const para = parseSectionText(`Total was [[1,204|famA|sum(fam_ar.amount)]] this quarter.`);
+    expect(countCitations(para)).toBe(1);
+
+    const table: Block[] = [{ type: "table", columns: ["Metric", "Q2 Value"], rows: [
+      { cells: [
+        [{ text: "Total" }],
+        [{ text: "$240,100", citation: { sourceId: "famA", locator: "sum(fam_ar.amount)" } }],
+      ] },
+    ]}];
+    expect(countCitations(table)).toBe(1);
+
+    // Uncited spans (paragraph text and header columns) do not count.
+    const none: Block[] = [{ type: "paragraph", spans: [{ text: "No citations here." }] }];
+    expect(countCitations(none)).toBe(0);
   });
 });
