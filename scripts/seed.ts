@@ -21,9 +21,10 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   openDb, newId, attachWarehouse, detachWarehouse, applySchema, deleteRows, insertRows,
-  whFamilyTables, type RunoffDb, type BlueprintContent, type WhTableSchema,
+  whFamilyTables, planTableName, ParsePlanSchema,
+  type RunoffDb, type BlueprintContent, type WhTableSchema, type ParsePlan, type Granularity,
 } from "@runoff/core";
-import { isTabular, readTabular, type DetectedTable } from "@runoff/engine";
+import { isTabular, readTabular, loadGrids, executeParsePlan, type DetectedTable } from "@runoff/engine";
 
 const BLUEPRINT_NAME = "Quarterly Performance Report";
 const PROJECT_NAME = "Meridian Retail";
@@ -53,6 +54,39 @@ function mulberry32(seed: number): () => number {
 const AR_CUSTOMERS = ["Northwind", "Contoso", "Fabrikam", "Adventure Works", "Tailspin", "Wingtip", "Proseware", "Litware"];
 const AR_STATUSES = ["paid", "open", "overdue"];
 
+// Reference ParsePlan for the messy AR-aging demo family: anchors two tables by
+// header signature, excludes the Grand Total row, coerces currency strings, and
+// unpivots the wide "Monthly Totals" sheet. Baked onto the family so fileSource
+// (and this seed's ingest) parse the fixture through the executor, not the
+// island detector. This JSON doubles as the ParsePlan documentation.
+const AR_AGING_PLAN = {
+  version: 1,
+  tables: [
+    {
+      name: "aging",
+      anchor: { sheet: "ar_aging", headerSignature: ["customer", "status", "amount due ($)", "days outstanding"], minMatch: 3 },
+      headerRows: 1,
+      exclude: [{ column: "customer", pattern: "^grand total$" }],
+      columns: [
+        { from: "customer", name: "customer", type: "TEXT" },
+        { from: "status", name: "status", type: "TEXT" },
+        { from: "amount due ($)", name: "amount_due", type: "REAL", parse: "currency" },
+        { from: "days outstanding", name: "days_outstanding", type: "INTEGER", parse: "number" },
+      ],
+      onPeriodMismatch: "keep",
+    },
+    {
+      name: "monthly_totals",
+      anchor: { sheet: "monthly_totals", headerSignature: ["region", "apr 2026", "may 2026", "jun 2026"], minMatch: 2 },
+      headerRows: 1,
+      exclude: [],
+      columns: [{ from: "region", name: "region", type: "TEXT" }],
+      unpivot: { keep: ["region"], valuePattern: "^[a-z]{3} \\d{4}$", keyColumn: "month", valueColumn: "amount", valueType: "REAL", valueParse: "currency" },
+      onPeriodMismatch: "keep",
+    },
+  ],
+} as const;
+
 /** ~10k-row AR extract for one quarter; seed differs per period → different but stable data. */
 function arCsv(period: string, seed: number): string {
   const rand = mulberry32(seed);
@@ -72,15 +106,35 @@ function arCsv(period: string, seed: number): string {
 
 /**
  * Ingest one tabular seed source into the project warehouse. Mirror of the app's
- * fileSource ingest path (single/multi naming rule included): a lone detected
- * table lands as `fam_<key>`, multiple tables as `fam_<key>__<slug>`.
+ * fileSource ingest path, including plan resolution: a family with a baked
+ * ParsePlan parses through the executor (anchors, exclusions, coercions,
+ * unpivot); a plan-less family falls back to the island detector (single table →
+ * `fam_<key>`, multiple → `fam_<key>__<slug>`).
  */
 async function ingestSeedSource(
-  db: RunoffDb, projectId: string, familyKey: string, periodic: boolean, period: string | null,
-  path: string, mime: string, name: string,
+  db: RunoffDb, projectId: string, familyKey: string, periodic: boolean, granularity: Granularity | null,
+  period: string | null, path: string, mime: string, name: string, plan: ParsePlan | null,
 ): Promise<void> {
   attachWarehouse(db.sqlite, projectId);
   try {
+    if (plan) {
+      const grids = await loadGrids(path, mime, name);
+      const { tables, report } = executeParsePlan(grids, plan, periodic ? period : null, granularity);
+      const firstProblem = report.tables.flatMap((t) => t.problems)[0];
+      if (firstProblem) throw new Error(`ingest failed: ${firstProblem}`);
+      if (report.tables.every((t) => t.rowsKept === 0)) throw new Error("ingest failed: plan produced no rows");
+      const incoming: WhTableSchema[] = tables.map((t) => ({ name: planTableName(familyKey, plan, t.logical), columns: t.columns }));
+      applySchema(db.sqlite, periodic, incoming);
+      const all = new Set([...whFamilyTables(db.sqlite, familyKey).map((t) => t.name), ...incoming.map((t) => t.name)]);
+      deleteRows(db.sqlite, [...all], period);
+      for (const t of tables) {
+        const tname = planTableName(familyKey, plan, t.logical);
+        const cols = t.columns.map((c) => c.name);
+        for (let i = 0; i < t.rows.length; i += 10_000)
+          insertRows(db.sqlite, tname, cols, t.rows.slice(i, i + 10_000), period);
+      }
+      return;
+    }
     const tables: { table: DetectedTable; rows: unknown[][][] }[] = [];
     await readTabular(path, mime, name, (table) => {
       const entry = { table, rows: [] as unknown[][][] };
@@ -163,6 +217,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
   const brandFam = newId("fam");
   const arFam = newId("fam");
   const regFam = newId("fam");
+  const arAgingFam = newId("fam");
   const blueprintId = newId("bp");
 
   const families = [
@@ -171,6 +226,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
     { id: brandFam, key: "brand_guidelines", label: "Brand guidelines", kind: "constant", granularity: null },
     { id: arFam, key: "ar_transactions", label: "AR transactions", kind: "periodic", granularity: "quarter" },
     { id: regFam, key: "regional_summary", label: "Regional summary", kind: "periodic", granularity: "quarter" },
+    { id: arAgingFam, key: "ar_aging", label: "AR aging", kind: "periodic" as const, granularity: "quarter" as const },
   ];
 
   const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -184,6 +240,7 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
     generatedSource("ar_2026-Q2.csv", arCsv("2026-Q2", 1302), arFam, "2026-Q2"),
     copyFixture("regional_summary.xlsx", "Regional Summary — Q1 2026", XLSX_MIME, regFam, "2026-Q1"),
     copyFixture("regional_summary.xlsx", "Regional Summary — Q2 2026", XLSX_MIME, regFam, "2026-Q2"),
+    copyFixture("ar_aging_q2_2026.xlsx", "AR Aging — Q2 2026", XLSX_MIME, arAgingFam, "2026-Q2"),
   ];
 
   // Section asserts and baked queries are scalar SQL over the project warehouse:
@@ -325,9 +382,10 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
       .run(projectId, PROJECT_NAME);
 
     const insFamily = db.sqlite.prepare(
-      "INSERT INTO source_families (id, project_id, key, label, kind, granularity, created_at) VALUES (?, ?, ?, ?, ?, ?, datetime('now'))",
+      "INSERT INTO source_families (id, project_id, key, label, kind, granularity, parse_plan, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))",
     );
-    for (const f of families) insFamily.run(f.id, projectId, f.key, f.label, f.kind, f.granularity);
+    for (const f of families)
+      insFamily.run(f.id, projectId, f.key, f.label, f.kind, f.granularity, f.key === "ar_aging" ? JSON.stringify(AR_AGING_PLAN) : null);
 
     const insSource = db.sqlite.prepare(
       "INSERT INTO sources (id, project_id, family_id, period, name, kind, stored_filename, mime, size, status, uploaded_at, filed_at) " +
@@ -348,7 +406,8 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
     const bind = db.sqlite.prepare(
       "INSERT OR IGNORE INTO blueprint_families (blueprint_id, family_id) VALUES (?, ?)",
     );
-    for (const f of families) bind.run(blueprintId, f.id);
+    // ar_aging is a source-manager demo family only — not bound to the blueprint.
+    for (const f of families) if (f.key !== "ar_aging") bind.run(blueprintId, f.id);
   });
   tx();
 
@@ -360,9 +419,10 @@ export async function seedDatabase(db: RunoffDb): Promise<SeedResult> {
   for (const r of sourceRows) {
     if (!isTabular(r.mime, r.name)) continue;
     const fam = famById.get(r.familyId)!;
+    const plan = fam.key === "ar_aging" ? ParsePlanSchema.parse(AR_AGING_PLAN) : null;
     await ingestSeedSource(
-      db, projectId, fam.key, fam.kind === "periodic", r.period,
-      join(dir, r.storedFilename), r.mime, r.name,
+      db, projectId, fam.key, fam.kind === "periodic", fam.granularity as Granularity | null, r.period,
+      join(dir, r.storedFilename), r.mime, r.name, plan,
     );
     ingested++;
   }

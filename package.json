@@ -8,7 +8,8 @@
     "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
     "eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalCopilot.ts",
     "eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalClassify.ts",
-    "eval:sql": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalSql.ts"
+    "eval:sql": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalSql.ts",
+    "eval:parse": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalParse.ts"
   },
   "dependencies": {
     "@runoff/core": "workspace:*",
