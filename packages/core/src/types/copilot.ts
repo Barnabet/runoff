@@ -1,4 +1,4 @@
-import type { BlueprintSection } from "./blueprint.js";
+import type { BlueprintSection, SectionQuery } from "./blueprint.js";
 
 export interface MastheadPatch {
   title?: string;
@@ -21,7 +21,8 @@ export type EditOp =
   | { type: "add_section"; afterKey: string | null; at?: "head"; section: BlueprintSection }
   | { type: "remove_section"; afterKey: string | null; removed: BlueprintSection }
   | { type: "update_masthead"; before: MastheadPatch; after: MastheadPatch }
-  | { type: "update_global_rules"; before: string[]; after: string[] };
+  | { type: "update_global_rules"; before: string[]; after: string[] }
+  | { type: "update_section_queries"; sectionKey: string; before: SectionQuery[]; after: SectionQuery[] };
 
 /** What an assistant turn did, persisted as JSON on copilot_messages.actions. */
 export type CopilotAction =

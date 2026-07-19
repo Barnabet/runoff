@@ -1,9 +1,19 @@
 import { z } from "zod";
 
+export const SectionQuerySchema = z.object({
+  name: z.string().regex(/^[a-z][a-z0-9_]*$/),
+  sql: z.string(),
+  description: z.string().optional(),
+});
+export type SectionQuery = z.infer<typeof SectionQuerySchema>;
+
 export const RuleSchema = z.object({
   kind: z.enum(["assert", "style", "judgment"]),
   text: z.string(),
-  expression: z.string().optional(),
+  sql: z.string().optional(),
+  op: z.enum(["==", "<=", ">=", "<", ">"]).optional(),
+  value: z.number().optional(),
+  withinPct: z.number().optional(),
 });
 export type Rule = z.infer<typeof RuleSchema>;
 
@@ -15,6 +25,7 @@ export const BlueprintSectionSchema = z.object({
   instruction: z.string(),
   fixedText: z.string().optional(),
   familyIds: z.array(z.string()),
+  queries: z.array(SectionQuerySchema),
   rules: z.array(RuleSchema),
 });
 export type BlueprintSection = z.infer<typeof BlueprintSectionSchema>;

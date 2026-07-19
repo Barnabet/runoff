@@ -138,6 +138,25 @@ describe("runWarehouseSql + formatSqlResult", () => {
     expect(out).toMatch(/… truncated at \d+ of 150 rows$/);
   });
 
+  describe("runWarehouseSql :period binding", () => {
+    it("binds :period when the SQL references it", () => {
+      const res = runWarehouseSql(PROJECT, "SELECT COUNT(*) FROM fam_spend WHERE _period = :period", { period: "2026-Q1" });
+      expect(res.rows[0][0]).toBeGreaterThan(0);
+    });
+
+    it("throws byte-exact when :period is referenced but not provided", () => {
+      expect(() => runWarehouseSql(PROJECT, "SELECT COUNT(*) FROM fam_spend WHERE _period = :period"))
+        .toThrow("query references :period but no period was provided");
+      expect(() => runWarehouseSql(PROJECT, "SELECT COUNT(*) FROM fam_spend WHERE _period = :period", { period: null }))
+        .toThrow("query references :period but no period was provided");
+    });
+
+    it("ignores params when the SQL does not reference :period", () => {
+      const res = runWarehouseSql(PROJECT, "SELECT COUNT(*) FROM fam_spend", { period: "2026-Q1" });
+      expect(res.columns).toEqual(["COUNT(*)"]);
+    });
+  });
+
   it("readWarehouseTables returns schema + per-period counts", () => {
     insertRows(app, "fam_spend", ["campaign", "amount"], [["c", 5]], "2026-Q2");
     const tables = readWarehouseTables(PROJECT, "spend");

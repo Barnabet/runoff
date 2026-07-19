@@ -192,14 +192,20 @@ export function readWarehouseTables(
   }
 }
 
-/** One read-only statement against the project warehouse. Throws on any error. */
-export function runWarehouseSql(projectId: string, sql: string): SqlResult {
+/** One read-only statement against the project warehouse. Throws on any error.
+ *  `:period` is the only supported named parameter, bound iff the SQL references it. */
+export function runWarehouseSql(projectId: string, sql: string, params?: { period?: string | null }): SqlResult {
   const db = openReadonly(projectId);
   if (!db) throw new Error("no data ingested yet");
   try {
     const stmt = db.prepare(sql); // multi-statement strings throw here
-    if (!stmt.reader) { stmt.run(); return { columns: [], rows: [] }; } // writes throw under query_only
-    return { columns: stmt.columns().map((c) => c.name), rows: stmt.raw().all() as unknown[][] };
+    const wantsPeriod = /:period\b/.test(sql);
+    if (wantsPeriod && params?.period == null) {
+      throw new Error("query references :period but no period was provided");
+    }
+    const bind = wantsPeriod ? [{ period: params!.period }] : [];
+    if (!stmt.reader) { stmt.run(...bind); return { columns: [], rows: [] }; } // writes throw under query_only
+    return { columns: stmt.columns().map((c) => c.name), rows: stmt.raw().all(...bind) as unknown[][] };
   } finally {
     db.close();
   }
