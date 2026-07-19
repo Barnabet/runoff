@@ -39,7 +39,7 @@ const INV = JSON.stringify({
 
 function golden(over: Partial<GoldenRow> & { id: string }): GoldenRow {
   return {
-    id: over.id, blueprintId: "bp_1", kind: "exemplar", runId: null, sectionKey: null,
+    blueprintId: "bp_1", kind: "exemplar", runId: null, sectionKey: null,
     name: "AR exemplar", mime: null, storedFilename: null, note: null,
     period: null, document: null, unifyError: null, bindings: null, createdAt: "",
     ...over,
