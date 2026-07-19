@@ -437,6 +437,83 @@ describe("copilotTurn", () => {
     expect(dup).toBe("Tool error: invalid query name: total");
   });
 
+  it("add_section strips nested query/rule nulls: commits with the query (no description) and the prose rule", async () => {
+    const calls: string[] = [];
+    const client = makeFakeClient([
+      [{ toolUse: { name: "add_section", input: {
+        afterKey: "exec",
+        section: {
+          key: "metrics", heading: "Metrics", mode: "auto", instruction: "Cover metrics.",
+          fixedText: null, familyIds: [],
+          queries: [{ name: "total", sql: "SELECT 1", description: null }],
+          rules: [{ kind: "style", text: "Be concise.", sql: null, op: null, value: null, withinPct: null }],
+        },
+      } } }],
+      [{ text: "Added." }],
+    ]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "add a metrics section",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: (sql: string) => { calls.push(sql); return "1"; } }), io,
+    });
+    // The baked query was dry-run once before commit.
+    expect(calls).toEqual(["SELECT 1"]);
+    const added = res.draft.sections.find((s) => s.key === "metrics");
+    expect(added).toBeDefined();
+    expect(added!.queries).toEqual([{ name: "total", sql: "SELECT 1" }]);
+    expect(added!.rules).toEqual([{ kind: "style", text: "Be concise." }]);
+    expect(events.some((e) => e.type === "edit" && e.op.type === "add_section")).toBe(true);
+  });
+
+  it("add_section rejects a failing-SQL query byte-exactly; no section added", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "add_section", input: {
+        afterKey: null,
+        section: {
+          key: "metrics", heading: "Metrics", mode: "auto", instruction: "Cover metrics.",
+          fixedText: null, familyIds: [],
+          queries: [{ name: "total", sql: "SELECT * FROM x", description: null }],
+          rules: [],
+        },
+      } } }],
+      [{ text: "Fixed." }],
+    ]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "add metrics",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: (sql: string) => { if (sql === "SELECT * FROM x") throw new Error("no such table: x"); return "1"; } }), io,
+    });
+    expect(toolResults()[0]).toBe("Tool error: invalid query total: no such table: x");
+    expect(res.draft.sections.map((s) => s.key)).toEqual(["exec", "budget"]); // draft unchanged
+    expect(events.some((e) => e.type === "edit")).toBe(false);
+  });
+
+  it("add_section rejects a bad query name byte-exactly; no section added", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "add_section", input: {
+        afterKey: null,
+        section: {
+          key: "metrics", heading: "Metrics", mode: "auto", instruction: "Cover metrics.",
+          fixedText: null, familyIds: [],
+          queries: [{ name: "Total Paid", sql: "SELECT 1", description: null }],
+          rules: [],
+        },
+      } } }],
+      [{ text: "Fixed." }],
+    ]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "add metrics",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: () => "1" }), io,
+    });
+    expect(toolResults()[0]).toBe("Tool error: invalid query name: Total Paid");
+    expect(res.draft.sections.map((s) => s.key)).toEqual(["exec", "budget"]); // draft unchanged
+    expect(events.some((e) => e.type === "edit")).toBe(false);
+  });
+
   it("compute is no longer a tool — a call to it returns the loop's unknown-tool error", async () => {
     // `compute` (agg-over-pack) is retired: the warehouse owns tabular data, so
     // the CSV pack it read no longer exists. A call falls through to the executor's

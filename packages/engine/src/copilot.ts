@@ -399,6 +399,32 @@ function executeTool(
     return { draft: parsed.data, result: "Edit applied." };
   };
 
+  /** Per-item null-strip a section's nested query/rule arrays; the strict tool
+   * schemas force `null` into their optional slots, which the core schemas reject. */
+  const compactNested = (obj: Record<string, unknown>): Record<string, unknown> => {
+    const out: Record<string, unknown> = { ...obj };
+    if (Array.isArray(out.queries)) out.queries = out.queries.map((q: any) => compact(q));
+    if (Array.isArray(out.rules)) out.rules = out.rules.map((r: any) => compact(r));
+    return out;
+  };
+
+  /** Validate + dry-run baked queries; null on success, else the byte-exact Tool error string. */
+  const validateQueries = (queries: SectionQuery[]): string | null => {
+    const seen = new Set<string>();
+    for (const qy of queries) {
+      if (typeof qy.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(qy.name) || seen.has(qy.name)) {
+        return `Tool error: invalid query name: ${qy.name}`;
+      }
+      seen.add(qy.name);
+      try {
+        ctx.runSql(qy.sql); // dry run: read-only + syntax + table existence
+      } catch (e) {
+        return `Tool error: invalid query ${qy.name}: ${e instanceof Error ? e.message : String(e)}`;
+      }
+    }
+    return null;
+  };
+
   /** Reject familyIds a patch/section would set that are not bound to this blueprint. */
   const rejectUnbound = (familyIds: unknown): string | null => {
     const boundIds = new Set(ctx.families.filter((f) => f.bound).map((f) => f.id));
@@ -410,7 +436,7 @@ function executeTool(
     case "edit_section": {
       const section = draft.sections.find((s) => s.key === args.key);
       if (!section) return { draft, result: `Tool error: no section with key ${args.key}` };
-      const patch = compact(args.patch ?? {}) as Partial<BlueprintSection>;
+      const patch = compactNested(compact(args.patch ?? {})) as Partial<BlueprintSection>;
       if (Object.keys(patch).length === 0) return { draft, result: "Tool error: empty patch" };
       if ("familyIds" in patch) {
         const err = rejectUnbound(patch.familyIds);
@@ -427,7 +453,10 @@ function executeTool(
       }
       const unboundErr = rejectUnbound(args.section?.familyIds);
       if (unboundErr) return { draft, result: unboundErr };
-      const section = { ...compact(args.section ?? {}), number: 0 } as BlueprintSection;
+      const compacted = compactNested(compact(args.section ?? {}));
+      const queryErr = validateQueries((compacted.queries ?? []) as SectionQuery[]);
+      if (queryErr) return { draft, result: queryErr };
+      const section = { ...compacted, number: 0 } as BlueprintSection;
       const idx = args.afterKey === null || args.afterKey === undefined
         ? draft.sections.length
         : draft.sections.findIndex((s) => s.key === args.afterKey) + 1;
@@ -459,18 +488,8 @@ function executeTool(
       const section = draft.sections.find((s) => s.key === args.sectionKey);
       if (!section) return { draft, result: `Tool error: no section with key ${args.sectionKey}` };
       const queries = (Array.isArray(args.queries) ? args.queries : []).map((qy: any) => compact(qy)) as SectionQuery[];
-      const seen = new Set<string>();
-      for (const qy of queries) {
-        if (typeof qy.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(qy.name) || seen.has(qy.name)) {
-          return { draft, result: `Tool error: invalid query name: ${qy.name}` };
-        }
-        seen.add(qy.name);
-        try {
-          ctx.runSql(qy.sql); // dry run: read-only + syntax + table existence
-        } catch (e) {
-          return { draft, result: `Tool error: invalid query ${qy.name}: ${e instanceof Error ? e.message : String(e)}` };
-        }
-      }
+      const queryErr = validateQueries(queries);
+      if (queryErr) return { draft, result: queryErr };
       const candidate = { ...draft, sections: draft.sections.map((s) => (s.key === args.sectionKey ? { ...s, queries } : s)) };
       return commit(candidate, { type: "update_section_queries", sectionKey: args.sectionKey, before: section.queries, after: queries });
     }
