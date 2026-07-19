@@ -178,6 +178,10 @@ export async function executeRun(opts: {
 
     for (const rule of section.rules) {
       if (rule.kind !== "assert") continue;
+      // v1 semantics: an assert without `sql` is prompt-only guidance (its text is
+      // already woven into the drafting prompt). Skip it at run time so it can't
+      // hard-fail via evaluateAssert's defensive "missing sql/op/value" contract.
+      if (rule.sql == null) continue;
       const ruleName = rule.text.trim() ? rule.text : (rule.sql ?? "assert");
       const { pass, detail } = evaluateAssert(rule, data);
       if (pass) {

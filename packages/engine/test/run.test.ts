@@ -308,4 +308,39 @@ describe("executeRun — v1.3b run-level asserts", () => {
     expect(events.some((e) => e.type === "retry_started")).toBe(true);
     expect(events.some((e) => e.type === "flag_raised")).toBe(true);
   });
+
+  it("skips a sql-less assert at run time (prompt-only guidance) while still running sql asserts", async () => {
+    // v1 semantics: an assert without `sql` is prompt-only guidance — its text
+    // renders into the drafting prompt (prompts.ts) but runChecks must NOT evaluate
+    // it. Only the sibling sql assert runs. A spy exec proves the sql-less rule
+    // never touched the warehouse.
+    const content: BlueprintContent = {
+      title: "Assert Report", clientName: "Acme", eyebrow: "E", dateline: "D",
+      sections: [
+        { key: "body", number: 1, heading: "Body", mode: "auto", instruction: "Write the body.", familyIds: [], queries: [], rules: [
+          { kind: "assert", text: "mention the headline figure" },                                   // sql-less → skipped at run time
+          { kind: "assert", text: "", sql: "SELECT SUM(amount) FROM ledger", op: "==", value: 500 }, // sql → runs, passes (500 == 500)
+        ] },
+      ],
+      globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
+    };
+    const queries: string[] = [];
+    const spyData: RunData = {
+      catalog: [],
+      exec: (sql: string) => { queries.push(sql); return { columns: ["n"], rows: [[500]] }; },
+    };
+    const client = makeFakeClient([[{ text: "The quarter closed on plan." }]]);
+    const events: RunEvent[] = [];
+
+    await executeRun({ client, content, files: [], data: spyData, io: collectingIO(events), blueprintRev: 1 });
+
+    // Exactly one assert check_passed — the sql one, named by its sql (blank text).
+    const assertPasses = events.filter((e) => e.type === "check_passed" && e.rule === "SELECT SUM(amount) FROM ledger");
+    expect(assertPasses).toHaveLength(1);
+    // The sql-less assert produced no check outcome and no retry/flag churn.
+    expect(events.some((e) => e.type === "check_failed")).toBe(false);
+    expect(events.some((e) => e.type === "retry_started")).toBe(false);
+    // exec ran once, only for the sql assert's query — the sql-less rule never hit it.
+    expect(queries).toEqual(["SELECT SUM(amount) FROM ledger"]);
+  });
 });
