@@ -259,3 +259,53 @@ describe("executeRun — v1.1", () => {
     expect(started && started.type === "run_started" ? started.memoryIds : []).toEqual(["mem_p", "mem_b"]);
   });
 });
+
+describe("executeRun — v1.3b run-level asserts", () => {
+  // A single auto section carrying one scalar-SQL assert. The shared `data.exec`
+  // stub answers every query with [[500]], so the assert outcome is data-driven
+  // and independent of the drafted prose.
+  const assertContent = (rule: BlueprintContent["sections"][number]["rules"][number]): BlueprintContent => ({
+    title: "Assert Report", clientName: "Acme", eyebrow: "E", dateline: "D",
+    sections: [
+      { key: "body", number: 1, heading: "Body", mode: "auto", instruction: "Write the body.", familyIds: [], queries: [], rules: [rule] },
+    ],
+    globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
+  });
+
+  it("passes a run-level SQL assert and names the check by its sql when the rule text is blank", async () => {
+    // Blank text → runChecks falls back to `rule.sql ?? "assert"` for the ruleName.
+    const content = assertContent({ kind: "assert", text: "", sql: "SELECT SUM(amount) FROM ledger", op: "==", value: 500 });
+    const client = makeFakeClient([[{ text: "The quarter closed on plan." }]]);
+    const events: RunEvent[] = [];
+
+    await executeRun({ client, content, files: [], data, io: collectingIO(events), blueprintRev: 1 });
+
+    // check_passed carries the SQL as the ruleName (text was blank), and 500 == 500.
+    const passed = events.find((e) => e.type === "check_passed" && e.rule === "SELECT SUM(amount) FROM ledger");
+    expect(passed).toBeDefined();
+    expect(events.some((e) => e.type === "check_failed")).toBe(false);
+    expect(events.some((e) => e.type === "retry_started")).toBe(false);
+  });
+
+  it("fails a run-level SQL assert with a Task-5 detail, retries, and flags when the retry still fails", async () => {
+    // 500 <= 100 is false against the [[500]] stub; a data-driven assert can't be
+    // moved by a redraft, so the run retries once then raises a keep-or-redraft flag.
+    const content = assertContent({ kind: "assert", text: "spend under 100", sql: "SELECT SUM(amount) FROM ledger", op: "<=", value: 100 });
+    const client = makeFakeClient([
+      [{ text: "First draft prose." }],   // draft: assert fails → retry
+      [{ text: "Second draft prose." }],  // retry: assert still fails → flag
+    ]);
+    const events: RunEvent[] = [];
+
+    await executeRun({ client, content, files: [], data, io: collectingIO(events), blueprintRev: 1 });
+
+    // Non-blank text → ruleName is the text; detail follows Task 5's format.
+    const failed = events.find((e) => e.type === "check_failed" && e.rule === "spend under 100");
+    expect(failed?.type === "check_failed" && failed.detail).toBe(
+      "SELECT SUM(amount) FROM ledger = 500 (expected <= 100) — fail",
+    );
+    // The failure drove the single retry and, still failing, a keep-or-redraft flag.
+    expect(events.some((e) => e.type === "retry_started")).toBe(true);
+    expect(events.some((e) => e.type === "flag_raised")).toBe(true);
+  });
+});
