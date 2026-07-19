@@ -199,7 +199,12 @@ export function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotCont
     defaultFiles,
     periodFiles,
     catalog,
-    runSql: (sql: string) => formatSqlResult(runWarehouseSql(projectId, sql)),
+    runSql: (sql: string) => {
+      const latest = (db.sqlite
+        .prepare("SELECT MAX(period) AS p FROM sources WHERE project_id = ? AND status='filed' AND period IS NOT NULL")
+        .get(projectId) as { p: string | null }).p;
+      return formatSqlResult(runWarehouseSql(projectId, sql, { period: latest }));
+    },
     listRuns: () => [],
     getRunSection: () => null,
     listGoldens: () => [],

@@ -27,8 +27,8 @@ const contentWithSections: BlueprintContent = {
   dateline: "",
   // deliberately out of number order to prove sectionMeta sorts by number
   sections: [
-    { key: "intro", number: 2, heading: "Introduction", mode: "auto", instruction: "Open the report.", familyIds: [], rules: [] },
-    { key: "body", number: 1, heading: "Body", mode: "auto", instruction: "Write clearly and concisely.", familyIds: [], rules: [] },
+    { key: "intro", number: 2, heading: "Introduction", mode: "auto", instruction: "Open the report.", familyIds: [], queries: [], rules: [] },
+    { key: "body", number: 1, heading: "Body", mode: "auto", instruction: "Write clearly and concisely.", familyIds: [], queries: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },

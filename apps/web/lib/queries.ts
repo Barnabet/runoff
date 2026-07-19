@@ -334,7 +334,10 @@ export function buildCopilotContext(
     periodFiles,
     catalog: catalog(db, projectId),
     runSql(sql: string): string {
-      return formatSqlResult(runWarehouseSql(projectId, sql));
+      const latest = (db.sqlite
+        .prepare("SELECT MAX(period) AS p FROM sources WHERE project_id = ? AND status='filed' AND period IS NOT NULL")
+        .get(projectId) as { p: string | null }).p;
+      return formatSqlResult(runWarehouseSql(projectId, sql, { period: latest }));
     },
     listRuns(): RunSummary[] {
       const rows = db.sqlite

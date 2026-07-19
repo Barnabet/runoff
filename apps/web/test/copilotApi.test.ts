@@ -17,7 +17,7 @@ const { GET: getMemories } = await import("../app/api/blueprints/[id]/memories/r
 const { PATCH: patchMemory, DELETE: deleteMemory } = await import("../app/api/memories/[id]/route");
 
 function section(key: string, number: number): BlueprintSection {
-  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, familyIds: [], rules: [] };
+  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, familyIds: [], queries: [], rules: [] };
 }
 
 const DRAFT: BlueprintContent = {
@@ -189,6 +189,10 @@ describe("copilot API", () => {
       "fam_rev:2026-Q2",
     ]);
     expect(context.periodFiles.every((p) => p.file.id === p.familyId)).toBe(true);
+
+    // Warehouse surface: catalog is an array; runSql throws on the empty warehouse.
+    expect(Array.isArray(context.catalog)).toBe(true);
+    expect(() => context.runSql("SELECT 1")).toThrow("no data ingested yet");
   });
 
   it("memories: GET lists, PATCH toggles status, DELETE removes", async () => {

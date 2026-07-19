@@ -393,6 +393,50 @@ describe("copilotTurn", () => {
     expect(miss).toBe("Tool error: no file for spend at 2026-Q3");
   });
 
+  it("update_section_queries validates, dry-runs, commits, and is invertible", async () => {
+    const calls: string[] = [];
+    const client = makeFakeClient([
+      [{ toolUse: { name: "update_section_queries", input: { sectionKey: "exec", queries: [{ name: "total", sql: "SELECT 1", description: null }] } } }],
+      [{ text: "Baked the total query." }],
+    ]);
+    const { events, io } = collect();
+    const res = await copilotTurn({
+      client, draft: content, selectedKey: null, message: "bake a query",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: (sql: string) => { calls.push(sql); return "1"; } }), io,
+    });
+    // Dry-run executed the SQL exactly once.
+    expect(calls).toEqual(["SELECT 1"]);
+    const edit = events.find((e) => e.type === "edit");
+    expect(edit?.type === "edit" && edit.op.type === "update_section_queries").toBe(true);
+    if (edit?.type === "edit" && edit.op.type === "update_section_queries") {
+      expect(edit.op.sectionKey).toBe("exec");
+      expect(edit.op.before).toEqual([]);
+      expect(edit.op.after).toEqual([{ name: "total", sql: "SELECT 1" }]);
+    }
+    // Draft committed: the section now carries the baked query.
+    expect(res.draft.sections[0].queries).toEqual([{ name: "total", sql: "SELECT 1" }]);
+  });
+
+  it("update_section_queries rejects bad names and failing SQL byte-exactly", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "update_section_queries", input: { sectionKey: "exec", queries: [{ name: "Total Paid", sql: "SELECT 1", description: null }] } } }],
+      [{ toolUse: { name: "update_section_queries", input: { sectionKey: "exec", queries: [{ name: "total", sql: "SELECT * FROM x", description: null }] } } }],
+      [{ toolUse: { name: "update_section_queries", input: { sectionKey: "exec", queries: [{ name: "total", sql: "SELECT 1", description: null }, { name: "total", sql: "SELECT 2", description: null }] } } }],
+      [{ text: "Fixed." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "bake queries",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: (sql: string) => { if (sql === "SELECT * FROM x") throw new Error("no such table: x"); return "1"; } }), io,
+    });
+    const [badName, failSql, dup] = toolResults();
+    expect(badName).toBe("Tool error: invalid query name: Total Paid");
+    expect(failSql).toBe("Tool error: invalid query total: no such table: x");
+    expect(dup).toBe("Tool error: invalid query name: total");
+  });
+
   it("compute is no longer a tool — a call to it returns the loop's unknown-tool error", async () => {
     // `compute` (agg-over-pack) is retired: the warehouse owns tabular data, so
     // the CSV pack it read no longer exists. A call falls through to the executor's

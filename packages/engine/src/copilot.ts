@@ -7,6 +7,7 @@ import {
   type EditOp,
   type MastheadPatch,
   type RunStats,
+  type SectionQuery,
 } from "@runoff/core";
 import { buildSourcePack, packForPrompt, type EngineFile, type SourcePack } from "./sourcePack.js";
 import { serializeCatalog, type CatalogFamily } from "./catalogFormat.js";
@@ -109,9 +110,10 @@ const TOOLS = [
             properties: {
               kind: { type: "string", enum: ["assert", "style", "judgment"] },
               text: { type: "string" },
-              expression: { type: ["string", "null"] },
+              sql: { type: ["string", "null"] }, op: { type: ["string", "null"], enum: ["==", "<=", ">=", "<", ">", null] },
+              value: { type: ["number", "null"] }, withinPct: { type: ["number", "null"] },
             },
-            required: ["kind", "text", "expression"],
+            required: ["kind", "text", "sql", "op", "value", "withinPct"],
             additionalProperties: false,
           },
         },
@@ -131,9 +133,10 @@ const TOOLS = [
         instruction: { type: "string" },
         fixedText: { type: ["string", "null"] },
         familyIds: { type: "array", items: { type: "string" } },
-        rules: { type: "array", items: { type: "object", properties: { kind: { type: "string", enum: ["assert", "style", "judgment"] }, text: { type: "string" }, expression: { type: ["string", "null"] } }, required: ["kind", "text", "expression"], additionalProperties: false } },
+        queries: { type: "array", items: { type: "object", properties: { name: { type: "string" }, sql: { type: "string" }, description: { type: ["string", "null"] } }, required: ["name", "sql", "description"], additionalProperties: false } },
+        rules: { type: "array", items: { type: "object", properties: { kind: { type: "string", enum: ["assert", "style", "judgment"] }, text: { type: "string" }, sql: { type: ["string", "null"] }, op: { type: ["string", "null"], enum: ["==", "<=", ">=", "<", ">", null] }, value: { type: ["number", "null"] }, withinPct: { type: ["number", "null"] } }, required: ["kind", "text", "sql", "op", "value", "withinPct"], additionalProperties: false } },
       },
-      required: ["key", "heading", "mode", "instruction", "fixedText", "familyIds", "rules"],
+      required: ["key", "heading", "mode", "instruction", "fixedText", "familyIds", "queries", "rules"],
       additionalProperties: false,
     },
   }),
@@ -152,11 +155,23 @@ const TOOLS = [
   fn("update_global_rules", "Replace the blueprint's global rules list.", {
     rules: { type: "array", items: { type: "string" } },
   }),
+  fn("update_section_queries", "Replace one section's baked data queries (name + read-only SELECT). The drafting model sees each query's result verbatim at run time; parameterize periodic tables with :period. Baked queries replace the default 40-row preview for the tables they mention.", {
+    sectionKey: { type: "string" },
+    queries: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: { name: { type: "string" }, sql: { type: "string" }, description: { type: ["string", "null"] } },
+        required: ["name", "sql", "description"],
+        additionalProperties: false,
+      },
+    },
+  }),
   fn("query_sources", "Inspect the data families in this project. Without familyId: the family tree — one line per family with its kind, granularity, and filed periods. With familyId: columns and first rows of that family's latest file (or its constant reference file). With familyId and period: that specific period's file.", {
     familyId: { type: ["string", "null"] },
     period: { type: ["string", "null"] },
   }),
-  fn("run_sql", "Run one read-only SQL SELECT against this project's ingested data (SQLite). Table and column names are in the data catalog; periodic tables have a _period column (e.g. WHERE _period = '2026-Q1'). Results are capped at 200 rows.", {
+  fn("run_sql", "Run one read-only SQL SELECT against this project's ingested data (SQLite). Table and column names are in the data catalog; periodic tables have a _period column (e.g. WHERE _period = '2026-Q1'). Results are capped at 200 rows. You may reference :period — it binds to the project's latest filed period.", {
     sql: { type: "string" },
   }),
   fn("list_runs", "List this blueprint's most recent runs with their stats.", {}),
@@ -192,8 +207,12 @@ fact-checked business report. You edit the blueprint itself (instructions, rules
 the report output. Use your tools to inspect the bound data, past runs, and golden examples before \
 guessing; apply edits directly with the edit tools (the user sees each edit and can revert it); keep \
 instructions concrete and grounded in the actual source columns. Figures in generated reports are \
-audited against locator expressions like sum(src.amount where channel=search) — prefer assert rules \
-and instructions that reference real columns. Data is organized into families (one file per period, or \
+audited against warehouse-table locators like agg(tableName.column) resolved over the fam_* tables — \
+prefer assert rules and instructions that reference real columns. Bake per-section data queries with \
+update_section_queries — the run executes them (with :period bound to the run's period) and drafts from \
+their results, so keep them small and purposeful. Assert rules are scalar SQL: { sql, op, value } where \
+sql returns one number (use :period for periodic tables). Test any SQL with run_sql first; run_sql binds \
+:period to the latest filed period. Data is organized into families (one file per period, or \
 constant reference files); query_sources shows what periods exist. When the user states a durable \
 preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}${catalogBlock}
 
@@ -208,6 +227,7 @@ function activityLabel(name: string, args: any, families: FamilyInfo[]): string 
     case "remove_section": return `removing §${args?.key ?? "?"}`;
     case "update_masthead": return "editing masthead";
     case "update_global_rules": return "editing global rules";
+    case "update_section_queries": return "baking data queries";
     case "query_sources": {
       if (!args?.familyId) return "listing data families";
       const key = families.find((f) => f.id === args.familyId)?.key ?? args.familyId;
@@ -434,6 +454,25 @@ function executeTool(
     case "update_global_rules": {
       const rules = Array.isArray(args.rules) ? args.rules.filter((r: unknown) => typeof r === "string") : [];
       return commit({ ...draft, globalRules: rules }, { type: "update_global_rules", before: draft.globalRules, after: rules });
+    }
+    case "update_section_queries": {
+      const section = draft.sections.find((s) => s.key === args.sectionKey);
+      if (!section) return { draft, result: `Tool error: no section with key ${args.sectionKey}` };
+      const queries = (Array.isArray(args.queries) ? args.queries : []).map((qy: any) => compact(qy)) as SectionQuery[];
+      const seen = new Set<string>();
+      for (const qy of queries) {
+        if (typeof qy.name !== "string" || !/^[a-z][a-z0-9_]*$/.test(qy.name) || seen.has(qy.name)) {
+          return { draft, result: `Tool error: invalid query name: ${qy.name}` };
+        }
+        seen.add(qy.name);
+        try {
+          ctx.runSql(qy.sql); // dry run: read-only + syntax + table existence
+        } catch (e) {
+          return { draft, result: `Tool error: invalid query ${qy.name}: ${e instanceof Error ? e.message : String(e)}` };
+        }
+      }
+      const candidate = { ...draft, sections: draft.sections.map((s) => (s.key === args.sectionKey ? { ...s, queries } : s)) };
+      return commit(candidate, { type: "update_section_queries", sectionKey: args.sectionKey, before: section.queries, after: queries });
     }
     case "query_sources": {
       const catByKey = new Map(ctx.catalog.map((c) => [c.key, c]));
