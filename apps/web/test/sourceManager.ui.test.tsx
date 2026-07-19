@@ -49,6 +49,7 @@ function fam(over: Partial<FamilySummary> & { id: string; key: string }): Family
     filedEntries:
       over.filedEntries ?? filedPeriods.map((p, i) => ({ period: p, sourceId: `${over.id}_s${i}`, name: `${p}.csv` })),
     liveFile: over.liveFile ?? null,
+    tables: over.tables ?? [],
   };
 }
 
@@ -255,6 +256,47 @@ describe("SourceManager", () => {
     render(<SourceManager projectId="prj_1" families={families} unfiled={[]} />);
     fireEvent.click(screen.getByTestId("delete-src_del"));
     await waitFor(() => expect(deletes).toEqual(["src_del"]));
+  });
+
+  it("renders detected tables, skipped fragments, and drift lines on a chip", () => {
+    mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
+    const unfiled = [
+      row({
+        id: "src_t",
+        name: "spend.csv",
+        proposal: {
+          familyKey: "spend",
+          period: "2026-Q1",
+          confidence: "high",
+          tables: [
+            { name: "fam_spend", columns: ["campaign", "amount"], rowCount: 48112 },
+            { name: "fam_spend__by_region", columns: ["region", "amount"], rowCount: 12 },
+          ],
+          skippedFragments: 2,
+          drift: ["new column: fam_spend.refund_flag (REAL)"],
+        },
+      }),
+    ];
+    render(<SourceManager projectId="prj_1" families={[]} unfiled={unfiled} />);
+
+    expect(screen.getByText("fam_spend — 2 cols · 48,112 rows")).toBeTruthy();
+    expect(screen.getByText("fam_spend__by_region — 2 cols · 12 rows")).toBeTruthy();
+    expect(screen.getByText("skipped: 2 text fragment(s)")).toBeTruthy();
+    expect(screen.getByText("new column: fam_spend.refund_flag (REAL)")).toBeTruthy();
+  });
+
+  it("renders per-table row counts on a family card and omits the block for document families", () => {
+    mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
+    const families = [
+      fam({ id: "fam_s", key: "spend", label: "Spend", filedPeriods: ["2026-Q1"], tables: [{ name: "fam_spend", rowCount: 96224 }] }),
+      fam({ id: "fam_doc", key: "policy", label: "Policy", kind: "constant", tables: [] }),
+    ];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={[]} />);
+
+    expect(screen.getByText("fam_spend — 96,224 rows")).toBeTruthy();
+    expect(screen.queryByText(/rows$/)).toBeTruthy();
+    // The document (tables: []) family renders no per-table row-count line.
+    expect(screen.queryAllByText(/— .* rows$/)).toHaveLength(1);
   });
 
   it("a periodic filed cell's refile opens a prefilled picker and PATCHes the new period", async () => {

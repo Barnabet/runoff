@@ -121,6 +121,7 @@ export interface FamilySummary {
   filedPeriods: string[];
   filedEntries: { period: string; sourceId: string; name: string }[];
   liveFile: { sourceId: string; name: string } | null;
+  tables: { name: string; rowCount: number }[];
 }
 
 export interface ProjectSourcesResponse {

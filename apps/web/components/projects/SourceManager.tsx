@@ -491,6 +491,18 @@ function ChipRow({
         </button>
       </span>
 
+      {row.proposal?.tables?.length ? (
+        <div className="w-full space-y-0.5 font-mono text-[11px] text-ink/50">
+          {row.proposal.tables.map((t) => (
+            <div key={t.name}>{`${t.name} — ${t.columns.length} cols · ${t.rowCount.toLocaleString("en-US")} rows`}</div>
+          ))}
+          {row.proposal.skippedFragments ? <div>{`skipped: ${row.proposal.skippedFragments} text fragment(s)`}</div> : null}
+          {(row.proposal.drift ?? []).map((d) => (
+            <div key={d} className="text-amber">{d}</div>
+          ))}
+        </div>
+      ) : null}
+
       {error && <span className={`w-full ${ERR_LINE}`} role="alert">{error}</span>}
     </div>
   );
@@ -614,6 +626,14 @@ function FamilyNode({
           )}
         </div>
       )}
+
+      {family.tables.length ? (
+        <div className="mt-1 font-mono text-[11px] text-ink/50">
+          {family.tables.map((t) => (
+            <div key={t.name}>{`${t.name} — ${t.rowCount.toLocaleString("en-US")} rows`}</div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -72,7 +72,7 @@ function fam(
   kind: "periodic" | "constant",
   granularity: FamilySummary["granularity"],
 ): FamilySummary {
-  return { id, key, label, kind, granularity, filedPeriods: [], filedEntries: [], liveFile: null };
+  return { id, key, label, kind, granularity, filedPeriods: [], filedEntries: [], liveFile: null, tables: [] };
 }
 
 const families: FamilySummary[] = [
