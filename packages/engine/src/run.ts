@@ -10,7 +10,8 @@ import type {
 } from "@runoff/core";
 import { countWords, blocksToPlainText } from "@runoff/core";
 import { parseSectionText } from "./dialect.js";
-import { buildSourcePack, type EngineFile, type SourcePack } from "./sourcePack.js";
+import { buildSourcePack, type EngineFile } from "./sourcePack.js";
+import { sectionDataBlock, type RunData } from "./runData.js";
 import { evaluateAssert, auditCitations, countCitations } from "./checks.js";
 import { draftSection, RefusalError, type DraftCallbacks } from "./draft.js";
 import type { ScopedMemory } from "./prompts.js";
@@ -52,6 +53,7 @@ export async function executeRun(opts: {
   client: OpenAI;
   content: BlueprintContent;
   files: EngineFile[];
+  data: RunData;
   io: EngineIO;
   blueprintRev: number;
   previousDocument?: RunDocument;
@@ -59,7 +61,7 @@ export async function executeRun(opts: {
   period?: string | null;
   gaps?: string[];
 }): Promise<ExecuteRunResult> {
-  const { client, content, files, io, blueprintRev, previousDocument, memories = [], period, gaps } = opts;
+  const { client, content, files, data, io, blueprintRev, previousDocument, memories = [], period, gaps } = opts;
   // Project-scope memories are listed first (they set standing context), then
   // blueprint-scope; this order is what run_started.memoryIds records.
   const orderedMemories = [
@@ -171,13 +173,13 @@ export async function executeRun(opts: {
 
   // --- checks (rule 6) -----------------------------------------------------
   // Returns the failure details (empty ⇒ clean). Emits check_passed/check_failed.
-  const runChecks = (section: BlueprintSection, blocks: Block[], pack: SourcePack): string[] => {
+  const runChecks = (section: BlueprintSection, blocks: Block[]): string[] => {
     const details: string[] = [];
 
     for (const rule of section.rules) {
-      if (rule.kind !== "assert" || !rule.expression) continue;
-      const ruleName = rule.text.trim() ? rule.text : rule.expression;
-      const { pass, detail } = evaluateAssert(rule.expression, pack);
+      if (rule.kind !== "assert") continue;
+      const ruleName = rule.text.trim() ? rule.text : (rule.sql ?? "assert");
+      const { pass, detail } = evaluateAssert(rule, data);
       if (pass) {
         emit({ type: "check_passed", sectionKey: section.key, rule: ruleName });
         checksPassed++;
@@ -188,7 +190,7 @@ export async function executeRun(opts: {
       }
     }
 
-    const audit = auditCitations(blocks, pack, section.familyIds);
+    const audit = auditCitations(blocks, data, section.familyIds);
     if (audit.pass) {
       emit({ type: "check_passed", sectionKey: section.key, rule: "citations" });
       checksPassed++;
@@ -242,15 +244,16 @@ export async function executeRun(opts: {
       const cb = makeCallbacks(section.key);
       const prevSection = previousDocument?.sections.find((s) => s.key === section.key);
       const previousSectionText = prevSection ? blocksToPlainText(prevSection.blocks) : undefined;
+      const dataBlock = sectionDataBlock(section, data, pack);
       try {
-        let draft = await draftSection({ client, content, section, pack, completed, steers, answers, previousSectionText, memories, cb });
+        let draft = await draftSection({ client, content, section, dataBlock, completed, steers, answers, previousSectionText, memories, cb });
         let blocks = draft.blocks;
         // Rule 4 (same section): a question raised during this draft, deadlined here, falls back now.
         applyFallbacks(section.key);
 
         // Rule 6: checks, with at most one retry, then flag-and-keep.
         let retries = 0;
-        let failures = runChecks(section, blocks, pack);
+        let failures = runChecks(section, blocks);
         if (failures.length > 0) {
           emit({ type: "retry_started", sectionKey: section.key, reason: failures.join("; ") });
           retries = 1;
@@ -258,10 +261,10 @@ export async function executeRun(opts: {
           // An answer or steer posted while the first draft was being written or
           // checked must reach the redraft (v1.1 spec §4b).
           await drainInputs();
-          draft = await draftSection({ client, content, section, pack, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, memories, cb });
+          draft = await draftSection({ client, content, section, dataBlock, completed, steers, answers, retryFeedback: failures.join("; "), previousSectionText, memories, cb });
           blocks = draft.blocks;
           applyFallbacks(section.key);
-          failures = runChecks(section, blocks, pack);
+          failures = runChecks(section, blocks);
           if (failures.length > 0) {
             raiseFlag(section.key, `Section '${section.heading}' failed checks: ${failures.join("; ")}. Keep it anyway?`, ["Keep", "Redraft next run"]);
           }

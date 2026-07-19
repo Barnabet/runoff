@@ -5,16 +5,16 @@ import type { BlueprintContent } from "@runoff/core";
 
 const content: BlueprintContent = {
   title: "T", clientName: "C", eyebrow: "E", dateline: "D",
-  sections: [{ key: "exec", number: 2, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: ["src_spend"], rules: [] }],
+  sections: [{ key: "exec", number: 2, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: ["src_spend"], queries: [], rules: [] }],
   globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
 };
-const pack = { sources: [{ id: "src_spend", label: "spend.csv", kind: "table" as const, summary: "2 rows", tables: [{ name: "s", columns: ["amount"], rows: [{ amount: 1 }] }] }] };
+const dataBlock = "### spend (src_spend)\nfam_spend(amount REAL) — 2 rows\n-- default: SELECT SUM(amount) FROM fam_spend\n1";
 
 describe("draftSection", () => {
   it("streams deltas and parses the final dialect text", async () => {
     const client = makeFakeClient([[{ text: "Spend was [[$1|src_spend|sum(src_spend.amount)]] overall." }]]);
     const deltas: string[] = [];
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: (t) => deltas.push(t), onFlag: () => {}, onQuestion: () => {} } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: (t) => deltas.push(t), onFlag: () => {}, onQuestion: () => {} } });
     expect(deltas.join("")).toContain("Spend was");
     expect(r.blocks[0].type).toBe("paragraph");
   });
@@ -26,7 +26,7 @@ describe("draftSection", () => {
       [ { text: "Final text." } ],
     ]);
     const flags: string[] = []; const questions: string[] = [];
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f.question), onQuestion: (q) => questions.push(q.question) } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f.question), onQuestion: (q) => questions.push(q.question) } });
     expect(questions).toEqual(["Cite them?"]);
     expect(flags).toEqual(["Tone ok?"]);
     expect(r.raw).toContain("Final text.");
@@ -45,7 +45,7 @@ describe("draftSection", () => {
     ]);
     const flags: { question: string; options: string[] }[] = [];
     const questions: { question: string; options: string[]; fallback: string; deadlineSection: string }[] = [];
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: (q) => questions.push(q) } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: (q) => questions.push(q) } });
     expect(questions).toEqual([{ question: "Cite them?", options: ["Cite", "Skip"], fallback: "skip", deadlineSection: "exec" }]);
     expect(flags).toEqual([{ question: "Tone ok?", options: ["Keep", "Soften"] }]);
     expect(r.raw).toContain("Done.");
@@ -54,10 +54,10 @@ describe("draftSection", () => {
   it("throws a typed RefusalError when the model refuses to draft the section", async () => {
     const client = makeFakeClient([[{ stopReason: "refusal" }]]);
     await expect(
-      draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
+      draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
     ).rejects.toBeInstanceOf(RefusalError);
     await expect(
-      draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
+      draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } }),
     ).rejects.toThrow("model refused to draft this section");
   });
 
@@ -69,7 +69,7 @@ describe("draftSection", () => {
       [{ text: "Recovered and finished." }],
     ]);
     const flags: unknown[] = [];
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: () => {} } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: (f) => flags.push(f), onQuestion: () => {} } });
     expect(flags).toEqual([]); // malformed args → callback skipped
     expect(r.raw).toContain("Recovered and finished.");
   });
@@ -79,14 +79,14 @@ describe("draftSection", () => {
       [{ text: "Partial draft ", stopReason: "max_tokens" }],
       [{ text: "Complete draft after retry." }],
     ]);
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
     expect(r.raw).toContain("Complete draft after retry.");
     expect(r.raw).not.toContain("Partial draft");
   });
 
   it("accepts the truncated text when the length retry also truncates", async () => {
     const client = makeFakeClient([[{ text: "Truncated only.", stopReason: "max_tokens" }]]);
-    const r = await draftSection({ client, content, section: content.sections[0], pack, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
+    const r = await draftSection({ client, content, section: content.sections[0], dataBlock, completed: [], steers: [], answers: [], cb: { onDelta: () => {}, onFlag: () => {}, onQuestion: () => {} } });
     expect(r.raw).toContain("Truncated only.");
   });
 });

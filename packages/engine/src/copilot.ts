@@ -9,7 +9,6 @@ import {
   type RunStats,
 } from "@runoff/core";
 import { buildSourcePack, packForPrompt, type EngineFile, type SourcePack } from "./sourcePack.js";
-import { computeLocator } from "./checks.js";
 import { serializeCatalog, type CatalogFamily } from "./catalogFormat.js";
 import { MODEL, guidanceBlocks, type ScopedMemory } from "./prompts.js";
 
@@ -157,9 +156,6 @@ const TOOLS = [
     familyId: { type: ["string", "null"] },
     period: { type: ["string", "null"] },
   }),
-  fn("compute", "Evaluate one aggregate over a bound family's latest file: agg(familyId.column) or agg(familyId.column where col=value), agg one of sum|avg|min|max|count. To inspect an earlier period, use query_sources with that period instead.", {
-    expression: { type: "string" },
-  }),
   fn("run_sql", "Run one read-only SQL SELECT against this project's ingested data (SQLite). Table and column names are in the data catalog; periodic tables have a _period column (e.g. WHERE _period = '2026-Q1'). Results are capped at 200 rows.", {
     sql: { type: "string" },
   }),
@@ -217,7 +213,6 @@ function activityLabel(name: string, args: any, families: FamilyInfo[]): string 
       const key = families.find((f) => f.id === args.familyId)?.key ?? args.familyId;
       return `reading ${key}${args.period ? ` @ ${args.period}` : ""}`;
     }
-    case "compute": return `computing ${args?.expression ?? "?"}`;
     case "run_sql": return "running SQL";
     case "list_runs": return "listing recent runs";
     case "get_run_section": return `reading run ${args?.runId ?? "?"} §${args?.key ?? "?"}`;
@@ -244,7 +239,7 @@ export async function copilotTurn(opts: {
   let draft: BlueprintContent = structuredClone(opts.draft);
   const actions: CopilotAction[] = [];
   // Two packs: the DEFAULT resolution (latest period / constant live file, keyed
-  // by family id) drives query_sources/compute; the PERIOD pack (keyed
+  // by family id) drives query_sources; the PERIOD pack (keyed
   // `${familyId}:${period}`) backs period-addressed inspection.
   const defaultPack = await buildSourcePack(ctx.defaultFiles);
   const periodPack = await buildSourcePack(
@@ -481,15 +476,13 @@ function executeTool(
         if (!periodPack.sources.some((s) => s.id === entryId)) {
           return { draft, result: `Tool error: no file for ${key} at ${args.period}` };
         }
-        return { draft, result: packForPrompt(periodPack, [entryId], 20) };
+        return { draft, result: packForPrompt(periodPack, [entryId]) };
       }
       if (!defaultPack.sources.some((s) => s.id === args.familyId)) {
         return { draft, result: `Tool error: no file for ${key}` };
       }
-      return { draft, result: packForPrompt(defaultPack, [args.familyId], 20) };
+      return { draft, result: packForPrompt(defaultPack, [args.familyId]) };
     }
-    case "compute":
-      return { draft, result: String(computeLocator(String(args.expression ?? ""), defaultPack)) };
     case "run_sql": {
       const sql = String(args.sql ?? "");
       try {

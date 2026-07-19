@@ -1,23 +1,14 @@
 /// <reference path="./pdf-parse.d.ts" />
 import { readFile } from "node:fs/promises";
 import { extname } from "node:path";
-import Papa from "papaparse";
-import ExcelJS from "exceljs";
 import mammoth from "mammoth";
 // Import the internal entry point to avoid pdf-parse's index.js debug self-test.
 import pdfParse from "pdf-parse/lib/pdf-parse.js";
 
-export interface ParsedTable {
-  name: string;
-  columns: string[];
-  rows: Record<string, string | number>[];
-}
-
 export interface PackedSource {
   id: string;
   label: string;
-  kind: "table" | "document" | "pdf";
-  tables?: ParsedTable[]; // csv → 1 table; xlsx → 1 per worksheet
+  kind: "document" | "pdf";
   text?: string; // docx / pdf extracted text
   summary: string;
 }
@@ -33,10 +24,6 @@ export interface EngineFile {
   path: string;
 }
 
-/** Columns whose totals are worth surfacing in a table summary. */
-const NUMERIC_SUMMARY_COLUMNS = ["amount", "spend", "revenue", "sessions", "value", "total"];
-
-const DEFAULT_MAX_ROWS = 40;
 const MAX_DOCUMENT_CHARS = 8_000;
 
 type SourceKind = "csv" | "xlsx" | "docx" | "pdf" | "unknown";
@@ -65,17 +52,19 @@ function classify(file: EngineFile): SourceKind {
   }
 }
 
+/**
+ * Build the source pack from document families only — the warehouse owns every
+ * tabular file, so csv/xlsx are skipped entirely and never reach the prompt.
+ */
 export async function buildSourcePack(files: EngineFile[]): Promise<SourcePack> {
-  const sources = await Promise.all(files.map(buildSource));
+  const sources = await Promise.all(
+    files.filter((f) => !["csv", "xlsx"].includes(classify(f))).map(buildSource),
+  );
   return { sources };
 }
 
 function buildSource(file: EngineFile): Promise<PackedSource> {
   switch (classify(file)) {
-    case "csv":
-      return buildCsv(file);
-    case "xlsx":
-      return buildXlsx(file);
     case "pdf":
       return buildPdf(file);
     case "docx":
@@ -83,62 +72,6 @@ function buildSource(file: EngineFile): Promise<PackedSource> {
       // Unknown types fall back to plain-text extraction rather than crashing a run.
       return buildDocument(file);
   }
-}
-
-async function buildCsv(file: EngineFile): Promise<PackedSource> {
-  const content = await readFile(file.path, "utf8");
-  const parsed = Papa.parse<Record<string, string | number>>(content, {
-    header: true,
-    dynamicTyping: true,
-    skipEmptyLines: true,
-  });
-  const rows = parsed.data;
-  const columns = parsed.meta.fields ?? (rows[0] ? Object.keys(rows[0]) : []);
-  const table: ParsedTable = { name: file.name, columns, rows };
-  return {
-    id: file.id,
-    label: file.name,
-    kind: "table",
-    tables: [table],
-    summary: tableSummary(table),
-  };
-}
-
-async function buildXlsx(file: EngineFile): Promise<PackedSource> {
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.readFile(file.path);
-  const tables: ParsedTable[] = [];
-
-  workbook.eachSheet((sheet) => {
-    // Capture each header's true column index so blank spacer columns (a gap in
-    // the header row) don't shift the data of every subsequent column.
-    const headers: { name: string; colNumber: number }[] = [];
-    sheet.getRow(1).eachCell({ includeEmpty: false }, (cell, colNumber) => {
-      headers.push({ name: cellText(cell.value), colNumber });
-    });
-    const columns = headers.map((h) => h.name);
-
-    const rows: Record<string, string | number>[] = [];
-    for (let r = 2; r <= sheet.rowCount; r++) {
-      const row = sheet.getRow(r);
-      if (!row.hasValues) continue;
-      const record: Record<string, string | number> = {};
-      for (const { name, colNumber } of headers) {
-        record[name] = cellValue(row.getCell(colNumber).value);
-      }
-      rows.push(record);
-    }
-
-    tables.push({ name: sheet.name, columns, rows });
-  });
-
-  return {
-    id: file.id,
-    label: file.name,
-    kind: "table",
-    tables,
-    summary: tables.map(tableSummary).join("; "),
-  };
 }
 
 async function buildDocument(file: EngineFile): Promise<PackedSource> {
@@ -181,68 +114,21 @@ async function buildPdf(file: EngineFile): Promise<PackedSource> {
   };
 }
 
-function tableSummary(table: ParsedTable): string {
-  const cols = table.columns.map((col) => {
-    if (!NUMERIC_SUMMARY_COLUMNS.includes(col.toLowerCase())) return col;
-    let total = 0;
-    let hasNumber = false;
-    for (const row of table.rows) {
-      const v = row[col];
-      if (typeof v === "number" && Number.isFinite(v)) {
-        total += v;
-        hasNumber = true;
-      }
-    }
-    return hasNumber ? `${col} (sum ${total.toLocaleString("en-US")})` : col;
-  });
-  return `${table.name} — ${table.rows.length} rows · columns: ${cols.join(", ")}`;
-}
-
 /** Serialize selected sources for a drafting prompt. */
-export function packForPrompt(
-  pack: SourcePack,
-  sourceIds: string[],
-  maxRowsPerTable: number = DEFAULT_MAX_ROWS,
-): string {
+export function packForPrompt(pack: SourcePack, sourceIds: string[]): string {
   const chosen = pack.sources.filter((s) => sourceIds.includes(s.id));
-  return chosen.map((s) => serializeSource(s, maxRowsPerTable)).join("\n\n");
+  return chosen.map(serializeSource).join("\n\n");
 }
 
-function serializeSource(source: PackedSource, maxRows: number): string {
+function serializeSource(source: PackedSource): string {
   const parts: string[] = [`### ${source.label} (${source.id})`, source.summary];
-
-  if (source.kind === "table" && source.tables) {
-    for (const table of source.tables) {
-      parts.push(serializeTable(table, source.tables.length > 1, maxRows));
-    }
-  } else if ((source.kind === "document" || source.kind === "pdf") && source.text) {
-    // PDFs are text-extracted locally, so they serialize like documents.
-    parts.push(source.text.slice(0, MAX_DOCUMENT_CHARS));
-  }
-
+  // PDFs are text-extracted locally, so they serialize like documents.
+  if (source.text) parts.push(source.text.slice(0, MAX_DOCUMENT_CHARS));
   return parts.join("\n");
 }
 
-function serializeTable(table: ParsedTable, includeName: boolean, maxRows: number): string {
-  const lines: string[] = [];
-  if (includeName) lines.push(`# ${table.name}`);
-  lines.push(table.columns.map(csvCell).join(","));
-  for (const row of table.rows.slice(0, maxRows)) {
-    lines.push(table.columns.map((col) => csvCell(row[col])).join(","));
-  }
-  if (table.rows.length > maxRows) {
-    lines.push(`… ${table.rows.length - maxRows} more rows`);
-  }
-  return lines.join("\n");
-}
-
-function csvCell(value: string | number | undefined): string {
-  if (value === undefined || value === null) return "";
-  const s = String(value);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
 // --- exceljs cell coercion -------------------------------------------------
+// Kept for tabular.ts, which coerces warehouse cell values through cellValue.
 
 export function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";

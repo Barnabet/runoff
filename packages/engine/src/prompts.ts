@@ -1,6 +1,5 @@
 import type { BlueprintContent, BlueprintSection, DocSection } from "@runoff/core";
 import { blocksToPlainText } from "@runoff/core";
-import { packForPrompt, type SourcePack } from "./sourcePack.js";
 
 export const MODEL = process.env.RUNOFF_MODEL ?? "gpt-5.6-sol";
 
@@ -46,12 +45,12 @@ to this section; never invent figures.
 
 Dialect contract: write plain paragraphs separated by blank lines; NO markdown headings/bold/lists; \
 tables as GitHub markdown tables; every figure sourced from data must be written as \
-[[numeral|sourceId|locator]] — the first field is the exact text the reader sees, so it must be the \
-actual number (e.g. [[220,500|src_ab12|sum(src_ab12.amount)]]), never the word "figure" or any other \
-placeholder; locator is agg(sourceId.column) — agg one of sum|avg|min|max|count — when derived \
-from a table, adding a row filter when the figure covers only matching rows, e.g. \
-sum(src_ab12.amount where channel=search); else a short quote reference; only use sourceIds bound \
-to this section.
+[[numeral|familyId|locator]] — the first field is the exact text the reader sees, so it must be the \
+actual number (e.g. [[220,500|fam_ab12|sum(fam_ar_transactions.amount)]]), never the word "figure" or any \
+other placeholder; locator is agg(tableName.column) — agg one of sum|avg|min|max|count, tableName one of \
+the warehouse tables shown in this section's data (each belongs to the family you cite) — adding a row \
+filter when the figure covers only matching rows, e.g. sum(fam_ar_transactions.amount where channel=search); \
+for document sources, a short quote reference; only cite familyIds bound to this section.
 
 Tools: use ask_user only for genuine ambiguity in the data or its business framing — never about \
 the dialect, citation markers, or locator grammar, which the reader never sees; resolve mechanics \
@@ -60,35 +59,32 @@ needing review.${globalRules}${guidance}`;
 }
 
 /**
- * Per-section user turn: heading + instruction, the packed sources bound to the
- * section, the plain text of completed sections (continuity), numbered steers,
- * answered questions, and an optional retry-feedback block.
- *
- * PDFs are text-extracted locally into the source pack (see sourcePack.ts), so
- * they flow through `packForPrompt` like any other document — this always
- * returns a plain string.
+ * Per-section user turn: heading + instruction, the section's data block (schema
+ * lines and baked-query results for warehouse families, document text for
+ * document families), the plain text of completed sections (continuity),
+ * numbered steers, answered questions, and an optional retry-feedback block.
  */
 export function sectionUserPrompt(args: {
   section: BlueprintSection;
-  pack: SourcePack;
+  dataBlock: string;
   completed: DocSection[];
   steers: string[];
   answers: { question: string; answer: string }[];
   retryFeedback?: string;
   previousSectionText?: string;
 }): string {
-  const { section, pack, completed, steers, answers, retryFeedback, previousSectionText } = args;
+  const { section, dataBlock, completed, steers, answers, retryFeedback, previousSectionText } = args;
 
   const parts: string[] = [
     `Section ${section.number}: ${section.heading}`,
     `Instruction: ${section.instruction}`,
-    `\nSources bound to this section:\n${packForPrompt(pack, section.familyIds)}`,
+    `\nSources bound to this section:\n${dataBlock}`,
   ];
 
   if (section.rules.length) {
     const lines = section.rules.map((r) => {
       const base = `- [${r.kind}] ${r.text}`;
-      return r.kind === "assert" && r.expression ? `${base} (expression: ${r.expression})` : base;
+      return r.kind === "assert" && r.sql ? `${base} (sql: ${r.sql.replace(/\s*\n\s*/g, " ").trim()})` : base;
     });
     parts.push(
       `\nRules for this section:\n${lines.join("\n")}\n` +

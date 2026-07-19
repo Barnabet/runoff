@@ -13,8 +13,8 @@ const content: BlueprintContent = {
   eyebrow: "Marketing Performance",
   dateline: "June 2026",
   sections: [
-    { key: "exec", number: 1, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: [], rules: [] },
-    { key: "budget", number: 2, heading: "Budget", mode: "auto", instruction: "Cover spend.", familyIds: ["src_data"], rules: [] },
+    { key: "exec", number: 1, heading: "Executive summary", mode: "auto", instruction: "Summarize.", familyIds: [], queries: [], rules: [] },
+    { key: "budget", number: 2, heading: "Budget", mode: "auto", instruction: "Cover spend.", familyIds: ["src_data"], queries: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "ops@example.com", autoDeliverOnClear: false },
@@ -137,7 +137,7 @@ describe("copilotTurn", () => {
             name: "add_section",
             input: {
               afterKey: "exec",
-              section: { key: "kpis", heading: "KPI summary", mode: "auto", instruction: "Key metrics.", familyIds: [], rules: [] },
+              section: { key: "kpis", heading: "KPI summary", mode: "auto", instruction: "Key metrics.", familyIds: [], queries: [], rules: [] },
             },
           },
         },
@@ -258,13 +258,15 @@ describe("copilotTurn", () => {
   });
 
   it("query_sources inspects the default file by familyId, a period entry by {familyId, period}, and errors on an unknown period", async () => {
+    // A document (non-tabular) family: tabular files are owned by the warehouse and
+    // never reach the pack, so query_sources inspects document text here.
     const dir = mkdtempSync(join(tmpdir(), "copilot-src-"));
-    writeFileSync(join(dir, "q1.csv"), "channel,amount\nsearch,100\n");
-    writeFileSync(join(dir, "q2.csv"), "channel,amount\nsearch,250\n");
-    const defaultFiles = [{ id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") }];
+    writeFileSync(join(dir, "q1.md"), "Revenue notes: search brought 100 in Q1.\n");
+    writeFileSync(join(dir, "q2.md"), "Revenue notes: search brought 250 in Q2.\n");
+    const defaultFiles = [{ id: "fam_rev", name: "Revenue", mime: "text/markdown", path: join(dir, "q2.md") }];
     const periodFiles = [
-      { familyId: "fam_rev", period: "2026-Q1", file: { id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q1.csv") } },
-      { familyId: "fam_rev", period: "2026-Q2", file: { id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") } },
+      { familyId: "fam_rev", period: "2026-Q1", file: { id: "fam_rev", name: "Revenue", mime: "text/markdown", path: join(dir, "q1.md") } },
+      { familyId: "fam_rev", period: "2026-Q2", file: { id: "fam_rev", name: "Revenue", mime: "text/markdown", path: join(dir, "q2.md") } },
     ];
     const { client, toolResults } = recording([
       [{ toolUse: { name: "query_sources", input: { familyId: "fam_rev", period: null } } }],
@@ -391,10 +393,10 @@ describe("copilotTurn", () => {
     expect(miss).toBe("Tool error: no file for spend at 2026-Q3");
   });
 
-  it("compute still evaluates over the default pack (ids = family ids)", async () => {
-    const dir = mkdtempSync(join(tmpdir(), "copilot-compute-"));
-    writeFileSync(join(dir, "q2.csv"), "channel,amount\nsearch,250\ndisplay,90\n");
-    const defaultFiles = [{ id: "fam_rev", name: "Revenue", mime: "text/csv", path: join(dir, "q2.csv") }];
+  it("compute is no longer a tool — a call to it returns the loop's unknown-tool error", async () => {
+    // `compute` (agg-over-pack) is retired: the warehouse owns tabular data, so
+    // the CSV pack it read no longer exists. A call falls through to the executor's
+    // unknown-tool branch.
     const { client, toolResults } = recording([
       [{ toolUse: { name: "compute", input: { expression: "sum(fam_rev.amount)" } } }],
       [{ text: "Computed." }],
@@ -402,8 +404,8 @@ describe("copilotTurn", () => {
     const { io } = collect();
     await copilotTurn({
       client, draft: content, selectedKey: null, message: "sum revenue",
-      thread: [], memories: [], ctx: ctx({ families: FAMILIES, defaultFiles }), io,
+      thread: [], memories: [], ctx: ctx({ families: FAMILIES }), io,
     });
-    expect(toolResults()[0]).toBe("340");
+    expect(toolResults()[0]).toBe("Tool error: unknown tool compute");
   });
 });

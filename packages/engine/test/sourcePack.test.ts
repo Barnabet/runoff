@@ -3,7 +3,6 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import ExcelJS from "exceljs";
 import { buildSourcePack, packForPrompt } from "../src/sourcePack.js";
 
 // DOCX has no fixture; cover its dispatch branch by mocking the mammoth call.
@@ -21,92 +20,31 @@ vi.mock("pdf-parse/lib/pdf-parse.js", () => ({
 const here = dirname(fileURLToPath(import.meta.url));
 
 describe("buildSourcePack", () => {
-  it("parses CSV into a typed table with summary", async () => {
-    const pack = await buildSourcePack([
-      { id: "src_spend", name: "spend_june.csv", mime: "text/csv", path: join(here, "fixtures/spend.csv") },
-    ]);
-    const s = pack.sources[0];
-    expect(s.kind).toBe("table");
-    expect(s.tables![0].columns).toEqual(["date", "channel", "amount"]);
-    expect(s.tables![0].rows[0].amount).toBe(120050);
-    expect(s.summary).toContain("2 rows");
-    expect(packForPrompt(pack, ["src_spend"])).toContain("spend_june.csv");
-  });
-
-  it("summarizes numeric columns and truncates rows in packForPrompt", async () => {
-    const pack = await buildSourcePack([
-      { id: "src_spend", name: "spend_june.csv", mime: "text/csv", path: join(here, "fixtures/spend.csv") },
-    ]);
-    expect(pack.sources[0].summary).toBe(
-      "spend_june.csv — 2 rows · columns: date, channel, amount (sum 240,100)",
-    );
-    const prompt = packForPrompt(pack, ["src_spend"], 1);
-    expect(prompt).toContain("date,channel,amount");
-    expect(prompt).toContain("1 more rows");
-  });
-
-  it("round-trips an XLSX workbook into one table per worksheet", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "runoff-xlsx-"));
-    const path = join(dir, "kpi.xlsx");
+  it("skips tabular files entirely — the warehouse owns them", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "runoff-skip-"));
+    const mdPath = join(dir, "notes.md");
     try {
-      const wb = new ExcelJS.Workbook();
-      const sheet = wb.addWorksheet("Q2");
-      sheet.addRow(["month", "revenue"]);
-      sheet.addRow(["apr", 1000]);
-      sheet.addRow(["may", 2500]);
-      await wb.xlsx.writeFile(path);
-
+      await writeFile(mdPath, "# Notes\nQuarter over quarter growth held.");
       const pack = await buildSourcePack([
-        {
-          id: "src_kpi",
-          name: "kpi.xlsx",
-          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          path,
-        },
+        { id: "famT", name: "spend.csv", mime: "text/csv", path: join(here, "fixtures/spend.csv") },
+        { id: "famD", name: "notes.md", mime: "text/markdown", path: mdPath },
       ]);
-      const s = pack.sources[0];
-      expect(s.kind).toBe("table");
-      expect(s.tables![0].name).toBe("Q2");
-      expect(s.tables![0].columns).toEqual(["month", "revenue"]);
-      expect(s.tables![0].rows).toHaveLength(2);
-      expect(s.tables![0].rows[0]).toEqual({ month: "apr", revenue: 1000 });
-      expect(s.summary).toContain("revenue (sum 3,500)");
+      expect(pack.sources.map((s) => s.id)).toEqual(["famD"]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
   });
 
-  it("maps xlsx columns by true index when a header cell is blank (spacer column)", async () => {
-    const dir = await mkdtemp(join(tmpdir(), "runoff-xlsx-gap-"));
-    const path = join(dir, "gap.xlsx");
-    try {
-      const wb = new ExcelJS.Workbook();
-      const sheet = wb.addWorksheet("Data");
-      // Header: A1="month", B1 blank (spacer), C1="revenue".
-      sheet.getCell("A1").value = "month";
-      sheet.getCell("C1").value = "revenue";
-      // Data rows carry a value in the spacer column too, to prove it is skipped.
-      sheet.getCell("A2").value = "apr";
-      sheet.getCell("B2").value = "IGNORE_ME";
-      sheet.getCell("C2").value = 1000;
-      await wb.xlsx.writeFile(path);
-
-      const pack = await buildSourcePack([
-        {
-          id: "src_gap",
-          name: "gap.xlsx",
-          mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-          path,
-        },
-      ]);
-      const t = pack.sources[0].tables![0];
-      expect(t.columns).toEqual(["month", "revenue"]);
-      expect(t.rows[0]).toEqual({ month: "apr", revenue: 1000 });
-      // The blank-header spacer column must not leak into revenue's data.
-      expect(t.rows[0].revenue).toBe(1000);
-    } finally {
-      await rm(dir, { recursive: true, force: true });
-    }
+  it("skips an XLSX file by mime and extension", async () => {
+    const pack = await buildSourcePack([
+      {
+        id: "famX",
+        name: "kpi.xlsx",
+        mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        path: "/does/not/matter.xlsx",
+      },
+    ]);
+    expect(pack.sources).toEqual([]);
   });
 
   it("extracts DOCX text via mammoth (dispatch by mime)", async () => {

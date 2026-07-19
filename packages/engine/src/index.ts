@@ -1,7 +1,7 @@
 export { makeLlmClient } from "./llm.js";
 export { parseSectionText, spansFromInline } from "./dialect.js";
 export { buildSourcePack, packForPrompt } from "./sourcePack.js";
-export type { ParsedTable, PackedSource, SourcePack, EngineFile } from "./sourcePack.js";
+export type { PackedSource, SourcePack, EngineFile } from "./sourcePack.js";
 export { evaluateAssert, auditCitations, countCitations } from "./checks.js";
 export type { CheckOutcome } from "./checks.js";
 export { MODEL, systemPrompt, sectionUserPrompt, guidanceBlocks } from "./prompts.js";
@@ -12,7 +12,6 @@ export { executeRun } from "./run.js";
 export type { RunInputMsg, EngineIO, ExecuteRunResult } from "./run.js";
 export { copilotTurn } from "./copilot.js";
 export type { CopilotIO, CopilotEvent, CopilotContext, FamilyInfo, CopilotTurnResult, RunSummary, RunSectionDetail, GoldenSummary } from "./copilot.js";
-export { computeLocator } from "./checks.js";
 export { distillRun } from "./distill.js";
 export type { RunInteractions, DistilledMemory } from "./distill.js";
 export { classifySource } from "./classify.js";

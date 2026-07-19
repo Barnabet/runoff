@@ -5,6 +5,7 @@ import type { BlueprintContent, RunEvent } from "@runoff/core";
 import { reduceRun } from "@runoff/core";
 import { executeRun, type EngineIO } from "../src/run.js";
 import type { EngineFile } from "../src/sourcePack.js";
+import type { RunData } from "../src/runData.js";
 import { makeFakeClient } from "./fakeClient.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -53,19 +54,29 @@ const content: BlueprintContent = {
   dateline: "July 2026",
   sections: [
     // 1: fixed — no model call
-    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the report.", familyIds: [], rules: [] },
+    { key: "intro", number: 1, heading: "Introduction", mode: "fixed", instruction: "", fixedText: "Welcome to the report.", familyIds: [], queries: [], rules: [] },
     // 2: auto — first draft has an uncited figure (citation check fails), retry cites it (passes)
-    { key: "body", number: 2, heading: "Body", mode: "auto", instruction: "Write the body.", familyIds: ["src_data"], rules: [] },
+    { key: "body", number: 2, heading: "Body", mode: "auto", instruction: "Write the body.", familyIds: ["src_data"], queries: [], rules: [] },
     // 3: auto — draft raises a question whose deadline is this very section (fallback applies)
-    { key: "outlook", number: 3, heading: "Outlook", mode: "auto", instruction: "Write the outlook.", familyIds: [], rules: [] },
+    { key: "outlook", number: 3, heading: "Outlook", mode: "auto", instruction: "Write the outlook.", familyIds: [], queries: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },
 };
 
+// src_data is a document family now (the warehouse owns tabular data), so it flows
+// through the pack and fires source_read at run time.
 const files: EngineFile[] = [
-  { id: "src_data", name: "spend.csv", mime: "text/csv", path: join(here, "fixtures/spend.csv") },
+  { id: "src_data", name: "notes.md", mime: "text/markdown", path: join(here, "fixtures/notes.md") },
 ];
+
+/** A fake RunData: src_data is a non-queryable document family, exec is never exercised by these fixtures. */
+const data: RunData = {
+  catalog: [
+    { id: "src_data", key: "data", label: "Data", kind: "constant", granularity: null, queryable: false, tables: [], filedPeriods: [] },
+  ],
+  exec: () => ({ columns: ["n"], rows: [[500]] }),
+};
 
 describe("executeRun", () => {
   it("drives a fixed / retry / question-fallback blueprint and agrees with the reducer", async () => {
@@ -87,7 +98,7 @@ describe("executeRun", () => {
       sleep: async () => {},
     };
 
-    const { document, stats } = await executeRun({ client, content, files, io, blueprintRev: 3 });
+    const { document, stats } = await executeRun({ client, content, files, data, io, blueprintRev: 3 });
 
     const types = events.map((e) => e.type);
     // Ordered subsequence a correct implementation actually satisfies: the retry's
@@ -133,7 +144,7 @@ describe("executeRun", () => {
       sleep: async () => {},
     };
 
-    const { document } = await executeRun({ client, content, files, io, blueprintRev: 3 });
+    const { document } = await executeRun({ client, content, files, data, io, blueprintRev: 3 });
 
     // The refusal was contained: a section_failed for body, and the run reached run_completed.
     const failed = events.find((e) => e.type === "section_failed");
@@ -164,6 +175,7 @@ describe("executeRun — v1.1", () => {
       client,
       content,
       files,
+      data,
       io,
       blueprintRev: 3,
       previousDocument: {
@@ -198,7 +210,7 @@ describe("executeRun — v1.1", () => {
       sleep: async () => {},
     };
 
-    await executeRun({ client, content, files, io, blueprintRev: 3 });
+    await executeRun({ client, content, files, data, io, blueprintRev: 3 });
 
     // prompts: [0] body draft, [1] body retry, [2] outlook. The answer that
     // arrived between draft and retry must reach the retry prompt.
@@ -210,20 +222,20 @@ describe("executeRun — v1.1", () => {
     // A fixed-only blueprint: no model call, so the run completes with an empty client script.
     const fixedContent: BlueprintContent = {
       title: "P", clientName: "Acme", eyebrow: "E", dateline: "D",
-      sections: [{ key: "intro", number: 1, heading: "Intro", mode: "fixed", instruction: "", fixedText: "Hi.", familyIds: [], rules: [] }],
+      sections: [{ key: "intro", number: 1, heading: "Intro", mode: "fixed", instruction: "", fixedText: "Hi.", familyIds: [], queries: [], rules: [] }],
       globalRules: [], delivery: { recipient: "", autoDeliverOnClear: false },
     };
 
     // With a period and non-empty gaps: both surface on run_started.
     const withEvents: RunEvent[] = [];
-    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], io: collectingIO(withEvents), blueprintRev: 1, period: "2026-Q1", gaps: ["fam_missing"] });
+    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], data, io: collectingIO(withEvents), blueprintRev: 1, period: "2026-Q1", gaps: ["fam_missing"] });
     const withStarted = withEvents.find((e) => e.type === "run_started");
     expect(withStarted?.type === "run_started" ? withStarted.period : undefined).toBe("2026-Q1");
     expect(withStarted?.type === "run_started" ? withStarted.gaps : undefined).toEqual(["fam_missing"]);
 
     // With period null and empty gaps: the keys must be spread-omitted (byte-compat).
     const bareEvents: RunEvent[] = [];
-    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], io: collectingIO(bareEvents), blueprintRev: 1, period: null, gaps: [] });
+    await executeRun({ client: makeFakeClient([]), content: fixedContent, files: [], data, io: collectingIO(bareEvents), blueprintRev: 1, period: null, gaps: [] });
     const bareStarted = bareEvents.find((e) => e.type === "run_started");
     const json = JSON.stringify(bareStarted);
     expect(json).not.toContain('"period"');
@@ -234,7 +246,7 @@ describe("executeRun — v1.1", () => {
     const { client, systemPrompts } = capturingSystemClient(makeFakeClient([[{ text: "Body text." }]]));
     const events: RunEvent[] = [];
     await executeRun({
-      client, content, files, io: collectingIO(events), blueprintRev: 1,
+      client, content, files, data, io: collectingIO(events), blueprintRev: 1,
       memories: [
         { id: "mem_b", body: "Lead with the table.", scope: "blueprint" },
         { id: "mem_p", body: "Express deltas as percentages.", scope: "project" },

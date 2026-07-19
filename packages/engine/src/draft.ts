@@ -1,7 +1,6 @@
 import type OpenAI from "openai";
 import type { Block, BlueprintContent, BlueprintSection, DocSection } from "@runoff/core";
 import { parseSectionText } from "./dialect.js";
-import type { SourcePack } from "./sourcePack.js";
 import { MODEL, systemPrompt, sectionUserPrompt, type ScopedMemory } from "./prompts.js";
 
 const tools = [
@@ -79,7 +78,7 @@ export async function draftSection(opts: {
   client: OpenAI;
   content: BlueprintContent;
   section: BlueprintSection;
-  pack: SourcePack;
+  dataBlock: string;
   completed: DocSection[];
   steers: string[];
   answers: { question: string; answer: string }[];
