@@ -5,6 +5,7 @@
  * Exit codes match scripts/eval.ts: 0 ok, 1 failed, 2 proxy unreachable, 3 auth.
  */
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import OpenAI from "openai";
 import { openDb, BlueprintContentSchema, formatSqlResult, readWarehouseTables, runWarehouseSql, type RunoffDb } from "@runoff/core";
 import {
@@ -246,7 +247,12 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((err) => {
-  console.error(`\nCOPILOT EVAL FAILED — ${err instanceof Error ? err.message : String(err)}`);
-  process.exit(1);
-});
+// Only run the live copilot eval when this module is the direct entrypoint.
+// scripts/evalSql.ts imports buildEvalContext from here; the guard keeps that
+// import side-effect-free (no unintended second live run, no coupled exit code).
+if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
+  main().catch((err) => {
+    console.error(`\nCOPILOT EVAL FAILED — ${err instanceof Error ? err.message : String(err)}`);
+    process.exit(1);
+  });
+}

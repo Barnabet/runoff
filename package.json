@@ -7,7 +7,8 @@
     "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
     "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
     "eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalCopilot.ts",
-    "eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalClassify.ts"
+    "eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalClassify.ts",
+    "eval:sql": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalSql.ts"
   },
   "dependencies": {
     "@runoff/core": "workspace:*",
