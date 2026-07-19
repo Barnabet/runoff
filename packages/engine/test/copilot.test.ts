@@ -315,6 +315,28 @@ describe("copilotTurn", () => {
     expect(toolResults()[0]).toBe("a | b\n1 | 2");
   });
 
+  it("run_sql result at core's cap passes through the clamp intact, truncation line and all", async () => {
+    // formatSqlResult caps its output at 10_000 chars and appends a contractual
+    // "… truncated at N of M rows" line. The loop's tool-result clamp must not
+    // clip such a result — doing so would drop the truncation line and leave a
+    // mangled trailing number the model could read as real data.
+    const truncLine = "… truncated at 200 of 500 rows";
+    const stub = "x".repeat(9_500 - truncLine.length) + truncLine;
+    expect(stub.length).toBe(9_500);
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "run_sql", input: { sql: "SELECT * FROM fam_x" } } }],
+      [{ text: "Here are the rows." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "run a big query",
+      thread: [], memories: [],
+      ctx: ctx({ runSql: () => stub }), io,
+    });
+    expect(toolResults()[0]).toBe(stub);
+    expect(toolResults()[0].endsWith(truncLine)).toBe(true);
+  });
+
   it("run_sql failures surface as byte-exact Tool error strings", async () => {
     const { client, toolResults } = recording([
       [{ toolUse: { name: "run_sql", input: { sql: "SELECT 1" } } }],

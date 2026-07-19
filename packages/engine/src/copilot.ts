@@ -14,7 +14,11 @@ import { serializeCatalog, type CatalogFamily } from "./catalogFormat.js";
 import { MODEL, guidanceBlocks, type ScopedMemory } from "./prompts.js";
 
 const MAX_ITERATIONS = 12;
-const MAX_TOOL_RESULT_CHARS = 8_000;
+// Must stay >= core's SQL serialization cap (formatSqlResult, 10_000 chars) plus
+// its contractual "… truncated at N of M rows" line, so a fully-capped run_sql
+// result always passes through this clamp intact — otherwise the clamp would clip
+// mid-row with no marker and drop the truncation line the model relies on.
+const MAX_TOOL_RESULT_CHARS = 10_100;
 
 export interface CopilotIO {
   emit(e: CopilotEvent): void;
