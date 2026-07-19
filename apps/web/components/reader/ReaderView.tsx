@@ -113,7 +113,7 @@ export function ReaderView({
   const addStar = (id: string, kind: "run" | "section", sectionKey: string | null) =>
     setGoldens((cur) => [
       ...cur,
-      { id, blueprintId: blueprint.id, kind, runId: run.id, sectionKey, name: null, mime: null, storedFilename: null, note: null, createdAt: "" },
+      { id, blueprintId: blueprint.id, kind, runId: run.id, sectionKey, name: null, mime: null, storedFilename: null, note: null, period: null, document: null, unifyError: null, bindings: null, createdAt: "" },
     ]);
 
   function toggleRunStar() {

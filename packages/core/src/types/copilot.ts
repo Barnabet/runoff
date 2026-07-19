@@ -52,5 +52,9 @@ export interface GoldenRow {
   mime: string | null;
   storedFilename: string | null;
   note: string | null;
+  period: string | null;
+  document: string | null;    // RunDocument JSON (exemplars; run/section resolve from the run row)
+  unifyError: string | null;
+  bindings: string | null;    // BindingInventory JSON
   createdAt: string;
 }

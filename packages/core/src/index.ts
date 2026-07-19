@@ -7,6 +7,7 @@ export * from "./types/copilot.js";
 export * from "./types/sources.js";
 export * from "./types/parsePlan.js";
 export * from "./types/document.js";
+export * from "./types/goldenBinding.js";
 export * from "./types/events.js";
 export * from "./reducer.js";
 export * from "./dialect.js";

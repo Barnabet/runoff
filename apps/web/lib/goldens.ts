@@ -3,7 +3,7 @@ import { blocksToPlainText, type GoldenRow, type RunDocument, type RunoffDb } fr
 import { buildSourcePack, packForPrompt, type GoldenSummary } from "@runoff/engine";
 
 const SELECT =
-  "SELECT id, blueprint_id AS blueprintId, kind, run_id AS runId, section_key AS sectionKey, name, mime, stored_filename AS storedFilename, note, created_at AS createdAt FROM goldens";
+  "SELECT id, blueprint_id AS blueprintId, kind, run_id AS runId, section_key AS sectionKey, name, mime, stored_filename AS storedFilename, note, period, document, unify_error AS unifyError, bindings, created_at AS createdAt FROM goldens";
 
 export function listGoldens(db: RunoffDb, blueprintId: string): GoldenRow[] {
   return db.sqlite.prepare(`${SELECT} WHERE blueprint_id = ? ORDER BY rowid DESC`).all(blueprintId) as GoldenRow[];

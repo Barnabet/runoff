@@ -145,5 +145,9 @@ export const goldens = sqliteTable("goldens", {
   mime: text("mime"),
   storedFilename: text("stored_filename"),
   note: text("note"),
+  period: text("period"),
+  document: text("document"),       // RunDocument JSON
+  unifyError: text("unify_error"),
+  bindings: text("bindings"),       // BindingInventory JSON
   createdAt: text("created_at").notNull().default(""),
 });

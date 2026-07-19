@@ -67,7 +67,8 @@ CREATE TABLE IF NOT EXISTS memories (
 CREATE TABLE IF NOT EXISTS goldens (
   id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, kind TEXT NOT NULL,
   run_id TEXT, section_key TEXT, name TEXT, mime TEXT, stored_filename TEXT,
-  note TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
+  note TEXT, period TEXT, document TEXT, unify_error TEXT, bindings TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')));
 `;
 
 export function openDb(path: string): RunoffDb {
