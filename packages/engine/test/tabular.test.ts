@@ -4,7 +4,7 @@ import { join } from "node:path";
 import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { detectIslands, isTabular, readTabular, scanTabular, slugify } from "../src/tabular.js";
+import { detectIslands, isTabular, readTabular, scanSample, scanTabular, slugify } from "../src/tabular.js";
 
 let dir: string;
 beforeEach(() => { dir = mkdtempSync(join(tmpdir(), "tab-")); });
@@ -179,6 +179,15 @@ describe("scanTabular + readTabular", () => {
     const seen: string[] = [];
     await readTabular(path, mime, "dup.xlsx", (t) => { seen.push(t.slug); return () => {}; });
     expect(seen).toEqual(slugs);
+  });
+  it("scanSample serializes tables compactly and caps at 2000 chars", async () => {
+    const path = join(dir, "s.csv");
+    writeFileSync(path, "a,b\n1,x\n2,y\n");
+    const scan = await scanTabular(path, "text/csv", "s.csv");
+    const sample = scanSample(scan);
+    expect(sample).toContain("### s — 2 rows");
+    expect(sample).toContain("columns: a (INTEGER), b (TEXT)");
+    expect(sample).toContain("1 | x");
   });
   it("isTabular accepts csv/xlsx, rejects pdf/txt", () => {
     expect(isTabular("text/csv", "a.csv")).toBe(true);

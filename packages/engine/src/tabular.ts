@@ -239,6 +239,17 @@ export async function scanTabular(path: string, mime: string, name: string): Pro
   return { tables: tables.map((t) => tableFromRows(t.slug, t.header, t.rows)), skipped };
 }
 
+/** Compact text sample of a scan for the classifier prompt (≤2,000 chars). */
+export function scanSample(scan: TabularScan): string {
+  const parts = scan.tables.map((t) => {
+    const cols = t.columns.map((c) => `${c.name} (${c.type})`).join(", ");
+    const rows = t.sample.map((r) => r.map((v) => (v === null || v === undefined ? "" : String(v))).join(" | "));
+    return `### ${t.slug} — ${t.rowCount} rows\ncolumns: ${cols}\n${rows.join("\n")}`;
+  });
+  if (scan.skipped.length) parts.push(`(skipped ${scan.skipped.length} text fragment(s))`);
+  return parts.join("\n\n").slice(0, 2000);
+}
+
 export async function readTabular(
   path: string,
   mime: string,

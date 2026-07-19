@@ -1,7 +1,9 @@
-import { classifySource, type ClassifyFamily } from "@runoff/engine";
+import { join } from "node:path";
+import { classifySource, isTabular, scanTabular, scanSample, type ClassifyFamily, type TabularScan } from "@runoff/engine";
+import { computeDrift, readWarehouseTables } from "@runoff/core";
 import { getDb } from "../../../../../../lib/db";
 import { getLlmClient } from "../../../../../../lib/llm";
-import { readContentSample } from "../../../../../../lib/sourceManager";
+import { readContentSample, tableNamesFor } from "../../../../../../lib/sourceManager";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -53,8 +55,24 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     // files it manually).
     let proposal = null;
     try {
-      const contentSample = await readContentSample(dir, row);
+      const path = join(dir, row.storedFilename);
+      let scan: TabularScan | null = null;
+      const contentSample = isTabular(row.mime, row.name)
+        ? scanSample((scan = await scanTabular(path, row.mime, row.name)))
+        : await readContentSample(dir, row);
       proposal = await classifySource({ client, filename: row.name, contentSample, families });
+      if (proposal && scan) {
+        const key = proposal.newFamily?.key ?? proposal.familyKey;
+        const names = tableNamesFor(key, scan.tables.map((t) => t.slug));
+        const incoming = scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns }));
+        const existing = readWarehouseTables(id, key).map((t) => ({ name: t.name, columns: t.columns }));
+        proposal = {
+          ...proposal,
+          tables: scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns.map((c) => c.name), rowCount: t.rowCount })),
+          skippedFragments: scan.skipped.length,
+          drift: computeDrift(existing, incoming),
+        };
+      }
     } catch {
       proposal = null;
     }

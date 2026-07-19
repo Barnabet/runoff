@@ -32,6 +32,9 @@ export const ClassifyProposalSchema = z.object({
     .optional(),
   period: z.string().nullable(),
   confidence: z.enum(["high", "medium", "low"]),
+  tables: z.array(z.object({ name: z.string(), columns: z.array(z.string()), rowCount: z.number() })).optional(),
+  skippedFragments: z.number().optional(),
+  drift: z.array(z.string()).optional(),
 });
 export type ClassifyProposal = z.infer<typeof ClassifyProposalSchema>;
 

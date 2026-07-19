@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
-import { attachWarehouse, detachWarehouse, warehousePath } from "@runoff/core";
+import ExcelJS from "exceljs";
+import JSZip from "jszip";
+import { applySchema, attachWarehouse, detachWarehouse, warehousePath } from "@runoff/core";
 import { freshDb } from "./helpers";
 import { getDb } from "../lib/db";
 import { fileSource, listProjectSources } from "../lib/sourceManager";
@@ -215,6 +217,31 @@ describe("fileSource — warehouse ingestion", () => {
 
 // ---- Routes -----------------------------------------------------------------
 
+const XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+// Build a valid .xlsx in-memory, then reorder the zip so workbook.xml streams
+// before the worksheets (the mandated WorkbookReader assumes that order — see
+// the engine tabular tests). Returns a File ready to POST at the upload route.
+async function xlsxFile(name: string, build: (ws: ExcelJS.Worksheet, wb: ExcelJS.Workbook) => void): Promise<File> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet("Report Data");
+  build(ws, wb);
+  const raw = (await wb.xlsx.writeBuffer()) as ArrayBuffer;
+  const src = await JSZip.loadAsync(raw);
+  const rank = (n: string): number =>
+    n === "[Content_Types].xml" ? 0 :
+    n === "xl/workbook.xml" ? 1 :
+    n === "xl/_rels/workbook.xml.rels" ? 2 :
+    n === "xl/sharedStrings.xml" ? 3 :
+    n === "xl/styles.xml" ? 4 :
+    n.startsWith("xl/worksheets/") ? 8 : 6;
+  const names = Object.keys(src.files).filter((n) => !src.files[n].dir).sort((a, b) => rank(a) - rank(b));
+  const out = new JSZip();
+  for (const n of names) out.file(n, await src.files[n].async("nodebuffer"));
+  const bytes = (await out.generateAsync({ type: "arraybuffer" })) as ArrayBuffer;
+  return new File([bytes], name, { type: XLSX_MIME });
+}
+
 async function uploadFiles(id: string, files: File[]): Promise<Response> {
   const route = await import("../app/api/projects/[id]/sources/route");
   const fd = new FormData();
@@ -239,6 +266,62 @@ describe("source manager routes", () => {
     const row = getDb().sqlite.prepare("SELECT status, project_id AS projectId FROM sources WHERE id = ?").get(sources[0].id) as { status: string; projectId: string };
     expect(row).toEqual({ status: "unfiled", projectId: "proj_1" });
     expect(existsSync(join(process.env.RUNOFF_FILES_DIR!, sources[0].storedFilename))).toBe(true);
+  });
+
+  it("upload POST rejects a file over 100MB with 413 and inserts no row", async () => {
+    // A real 100MB+ buffer is impractical; the handler reads `.size` before
+    // buffering, so spoof it and assert the cap fires before any write/INSERT.
+    // Feed the FormData straight to the handler (a real multipart round-trip
+    // re-materialises the File and would drop the spoofed size).
+    const route = await import("../app/api/projects/[id]/sources/route");
+    const file = new File([new TextEncoder().encode("a,b\n1,2\n")], "huge.csv", { type: "text/csv" });
+    Object.defineProperty(file, "size", { value: 101 * 1024 * 1024 });
+    const fd = new FormData();
+    fd.append("files", file);
+    const req = { formData: async () => fd } as unknown as Request;
+    const res = await route.POST(req, projCtx("proj_1"));
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: "file exceeds 100MB limit" });
+    expect(getDb().sqlite.prepare("SELECT COUNT(*) AS n FROM sources").get()).toEqual({ n: 0 });
+  });
+
+  it("classify POST enriches the proposal with detected tables, skippedFragments, and drift", async () => {
+    const classify = await import("../app/api/projects/[id]/sources/classify/route");
+    const db = getDb();
+    // An existing periodic family plus a pre-existing warehouse table whose
+    // columns differ from the fixture — so drift is non-empty.
+    db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_s','proj_1','spend','Spend','periodic','quarter')").run();
+    attachWarehouse(db.sqlite, "proj_1");
+    applySchema(db.sqlite, true, [{ name: "fam_spend__report_data", columns: [{ name: "campaign", type: "TEXT" }, { name: "budget", type: "INTEGER" }] }]);
+    detachWarehouse(db.sqlite);
+
+    // Two islands (report_data, report_data_2) plus a one-row note fragment.
+    const file = await xlsxFile("messy.xlsx", (ws) => {
+      ws.addRow(["campaign", "spend"]);
+      ws.addRow(["brand", 100]);
+      ws.addRow([]);
+      ws.addRow(["Note: excludes agency fees"]);
+      ws.addRow([]);
+      ws.addRow(["region", "revenue"]);
+      ws.addRow(["emea", 900]);
+    });
+    const up = await uploadFiles("proj_1", [file]);
+    const { sources } = (await up.json()) as { sources: { id: string }[] };
+    const src = sources[0];
+
+    classifyMock.mockResolvedValueOnce({ familyKey: "spend", period: "2026-Q1", confidence: "high" as const });
+    const res = await classify.POST(new Request("http://x", { method: "POST", body: JSON.stringify({ sourceIds: [src.id] }) }), projCtx("proj_1"));
+    expect(res.status).toBe(200);
+
+    const stored = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(src.id) as { proposal: string };
+    const proposal = JSON.parse(stored.proposal) as { tables: { name: string; columns: string[]; rowCount: number }[]; skippedFragments: number; drift: string[] };
+    expect(proposal.tables).toEqual([
+      { name: "fam_spend__report_data", columns: ["campaign", "spend"], rowCount: 1 },
+      { name: "fam_spend__report_data_2", columns: ["region", "revenue"], rowCount: 1 },
+    ]);
+    expect(proposal.skippedFragments).toBe(1);
+    expect(proposal.drift.length).toBeGreaterThan(0);
+    expect(proposal.drift).toContain("new table: fam_spend__report_data_2");
   });
 
   it("GET lists a project's families and unfiled rows; 404 for a missing project", async () => {
@@ -273,7 +356,14 @@ describe("source manager routes", () => {
     const db = getDb();
     const r1 = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(s1.id) as { proposal: string | null };
     const r2 = db.sqlite.prepare("SELECT proposal FROM sources WHERE id = ?").get(s2.id) as { proposal: string | null };
-    expect(JSON.parse(r1.proposal!)).toEqual(proposal);
+    // one.csv is tabular, so the stored proposal is enriched from the scan: a
+    // single table (no warehouse yet → empty drift, no skipped fragments).
+    expect(JSON.parse(r1.proposal!)).toEqual({
+      ...proposal,
+      tables: [{ name: "fam_trade_data", columns: ["a", "b"], rowCount: 1 }],
+      skippedFragments: 0,
+      drift: [],
+    });
     expect(r2.proposal).toBeNull();
   });
 

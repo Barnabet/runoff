@@ -25,6 +25,8 @@ function filesDir(): string {
   return process.env.RUNOFF_FILES_DIR ?? "data/files";
 }
 
+const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
+
 // GET /api/projects/:id/sources — the project's families + unfiled uploads.
 export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
   const db = getDb();
@@ -52,6 +54,13 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
 
   const files = form.getAll("files").filter((f): f is File => f instanceof File);
   if (files.length === 0) return Response.json({ error: "files are required" }, { status: 400 });
+
+  // Validate every file's size before any byte is written or row inserted.
+  for (const file of files) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return Response.json({ error: "file exceeds 100MB limit" }, { status: 413 });
+    }
+  }
 
   const dir = filesDir();
   mkdirSync(dir, { recursive: true });
