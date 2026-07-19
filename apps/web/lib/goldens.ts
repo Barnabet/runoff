@@ -22,11 +22,21 @@ export function getGoldenRow(db: RunoffDb, id: string): GoldenRow | null {
 const goldenLabel = (g: GoldenRow): string =>
   g.kind === "exemplar" ? (g.name ?? "exemplar") : `run ${g.runId}${g.kind === "section" ? ` §${g.sectionKey}` : ""}`;
 
+/** Parse stored bindings JSON, degrading a corrupt/schema-drifted row to null. */
+function parseBindings(bindings: string | null): BindingInventory | null {
+  if (!bindings) return null;
+  try {
+    return BindingInventorySchema.parse(JSON.parse(bindings)) as BindingInventory;
+  } catch {
+    return null;
+  }
+}
+
 export function listGoldenSummaries(db: RunoffDb, blueprintId: string): GoldenSummary[] {
   return listGoldens(db, blueprintId).map((g) => ({
     id: g.id,
     kind: g.kind,
-    label: `${goldenLabel(g)} — ${boundnessLine(g.bindings ? (JSON.parse(g.bindings) as BindingInventory) : null)}`,
+    label: `${goldenLabel(g)} — ${boundnessLine(parseBindings(g.bindings))}`,
     note: g.note,
   }));
 }
@@ -46,20 +56,28 @@ export interface ResolvedGolden {
 export function resolveGolden(db: RunoffDb, goldenId: string): ResolvedGolden | null {
   const g = db.sqlite.prepare(`${SELECT} WHERE id = ?`).get(goldenId) as GoldenRow | undefined;
   if (!g) return null;
+  // A corrupt/unparseable stored document degrades to not-unified (document:null),
+  // so the golden resolves inert to agents rather than 500ing the copilot route.
   let document: RunDocument | null = null;
-  if (g.kind === "exemplar") {
-    document = g.document ? (JSON.parse(g.document) as RunDocument) : null;
-  } else if (g.runId) {
-    const row = db.sqlite.prepare("SELECT document FROM runs WHERE id = ?").get(g.runId) as
-      | { document: string | null }
-      | undefined;
-    if (row?.document) {
-      const doc = JSON.parse(row.document) as RunDocument;
-      document = g.kind === "section" ? { ...doc, sections: doc.sections.filter((s) => s.key === g.sectionKey) } : doc;
-      if (document.sections.length === 0) document = null;
+  try {
+    if (g.kind === "exemplar") {
+      document = g.document ? (JSON.parse(g.document) as RunDocument) : null;
+    } else if (g.runId) {
+      const row = db.sqlite.prepare("SELECT document FROM runs WHERE id = ?").get(g.runId) as
+        | { document: string | null }
+        | undefined;
+      if (row?.document) {
+        const doc = JSON.parse(row.document) as RunDocument;
+        document = g.kind === "section" ? { ...doc, sections: doc.sections.filter((s) => s.key === g.sectionKey) } : doc;
+        if (document.sections.length === 0) document = null;
+      }
     }
+  } catch {
+    document = null;
   }
-  const inventory = g.bindings ? (BindingInventorySchema.parse(JSON.parse(g.bindings)) as BindingInventory) : null;
+  // Corrupt/schema-drifted bindings on an otherwise-good document degrade to
+  // null (renders "not yet bound") rather than throwing.
+  const inventory = parseBindings(g.bindings);
   return {
     id: g.id,
     kind: g.kind as ResolvedGolden["kind"],

@@ -64,13 +64,13 @@ export async function bindExemplar(args: {
   goldenId: string;
   feedback?: string;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
-  const g = resolveGolden(args.db, args.goldenId);
-  if (!g || !g.document) return { ok: false, error: "golden is not unified" };
-  const row = args.db.sqlite.prepare("SELECT blueprint_id AS b FROM goldens WHERE id = ?").get(args.goldenId) as {
-    b: string;
-  };
-  const projectId = projectOf(args.db, row.b);
   try {
+    const g = resolveGolden(args.db, args.goldenId);
+    if (!g || !g.document) return { ok: false, error: "golden is not unified" };
+    const row = args.db.sqlite.prepare("SELECT blueprint_id AS b FROM goldens WHERE id = ?").get(args.goldenId) as {
+      b: string;
+    };
+    const projectId = projectOf(args.db, row.b);
     const submitted = await bindGolden({
       client: getLlmClient(),
       catalog: catalog(args.db, projectId),

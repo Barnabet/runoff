@@ -21,7 +21,7 @@ vi.mock("../lib/llm", () => ({ getLlmClient: () => ({}) }));
 const { renderGoldenForPrompt } = await import("@runoff/engine");
 const { POST: postGolden } = await import("../app/api/blueprints/[id]/goldens/route");
 const { bindExemplar } = await import("../lib/goldenPipeline");
-const { resolveGolden } = await import("../lib/goldens");
+const { resolveGolden, listGoldenSummaries } = await import("../lib/goldens");
 
 const projectId = "proj_1";
 let db: ReturnType<typeof getDb>;
@@ -271,5 +271,31 @@ describe("golden pipeline", () => {
 
     const inertText = renderGoldenForPrompt(resolveGolden(db, "gold_inert")!);
     expect(inertText).toBe('golden "inert.md" is not unified (unify failed: no document produced)');
+  });
+
+  it("graceful degradation: a golden with corrupt bindings JSON resolves with bindings null, never throws", () => {
+    const doc: RunDocument = {
+      title: "Q1",
+      eyebrow: "E",
+      dateline: "D",
+      sections: [{ key: "exec", heading: "Exec", blocks: [{ type: "paragraph", spans: [{ text: "Revenue was " }, { text: "$150" }] }] }],
+    };
+    // Insert an otherwise-good exemplar, then poke corrupt JSON into `bindings`.
+    insertExemplar("gold_bad", { name: "bad.md", document: doc, period: "2026-Q1" });
+    db.sqlite.prepare("UPDATE goldens SET bindings = ? WHERE id = 'gold_bad'").run("{not json");
+
+    const g = resolveGolden(db, "gold_bad")!;
+    expect(g).not.toBeNull();
+    expect(g.document?.title).toBe("Q1"); // document still resolves
+    expect(g.inventory).toBeNull(); // corrupt bindings degrade to null
+
+    // Renders via the unbound path rather than throwing.
+    const text = renderGoldenForPrompt(g);
+    expect(text).toContain("boundness: not yet bound");
+
+    // listGoldenSummaries guards the same parse.
+    const summaries = listGoldenSummaries(db, "bp_1");
+    const summary = summaries.find((s) => s.id === "gold_bad")!;
+    expect(summary.label).toContain("not yet bound");
   });
 });
