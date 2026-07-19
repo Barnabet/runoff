@@ -76,7 +76,19 @@ describe("bindGolden", () => {
     const { client: c, create } = client(...Array.from({ length: 18 }, () => probe));
     const out = await bindGolden({ client: c, catalog: CATALOG, runSql: vi.fn().mockReturnValue("ok"), document: DOC, period: null, siblings: [] });
     expect(out).toBeNull();
-    expect(create.mock.calls.length).toBeLessThanOrEqual(18); // 16 rounds + nudge round, hard stop
+    expect(create.mock.calls.length).toBe(18); // 16 tool rounds + nudged round + post-nudge round, hard stop
+  });
+  it("accepts a valid submit produced in the post-nudge round", async () => {
+    const probe = toolMsg("run_sql", { sql: "SELECT 1" });
+    const submit = toolMsg("submit_inventory", { version: 1, items: ITEMS });
+    const create = vi.fn().mockImplementation(async ({ messages }: { messages: { role: string; content?: string | null }[] }) => {
+      const lastTool = [...messages].reverse().find((m) => m.role === "tool");
+      return lastTool?.content?.includes("Tool budget exhausted") ? submit : probe;
+    });
+    const c = { chat: { completions: { create } } } as never;
+    const out = await bindGolden({ client: c, catalog: CATALOG, runSql: vi.fn().mockReturnValue("ok"), document: DOC, period: "2026-Q1", siblings: [] });
+    expect(out?.items[0].id).toBe("total");
+    expect(create).toHaveBeenCalledTimes(18);
   });
   it("client throw yields null", async () => {
     const create = vi.fn().mockRejectedValue(new Error("boom"));

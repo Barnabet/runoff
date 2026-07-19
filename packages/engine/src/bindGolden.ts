@@ -84,7 +84,6 @@ export async function bindGolden(opts: {
     if (choice?.finish_reason !== "tool_calls" || calls.length === 0) return null; // finished without submitting
     messages.push({ role: "assistant", content: choice.message.content ?? null,
       tool_calls: calls.map((c) => ({ id: c.id, type: "function", function: c.function })) });
-    if (nudged) return null;
     const overBudget = iter >= MAX_BIND_ITERATIONS;
     for (const call of calls) {
       let result: string;
@@ -106,6 +105,7 @@ export async function bindGolden(opts: {
       }
       messages.push({ role: "tool", tool_call_id: call.id, content: result });
     }
+    if (nudged) return null; // post-nudge round processed submit_inventory; no valid submit arrived
     if (overBudget) nudged = true;
   }
 }
