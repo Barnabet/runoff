@@ -70,6 +70,35 @@ describe("sectionDataBlock", () => {
     expect(out).toContain("query failed: no such column: nope");
   });
 
+  it("renders a section query covering no bound family in one trailing block, exactly once", () => {
+    const calls: string[] = [];
+    const data: RunData = { catalog: [fam()], exec: (sql) => { calls.push(sql); return { columns: ["one"], rows: [[1]] }; } };
+    const out = sectionDataBlock(section({ queries: [{ name: "constant_check", sql: "SELECT 1 AS one" }] }), data, emptyPack);
+    // famA has no covering query, so its defaults still render; the uncovered SELECT 1 lands in the trailing block.
+    expect(out).toContain("-- default_fam_ar:");
+    expect(out).toContain("-- constant_check: SELECT 1 AS one");
+    expect(out).toContain("one\n1");
+    expect(out.split("-- constant_check:").length - 1).toBe(1);
+    expect(calls.filter((s) => s === "SELECT 1 AS one")).toHaveLength(1);
+  });
+
+  it("does not repeat a query covering a bound table in the trailing block", () => {
+    const data: RunData = { catalog: [fam()], exec: () => ({ columns: ["c"], rows: [[1]] }) };
+    const out = sectionDataBlock(section({ queries: [{ name: "ar_total", sql: "SELECT COUNT(*) AS c FROM fam_ar" }] }), data, emptyPack);
+    // Rendered once, under the family block only — never echoed by the trailing block.
+    expect(out.split("-- ar_total:").length - 1).toBe(1);
+  });
+
+  it("renders `query failed: <message>` for an uncovered query whose exec throws", () => {
+    const data: RunData = {
+      catalog: [fam()],
+      exec: (sql) => { if (sql === "SELECT bad") throw new Error("boom"); return { columns: ["amount"], rows: [[1]] }; },
+    };
+    const out = sectionDataBlock(section({ queries: [{ name: "broken", sql: "SELECT bad" }] }), data, emptyPack);
+    expect(out).toContain("-- broken: SELECT bad");
+    expect(out).toContain("query failed: boom");
+  });
+
   it("falls back to packForPrompt for non-queryable families", () => {
     const pack: SourcePack = { sources: [{ id: "famDoc", label: "Brand Guide", kind: "document", text: "Voice: plain.", summary: "brand guide" }] };
     const data: RunData = { catalog: [fam({ id: "famDoc", key: "brand", label: "Brand Guide", kind: "constant", granularity: null, queryable: false, tables: [], filedPeriods: [] })], exec: () => { throw new Error("must not be called"); } };

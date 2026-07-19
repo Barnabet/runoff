@@ -38,6 +38,7 @@ function coversFamily(sql: string, fam: CatalogFamily): boolean {
 export function sectionDataBlock(section: BlueprintSection, data: RunData, pack: SourcePack): string {
   const byId = new Map(data.catalog.map((f) => [f.id, f]));
   const parts: string[] = [];
+  const covered = new Set<SectionQuery>();
   for (const famId of section.familyIds) {
     const fam = byId.get(famId);
     if (!fam || !fam.queryable) {
@@ -52,7 +53,25 @@ export function sectionDataBlock(section: BlueprintSection, data: RunData, pack:
       lines.push(`${t.name}(${cols}) — ${total.toLocaleString("en-US")} rows`);
     }
     const baked = section.queries.filter((qy) => coversFamily(qy.sql, fam));
+    baked.forEach((qy) => covered.add(qy));
     for (const qy of baked.length ? baked : defaultQueries(fam)) {
+      lines.push(`-- ${qy.name}: ${qy.sql.replace(/\s*\n\s*/g, " ").trim()}`);
+      try {
+        lines.push(formatSqlResult(data.exec(qy.sql)));
+      } catch (e) {
+        lines.push(`query failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    }
+    parts.push(lines.join("\n"));
+  }
+
+  // Baked queries that mention no bound family's table would otherwise never
+  // execute (silent config rot). Run each once in a trailing block, same
+  // rendering and error path as the per-family queries above.
+  const uncovered = section.queries.filter((qy) => !covered.has(qy));
+  if (uncovered.length) {
+    const lines: string[] = [];
+    for (const qy of uncovered) {
       lines.push(`-- ${qy.name}: ${qy.sql.replace(/\s*\n\s*/g, " ").trim()}`);
       try {
         lines.push(formatSqlResult(data.exec(qy.sql)));
