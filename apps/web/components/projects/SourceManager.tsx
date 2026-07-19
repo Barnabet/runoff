@@ -127,7 +127,23 @@ function bodyFor(edit: ChipEdit, families: FamilySummary[]) {
   return { familyId: edit.familyValue, period: fam?.kind === "constant" ? null : edit.period };
 }
 
+/** The server's `{ error }` string out of a rejected fetchJson promise; raw fallback. */
+function errText(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  const m = raw.match(/\{.*\}/);
+  if (m) {
+    try {
+      const parsed = JSON.parse(m[0]) as { error?: unknown };
+      if (typeof parsed.error === "string") return parsed.error;
+    } catch {
+      // fall through to the raw message
+    }
+  }
+  return raw;
+}
+
 const LABEL = "font-mono text-[10px] font-semibold uppercase tracking-[2px] text-ink/45";
+const ERR_LINE = "font-serif text-[12px] italic text-pencil";
 
 export function SourceManager({
   projectId,
@@ -142,7 +158,20 @@ export function SourceManager({
   const [unfiled, setUnfiled] = useState(initialUnfiled);
   const [edits, setEdits] = useState<Record<string, ChipEdit>>({});
   const [classifying, setClassifying] = useState<Set<string>>(new Set());
+  // Chip-scoped failures (confirm), keyed by source id; plus one manager-level
+  // line for upload/delete/classify/confirm-all failures.
+  const [chipErrors, setChipErrors] = useState<Record<string, string>>({});
+  const [managerError, setManagerError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  function setChipError(id: string, msg: string | null) {
+    setChipErrors((prev) => {
+      const next = { ...prev };
+      if (msg) next[id] = msg;
+      else delete next[id];
+      return next;
+    });
+  }
 
   function editFor(row: ProjectSourceRow): ChipEdit {
     return edits[row.id] ?? deriveEdit(row, families);
@@ -163,6 +192,11 @@ export function SourceManager({
       for (const [id, edit] of Object.entries(prev)) if (live.has(id)) kept[id] = edit;
       return kept;
     });
+    setChipErrors((prev) => {
+      const kept: Record<string, string> = {};
+      for (const [id, msg] of Object.entries(prev)) if (live.has(id)) kept[id] = msg;
+      return kept;
+    });
   }
 
   function markClassifying(ids: string[], on: boolean) {
@@ -177,28 +211,60 @@ export function SourceManager({
     if (ids.length === 0) return;
     markClassifying(ids, true);
     try {
+      setManagerError(null);
       await classifySources(projectId, ids);
       await refetch();
+    } catch (err) {
+      setManagerError(`Classify failed — ${errText(err)}`);
     } finally {
       markClassifying(ids, false);
     }
   }
 
-  async function onFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
-    const { sources } = await uploadProjectSources(projectId, Array.from(files));
-    await refetch();
-    await runClassify(sources.map((s) => s.id));
+  async function onFiles(files: File[]) {
+    if (files.length === 0) return;
+    try {
+      setManagerError(null);
+      const { sources } = await uploadProjectSources(projectId, files);
+      await refetch();
+      await runClassify(sources.map((s) => s.id));
+    } catch (err) {
+      setManagerError(`Upload failed — ${errText(err)}`);
+    }
   }
 
   async function confirmOne(row: ProjectSourceRow, edit = editFor(row)) {
     await confirmSource(projectId, { sourceId: row.id, ...bodyFor(edit, families) });
   }
 
+  async function onConfirm(row: ProjectSourceRow) {
+    try {
+      setChipError(row.id, null);
+      await confirmOne(row);
+      await refetch();
+    } catch (err) {
+      setChipError(row.id, errText(err));
+    }
+  }
+
+  async function onDeleteUnfiled(row: ProjectSourceRow) {
+    try {
+      setManagerError(null);
+      await deleteProjectSource(projectId, row.id);
+      await refetch();
+    } catch (err) {
+      setManagerError(`Delete failed — ${errText(err)}`);
+    }
+  }
+
   async function confirmAll() {
     const ready = unfiled.filter((r) => r.proposal && canConfirm(editFor(r), families));
-    await Promise.all(ready.map((r) => confirmOne(r)));
+    // allSettled so one rejected confirm never abandons the successful rows' refetch.
+    const results = await Promise.allSettled(ready.map((r) => confirmOne(r)));
+    results.forEach((res, i) => setChipError(ready[i].id, res.status === "rejected" ? errText(res.reason) : null));
     await refetch();
+    const failures = results.filter((res) => res.status === "rejected").length;
+    setManagerError(failures > 0 ? `${failures} of ${ready.length} confirms failed.` : null);
   }
 
   return (
@@ -218,9 +284,16 @@ export function SourceManager({
           type="file"
           multiple
           className="hidden"
-          onChange={(e) => void onFiles(e.target.files)}
+          onChange={(e) => {
+            const picked = e.target.files ? Array.from(e.target.files) : [];
+            // Reset so re-selecting the SAME filename (the core replace flow) refires onChange.
+            e.target.value = "";
+            void onFiles(picked);
+          }}
         />
       </div>
+
+      {managerError && <div className={`mt-3 ${ERR_LINE}`} role="alert">{managerError}</div>}
 
       {unfiled.length > 0 && (
         <div className="mt-4 border border-ink/15 bg-card/40">
@@ -241,10 +314,11 @@ export function SourceManager({
               edit={editFor(r)}
               families={families}
               classifying={classifying.has(r.id)}
+              error={chipErrors[r.id]}
               onPatch={(patch) => patchEdit(r.id, patch, r)}
-              onConfirm={async () => { await confirmOne(r); await refetch(); }}
+              onConfirm={() => void onConfirm(r)}
               onReclassify={() => void runClassify([r.id])}
-              onDelete={async () => { await deleteProjectSource(projectId, r.id); await refetch(); }}
+              onDelete={() => void onDeleteUnfiled(r)}
             />
           ))}
         </div>
@@ -258,8 +332,12 @@ export function SourceManager({
             <FamilyNode
               key={f.id}
               family={f}
+              // Throws on failure so the FamilyNode surfaces a chip-scoped refile error inline.
               onRefile={async (sourceId, period) => { await refileSource(projectId, sourceId, { familyId: f.id, period }); await refetch(); }}
-              onDelete={async (sourceId) => { await deleteProjectSource(projectId, sourceId); await refetch(); }}
+              onDelete={async (sourceId) => {
+                try { setManagerError(null); await deleteProjectSource(projectId, sourceId); await refetch(); }
+                catch (err) { setManagerError(`Delete failed — ${errText(err)}`); }
+              }}
             />
           ))
         )}
@@ -281,6 +359,7 @@ function ChipRow({
   edit,
   families,
   classifying,
+  error,
   onPatch,
   onConfirm,
   onReclassify,
@@ -290,6 +369,7 @@ function ChipRow({
   edit: ChipEdit;
   families: FamilySummary[];
   classifying: boolean;
+  error?: string;
   onPatch: (patch: Partial<ChipEdit>) => void;
   onConfirm: () => void;
   onReclassify: () => void;
@@ -410,6 +490,8 @@ function ChipRow({
           Confirm
         </button>
       </span>
+
+      {error && <span className={`w-full ${ERR_LINE}`} role="alert">{error}</span>}
     </div>
   );
 }
@@ -420,17 +502,19 @@ function FamilyNode({
   onDelete,
 }: {
   family: FamilySummary;
-  onRefile: (sourceId: string, period: string | null) => void;
+  onRefile: (sourceId: string, period: string | null) => Promise<void>;
   onDelete: (sourceId: string) => void;
 }) {
   const gran = family.granularity ?? "—";
   // Which filed entry's refile picker is open (by sourceId), and its draft period.
   const [refiling, setRefiling] = useState<string | null>(null);
   const [draftPeriod, setDraftPeriod] = useState("");
+  const [refileErr, setRefileErr] = useState<string | null>(null);
 
   function openRefile(sourceId: string, period: string) {
     setRefiling(sourceId);
     setDraftPeriod(period);
+    setRefileErr(null);
   }
 
   return (
@@ -504,18 +588,28 @@ function FamilyNode({
                 type="button"
                 data-testid={`refile-save-${refiling}`}
                 disabled={!family.granularity || !PERIOD_REGEX[family.granularity].test(draftPeriod)}
-                onClick={() => { onRefile(refiling, draftPeriod); setRefiling(null); }}
+                onClick={async () => {
+                  const id = refiling;
+                  try {
+                    setRefileErr(null);
+                    await onRefile(id, draftPeriod);
+                    setRefiling(null);
+                  } catch (err) {
+                    setRefileErr(errText(err));
+                  }
+                }}
                 className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink hover:text-pencil disabled:opacity-30"
               >
                 save
               </button>
               <button
                 type="button"
-                onClick={() => setRefiling(null)}
+                onClick={() => { setRefiling(null); setRefileErr(null); }}
                 className="font-mono text-[9px] uppercase tracking-[1.5px] text-ink/40 hover:text-ink"
               >
                 cancel
               </button>
+              {refileErr && <span className={ERR_LINE} role="alert">{refileErr}</span>}
             </span>
           )}
         </div>

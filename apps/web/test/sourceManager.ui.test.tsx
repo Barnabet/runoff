@@ -159,6 +159,52 @@ describe("SourceManager", () => {
     await waitFor(() => expect(classifyBody).toEqual({ sourceIds: ["src_r"] }));
   });
 
+  it("a confirm that 400s shows the inline chip error and keeps the tray", async () => {
+    mockFetch({
+      "/sources/confirm": () => Response.json({ error: "family key already exists: trade_data" }, { status: 400 }),
+      "/sources/classify": () => Response.json({ sources: [] }),
+      "/sources": () => Response.json({ families: [], unfiled: [row({ id: "src_1", proposal: null })] }),
+    });
+    const families = [fam({ id: "fam_trade", key: "trade_data", label: "Trade data" })];
+    const unfiled = [
+      row({ id: "src_1", name: "june.csv", proposal: { familyKey: "trade_data", period: "2026-Q2", confidence: "high" } }),
+    ];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={unfiled} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText(/family key already exists/i)).toBeTruthy();
+    // The tray is intact — the failed confirm didn't remove the chip.
+    expect(screen.getByText("june.csv")).toBeTruthy();
+  });
+
+  it("Confirm all with one failing + one succeeding still refetches and reports the failure", async () => {
+    let confirmCalls = 0;
+    let refetched = 0;
+    mockFetch({
+      "/sources/confirm": (init) => {
+        confirmCalls += 1;
+        const body = JSON.parse(String(init!.body)) as { period: string };
+        return body.period === "2026-Q2"
+          ? Response.json({ error: "slot taken" }, { status: 400 })
+          : Response.json({ ok: true });
+      },
+      "/sources/classify": () => Response.json({ sources: [] }),
+      "/sources": () => { refetched += 1; return Response.json({ families: [], unfiled: [] }); },
+    });
+    const families = [fam({ id: "fam_trade", key: "trade_data", label: "Trade data" })];
+    const unfiled = [
+      row({ id: "src_a", proposal: { familyKey: "trade_data", period: "2026-Q1", confidence: "high" } }),
+      row({ id: "src_b", proposal: { familyKey: "trade_data", period: "2026-Q2", confidence: "medium" } }),
+    ];
+    render(<SourceManager projectId="prj_1" families={families} unfiled={unfiled} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirm all" }));
+    await waitFor(() => expect(confirmCalls).toBe(2));
+    // The successful row's refetch still ran despite the sibling failure.
+    await waitFor(() => expect(refetched).toBeGreaterThanOrEqual(1));
+    expect(await screen.findByText(/1 of 2 confirms failed/i)).toBeTruthy();
+  });
+
   it("renders the family tree ascending and marks in-range gaps", () => {
     mockFetch({ "/sources": () => Response.json({ families: [], unfiled: [] }) });
     const families = [
