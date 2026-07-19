@@ -71,6 +71,22 @@ describe("bindGolden", () => {
     expect(sys).toContain("the count is wrong");
     expect(sys).toContain("keep existing item ids");
   });
+  it("schema-invalid submit yields a meaningful zod tool error, loop continues", async () => {
+    // Missing required field `parsed` — a zod schema failure, not an anchor error.
+    const schemaBad = [{ id: "total", kind: "value", anchor: { sectionKey: "summary", blockIndex: 0, spanIndex: 1 },
+      raw: "$4.2M", binding: { familyId: "fam_ar", sql: "SELECT 1" }, reason: null }];
+    const { client: c, create } = client(
+      toolMsg("submit_inventory", { version: 1, items: schemaBad }),
+      toolMsg("submit_inventory", { version: 1, items: ITEMS }),
+    );
+    const out = await bindGolden({ client: c, catalog: CATALOG, runSql: vi.fn(), document: DOC, period: "2026-Q1", siblings: [] });
+    expect(out).not.toBeNull();
+    const secondCallMessages = create.mock.calls[1][0].messages;
+    const toolResult = secondCallMessages.findLast((m: { role: string }) => m.role === "tool");
+    expect(toolResult.content).toMatch(/^Tool error: invalid inventory: /);
+    expect(toolResult.content).not.toBe("Tool error: invalid inventory: [");
+    expect(toolResult.content).toContain("parsed");
+  });
   it("returns null after cap + nudge without a valid submit", async () => {
     const probe = toolMsg("run_sql", { sql: "SELECT 1" });
     const { client: c, create } = client(...Array.from({ length: 18 }, () => probe));

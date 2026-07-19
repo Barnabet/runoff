@@ -2,6 +2,7 @@ import {
   SubmittedInventorySchema, validateInventoryAnchors,
   type BindingInventory, type RunDocument, type SubmittedInventory,
 } from "@runoff/core";
+import { z } from "zod";
 import { serializeCatalog, type CatalogFamily } from "./catalogFormat.js";
 import { MODEL } from "./prompts.js";
 
@@ -94,8 +95,15 @@ export async function bindGolden(opts: {
           validateInventoryAnchors(inv, opts.document);
           return inv; // valid submit ends the loop; remaining tool results are moot
         } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          result = `Tool error: invalid inventory: ${msg.split("\n")[0].slice(0, 300)}`;
+          // zod-v3 ZodError.message is pretty-printed JSON — its first line is a
+          // bare "[", useless to the agent. Flatten issues to path: message pairs.
+          // Anchor errors (plain Error from validateInventoryAnchors) keep their
+          // byte-identical first-line handling.
+          const detail =
+            e instanceof z.ZodError
+              ? e.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")
+              : (e instanceof Error ? e.message : String(e)).split("\n")[0];
+          result = `Tool error: invalid inventory: ${detail.slice(0, 300)}`;
         }
       } else if (call.function.name === "run_sql" && !overBudget) {
         try { result = opts.runSql((JSON.parse(call.function.arguments) as { sql: string }).sql); }

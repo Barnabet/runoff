@@ -50,6 +50,8 @@ function queriesForBlueprint(db: RunoffDb, blueprintId: string): (sectionKey: st
 }
 
 // Sibling context: bound inventories of the blueprint's OTHER goldens, newest 3.
+// A single corrupt/schema-drifted sibling row degrades to skip (mirrors
+// parseBindings in goldens.ts) rather than failing every other golden's bind.
 const siblingsFor = (db: RunoffDb, blueprintId: string, excludeGoldenId: string) =>
   (
     db.sqlite
@@ -57,7 +59,13 @@ const siblingsFor = (db: RunoffDb, blueprintId: string, excludeGoldenId: string)
         "SELECT id, period, bindings FROM goldens WHERE blueprint_id = ? AND id != ? AND bindings IS NOT NULL ORDER BY rowid DESC LIMIT 3",
       )
       .all(blueprintId, excludeGoldenId) as { period: string | null; bindings: string }[]
-  ).map((r) => ({ period: r.period, inventory: BindingInventorySchema.parse(JSON.parse(r.bindings)) }));
+  ).flatMap((r) => {
+    try {
+      return [{ period: r.period, inventory: BindingInventorySchema.parse(JSON.parse(r.bindings)) }];
+    } catch {
+      return [];
+    }
+  });
 
 export async function bindExemplar(args: {
   db: RunoffDb;

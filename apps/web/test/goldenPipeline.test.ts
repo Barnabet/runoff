@@ -241,6 +241,44 @@ describe("golden pipeline", () => {
     expect(db.sqlite.prepare("SELECT bindings AS b FROM goldens WHERE id = 'gold_b'").get()).toEqual({ b: null });
   });
 
+  it("sibling degradation: one corrupt sibling row is skipped, the good sibling still reaches the agent", async () => {
+    const invA: BindingInventory = {
+      version: 1,
+      items: [
+        {
+          id: "a_item",
+          kind: "value",
+          anchor: { sectionKey: "exec", blockIndex: 0, spanIndex: 0 },
+          raw: "$1",
+          parsed: 1,
+          binding: { familyId: "f", sql: "SELECT 1", verifiedValue: 1, status: "bound" },
+          reason: null,
+        },
+      ],
+    };
+    const doc: RunDocument = {
+      title: "B",
+      eyebrow: "E",
+      dateline: "D",
+      sections: [{ key: "exec", heading: "Exec", blocks: [{ type: "paragraph", spans: [{ text: "x" }] }] }],
+    };
+    insertExemplar("gold_good", { name: "good.md", document: doc, period: "2026-Q1", bindings: invA });
+    insertExemplar("gold_corrupt", { name: "corrupt.md", document: doc, period: "2026-Q2" });
+    // Poke schema-drifted JSON into the corrupt sibling's bindings (non-null so it's selected).
+    db.sqlite.prepare("UPDATE goldens SET bindings = ? WHERE id = 'gold_corrupt'").run('{"version":1,"items":[{"garbage":true}]}');
+    insertExemplar("gold_target", { name: "target.md", document: doc, period: "2026-Q3" });
+
+    bindMock.mockResolvedValueOnce(null);
+    const res = await bindExemplar({ db, goldenId: "gold_target" });
+
+    // The corrupt sibling did not turn the bind into a failure.
+    expect(res).toEqual({ ok: false, error: "bind failed: no inventory produced" });
+    expect(bindMock).toHaveBeenCalledTimes(1);
+    const args = bindMock.mock.calls[0][0] as { siblings: { inventory: BindingInventory }[] };
+    expect(args.siblings).toHaveLength(1);
+    expect(args.siblings[0].inventory.items[0].id).toBe("a_item");
+  });
+
   it("copilot cache render: bound exemplar carries « annotations; un-unified renders the inert one-liner", () => {
     const doc: RunDocument = {
       title: "Q1",
