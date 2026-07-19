@@ -9,6 +9,7 @@ export interface ConfirmBody {
   familyId?: string;
   newFamily?: { key: string; label: string; kind: "periodic" | "constant"; granularity: Granularity | null };
   period: string | null;
+  periodMismatch?: "keep" | "exclude";
 }
 
 // POST /api/projects/:id/sources/confirm — file an unfiled source into a family
@@ -32,6 +33,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     familyId: body.familyId,
     newFamily: body.newFamily,
     period: body.period ?? null,
+    periodMismatch: body.periodMismatch,
   });
   if ("error" in result) return Response.json({ error: result.error }, { status: result.status });
   return Response.json({ ok: true });

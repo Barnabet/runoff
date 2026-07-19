@@ -1,9 +1,13 @@
 import { join } from "node:path";
 import {
   attachWarehouse, detachWarehouse, whFamilyTables, applySchema, deleteRows, insertRows,
-  readWarehouseTables, newId, PERIOD_REGEX, type Granularity, type ProjectSourceRow, type RunoffDb, type WhTableSchema,
+  readWarehouseTables, newId, planTableName, ParsePlanSchema, PERIOD_REGEX,
+  type Granularity, type ParsePlan, type ProjectSourceRow, type RunoffDb, type WhTableSchema,
 } from "@runoff/core";
-import { buildSourcePack, packForPrompt, isTabular, scanTabular, readTabular, type TabularScan } from "@runoff/engine";
+import {
+  buildSourcePack, packForPrompt, isTabular, scanTabular, readTabular, loadGrids, executeParsePlan,
+  type SheetGrid, type TabularScan,
+} from "@runoff/engine";
 
 // Confirm/refile operations open an explicit BEGIN…COMMIT with await gaps in
 // between (streaming ingest); the shared SQLite handle must not see statements
@@ -90,6 +94,8 @@ export interface FileSourceArgs {
   familyId?: string;
   newFamily?: { key: string; label: string; kind: "periodic" | "constant"; granularity: Granularity | null };
   period: string | null;
+  /** Override the plan's period-mismatch handling for tables with a periodColumn. */
+  periodMismatch?: "keep" | "exclude";
 }
 
 /**
@@ -100,8 +106,8 @@ export interface FileSourceArgs {
  */
 export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ ok: true } | { error: string; status: number }> {
   const src = db.sqlite
-    .prepare("SELECT id, name, mime, stored_filename AS storedFilename FROM sources WHERE id = ? AND project_id = ?")
-    .get(args.sourceId, args.projectId) as { id: string; name: string; mime: string; storedFilename: string } | undefined;
+    .prepare("SELECT id, name, mime, stored_filename AS storedFilename, proposal FROM sources WHERE id = ? AND project_id = ?")
+    .get(args.sourceId, args.projectId) as { id: string; name: string; mime: string; storedFilename: string; proposal: string | null } | undefined;
   if (!src) return { error: "source not found", status: 404 };
 
   return withIngestLock(async () => {
@@ -131,17 +137,33 @@ export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ 
       return { error: "invalid period for granularity", status: 400 };
     }
 
-    // --- scan + attach (async) before any write -----------------------------
-    // A scanTabular rejection (corrupt/missing file) or an attachWarehouse throw
-    // must surface as the contractual `ingest failed: <cause>` 500 rather than
-    // escape as a raised exception. The `no tables detected` 400 is a plain
-    // return, so this catch (which only fires on a throw) leaves it untouched.
+    // --- plan resolution: proposal plan wins; else the family's stored plan --
+    const rowProposal = src.proposal ? JSON.parse(src.proposal) : null;
+    let plan: ParsePlan | null = null;
+    if (rowProposal?.plan) plan = ParsePlanSchema.parse(rowProposal.plan);
+    else if (familyId) {
+      const stored = db.sqlite.prepare("SELECT parse_plan AS p FROM source_families WHERE id = ?").get(familyId) as { p: string | null } | undefined;
+      if (stored?.p) plan = ParsePlanSchema.parse(JSON.parse(stored.p));
+    }
+    if (plan && args.periodMismatch) {
+      plan = { ...plan, tables: plan.tables.map((t) => (t.periodColumn ? { ...t, onPeriodMismatch: args.periodMismatch! } : t)) };
+    }
+
+    // --- scan/load + attach (async) before any write ------------------------
+    // A loader rejection (corrupt/missing file) or an attachWarehouse throw must
+    // surface as the contractual `ingest failed: <cause>` 500 rather than escape
+    // as a raised exception. The `no tables detected` 400 is plan-less-only and a
+    // plain return, so this catch (which only fires on a throw) leaves it alone.
     const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
     const filePath = join(filesDir, src.storedFilename);
     const tabular = isTabular(src.mime, src.name);
     let scan: TabularScan | null = null;
+    let grids: SheetGrid[] | null = null;
     try {
-      if (tabular) {
+      if (tabular && plan) {
+        grids = await loadGrids(filePath, src.mime, src.name);
+        attachWarehouse(db.sqlite, args.projectId);
+      } else if (tabular) {
         scan = await scanTabular(filePath, src.mime, src.name);
         if (!scan.tables.length) return { error: "no tables detected in file", status: 400 };
         attachWarehouse(db.sqlite, args.projectId);
@@ -167,7 +189,24 @@ export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ 
           .prepare("UPDATE sources SET family_id = ?, period = ?, status='filed', filed_at=datetime('now') WHERE id = ?")
           .run(familyId, args.period, args.sourceId);
 
-        if (tabular && scan) {
+        if (tabular && plan && grids) {
+          const { tables, report } = executeParsePlan(grids, plan, kind === "periodic" ? args.period : null, granularity);
+          const firstProblem = report.tables.flatMap((t) => t.problems)[0];
+          if (firstProblem) throw new Error(firstProblem);
+          if (report.tables.every((t) => t.rowsKept === 0)) throw new Error("plan produced no rows");
+          const incoming: WhTableSchema[] = tables.map((t) => ({ name: planTableName(familyKey, plan!, t.logical), columns: t.columns }));
+          applySchema(db.sqlite, kind === "periodic", incoming);
+          const all = new Set([...whFamilyTables(db.sqlite, familyKey).map((t) => t.name), ...incoming.map((t) => t.name)]);
+          deleteRows(db.sqlite, [...all], kind === "periodic" ? args.period : null);
+          for (const t of tables) {
+            const tname = planTableName(familyKey, plan, t.logical);
+            const cols = t.columns.map((c) => c.name);
+            for (let i = 0; i < t.rows.length; i += 10_000)
+              insertRows(db.sqlite, tname, cols, t.rows.slice(i, i + 10_000), kind === "periodic" ? args.period : null);
+          }
+          db.sqlite.prepare("UPDATE source_families SET parse_plan = ? WHERE id = ?").run(JSON.stringify(plan), familyId);
+          db.sqlite.prepare("UPDATE sources SET parse_report = ? WHERE id = ?").run(JSON.stringify(report), args.sourceId);
+        } else if (tabular && scan) {
           const names = tableNamesFor(familyKey, scan.tables.map((t) => t.slug));
           const incoming: WhTableSchema[] = scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns }));
           applySchema(db.sqlite, kind === "periodic", incoming);
