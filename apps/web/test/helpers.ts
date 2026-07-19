@@ -11,6 +11,7 @@ export function freshDb(): void {
   const dir = mkdtempSync(join(tmpdir(), "runoff-web-"));
   process.env.RUNOFF_DB = join(dir, "runoff.db");
   process.env.RUNOFF_FILES_DIR = join(dir, "files");
+  process.env.RUNOFF_WAREHOUSE_DIR = join(dir, "warehouses");
   (globalThis as unknown as { __runoffDb?: unknown }).__runoffDb = undefined;
 }
 

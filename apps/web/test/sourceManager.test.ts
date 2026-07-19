@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import { attachWarehouse, detachWarehouse, warehousePath } from "@runoff/core";
 import { freshDb } from "./helpers";
 import { getDb } from "../lib/db";
 import { fileSource, listProjectSources } from "../lib/sourceManager";
@@ -29,6 +30,13 @@ function seedProject(db: ReturnType<typeof makeTestDb>) {
   db.sqlite.prepare("INSERT INTO projects (id, name) VALUES ('proj_1','P')").run();
   db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_q','proj_1','trade_data','Trade data','periodic','quarter')").run();
   db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_c','proj_1','brand','Brand','constant',NULL)").run();
+  // fileSource now scans+ingests tabular files, so each seeded (.csv-named)
+  // source needs a real, non-empty table on disk.
+  const filesDir = process.env.RUNOFF_FILES_DIR!;
+  mkdirSync(filesDir, { recursive: true });
+  writeFileSync(join(filesDir, "sf_a"), "a,b\n1,2\n");
+  writeFileSync(join(filesDir, "sf_b"), "a,b\n3,4\n");
+  writeFileSync(join(filesDir, "sf_c"), "a,b\n5,6\n");
   const ins = db.sqlite.prepare("INSERT INTO sources (id, project_id, name, stored_filename, mime, size) VALUES (?, 'proj_1', ?, ?, 'text/csv', 1)");
   ins.run("src_a", "a.csv", "sf_a");
   ins.run("src_b", "b.csv", "sf_b");
@@ -39,49 +47,49 @@ const projCtx = (id: string) => ({ params: Promise.resolve({ id }) });
 const srcCtx = (id: string, sourceId: string) => ({ params: Promise.resolve({ id, sourceId }) });
 
 describe("fileSource", () => {
-  it("files into an existing periodic family and replaces an occupant", () => {
+  it("files into an existing periodic family and replaces an occupant", async () => {
     const db = makeTestDb(); seedProject(db);
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_b", familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_b", familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
     const rows = db.sqlite.prepare("SELECT id, status FROM sources WHERE family_id='fam_q' ORDER BY id").all();
     expect(rows).toEqual([{ id: "src_a", status: "replaced" }, { id: "src_b", status: "filed" }]);
   });
 
-  it("rejects a period that fails the family's granularity", () => {
+  it("rejects a period that fails the family's granularity", async () => {
     const db = makeTestDb(); seedProject(db);
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-06" })).toMatchObject({ status: 400 });
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: null })).toMatchObject({ status: 400 });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-06" })).toMatchObject({ status: 400 });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: null })).toMatchObject({ status: 400 });
   });
 
-  it("enforces the constant rules: null period, single live file replaced on refile", () => {
+  it("enforces the constant rules: null period, single live file replaced on refile", async () => {
     const db = makeTestDb(); seedProject(db);
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: "2026-Q1" })).toMatchObject({ status: 400 });
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: null })).toEqual({ ok: true });
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_c", period: null })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: "2026-Q1" })).toMatchObject({ status: 400 });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: null })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_c", period: null })).toEqual({ ok: true });
     const live = db.sqlite.prepare("SELECT id FROM sources WHERE family_id='fam_c' AND status='filed'").all();
     expect(live).toEqual([{ id: "src_a" }]);
   });
 
-  it("creates a new family transactionally and rejects duplicate keys", () => {
+  it("creates a new family transactionally and rejects duplicate keys", async () => {
     const db = makeTestDb(); seedProject(db);
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "2026-06" })).toEqual({ ok: true });
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_b", newFamily: { key: "ga4", label: "GA4 again", kind: "periodic", granularity: "month" }, period: "2026-07" })).toMatchObject({ status: 400 });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "2026-06" })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_b", newFamily: { key: "ga4", label: "GA4 again", kind: "periodic", granularity: "month" }, period: "2026-07" })).toMatchObject({ status: 400 });
   });
 
-  it("does not create the new family when the period fails validation, then succeeds on retry", () => {
+  it("does not create the new family when the period fails validation, then succeeds on retry", async () => {
     const db = makeTestDb(); seedProject(db);
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "bad" })).toMatchObject({ status: 400 });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "bad" })).toMatchObject({ status: 400 });
     // The failed attempt must NOT have committed an orphan family row.
     expect(db.sqlite.prepare("SELECT id FROM source_families WHERE project_id='proj_1' AND key='ga4'").get()).toBeUndefined();
     // Retrying with a valid period now succeeds (no "already exists" collision).
-    expect(fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "2026-06" })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: "src_a", newFamily: { key: "ga4", label: "GA4", kind: "periodic", granularity: "month" }, period: "2026-06" })).toEqual({ ok: true });
     expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE project_id='proj_1' AND key='ga4'").get()).toEqual({ n: 1 });
   });
 
-  it("listProjectSources groups by family with ascending periods and surfaces unfiled rows", () => {
+  it("listProjectSources groups by family with ascending periods and surfaces unfiled rows", async () => {
     const db = makeTestDb(); seedProject(db);
-    fileSource(db, { projectId: "proj_1", sourceId: "src_b", familyId: "fam_q", period: "2026-Q2" });
-    fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-Q1" });
+    await fileSource(db, { projectId: "proj_1", sourceId: "src_b", familyId: "fam_q", period: "2026-Q2" });
+    await fileSource(db, { projectId: "proj_1", sourceId: "src_a", familyId: "fam_q", period: "2026-Q1" });
     const { families, unfiled } = listProjectSources(db, "proj_1");
     const q = families.find((f) => f.key === "trade_data")!;
     expect(q.filedPeriods).toEqual(["2026-Q1", "2026-Q2"]);
@@ -94,14 +102,102 @@ describe("fileSource", () => {
     expect(unfiled.map((u) => u.id)).toEqual(["src_c"]);
   });
 
-  it("surfaces the live file of a constant family and null otherwise; constants have no filedEntries", () => {
+  it("surfaces the live file of a constant family and null otherwise; constants have no filedEntries", async () => {
     const db = makeTestDb(); seedProject(db);
-    fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: null });
+    await fileSource(db, { projectId: "proj_1", sourceId: "src_c", familyId: "fam_c", period: null });
     const { families } = listProjectSources(db, "proj_1");
     const brand = families.find((f) => f.key === "brand")!;
     expect(brand.liveFile).toEqual({ sourceId: "src_c", name: "c.pdf" });
     expect(brand.filedEntries).toEqual([]);
     expect(families.find((f) => f.key === "trade_data")!.liveFile).toBeNull();
+  });
+});
+
+describe("fileSource — warehouse ingestion", () => {
+  const projectId = "proj_1";
+  let db: ReturnType<typeof makeTestDb>;
+  let filesDir: string;
+
+  beforeEach(() => {
+    db = makeTestDb();
+    db.sqlite.prepare("INSERT INTO projects (id, name) VALUES (?, 'P')").run(projectId);
+    filesDir = process.env.RUNOFF_FILES_DIR!;
+    mkdirSync(filesDir, { recursive: true });
+  });
+
+  function addSource(id: string, name: string, storedFilename: string, mime = "text/csv") {
+    db.sqlite
+      .prepare("INSERT INTO sources (id, project_id, name, stored_filename, mime, size) VALUES (?, ?, ?, ?, ?, 1)")
+      .run(id, projectId, name, storedFilename, mime);
+  }
+
+  it("confirm of a CSV ingests rows into the warehouse under fam_<key>", async () => {
+    writeFileSync(join(filesDir, "s1.csv"), "campaign,spend\nbrand,100\nsearch,200\n");
+    addSource("s1", "s1.csv", "s1.csv");
+    const res = await fileSource(db, { projectId, sourceId: "s1", newFamily: { key: "spend", label: "Spend", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    expect(res).toEqual({ ok: true });
+    attachWarehouse(db.sqlite, projectId);
+    const rows = db.sqlite.prepare("SELECT campaign, spend, _period FROM wh.fam_spend ORDER BY campaign").all();
+    detachWarehouse(db.sqlite);
+    expect(rows).toEqual([
+      { campaign: "brand", spend: 100, _period: "2026-Q1" },
+      { campaign: "search", spend: 200, _period: "2026-Q1" },
+    ]);
+  });
+
+  it("refiling a period swaps only that period's warehouse rows", async () => {
+    writeFileSync(join(filesDir, "q1.csv"), "campaign,spend\nbrand,100\n");
+    writeFileSync(join(filesDir, "q2.csv"), "campaign,spend\nsearch,200\n");
+    writeFileSync(join(filesDir, "q1b.csv"), "campaign,spend\nvideo,999\n");
+    addSource("q1", "q1.csv", "q1.csv");
+    addSource("q2", "q2.csv", "q2.csv");
+    addSource("q1b", "q1b.csv", "q1b.csv");
+    await fileSource(db, { projectId, sourceId: "q1", newFamily: { key: "sp", label: "Sp", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    const famId = (db.sqlite.prepare("SELECT id FROM source_families WHERE key='sp'").get() as { id: string }).id;
+    await fileSource(db, { projectId, sourceId: "q2", familyId: famId, period: "2026-Q2" });
+    await fileSource(db, { projectId, sourceId: "q1b", familyId: famId, period: "2026-Q1" });
+    attachWarehouse(db.sqlite, projectId);
+    const rows = db.sqlite.prepare("SELECT campaign, _period FROM wh.fam_sp ORDER BY _period").all();
+    detachWarehouse(db.sqlite);
+    expect(rows).toEqual([
+      { campaign: "video", _period: "2026-Q1" },
+      { campaign: "search", _period: "2026-Q2" },
+    ]);
+    // the Q1 occupant was marked replaced, not deleted
+    expect(db.sqlite.prepare("SELECT status FROM sources WHERE id = ?").get("q1")).toEqual({ status: "replaced" });
+  });
+
+  it("a tabular file with no detectable tables is rejected 400 without writes", async () => {
+    writeFileSync(join(filesDir, "empty.csv"), "\n");
+    addSource("empty", "empty.csv", "empty.csv");
+    const res = await fileSource(db, { projectId, sourceId: "empty", newFamily: { key: "e", label: "E", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    expect(res).toEqual({ error: "no tables detected in file", status: 400 });
+    // the source row is still unfiled and no family row was created
+    expect(db.sqlite.prepare("SELECT status FROM sources WHERE id = ?").get("empty")).toEqual({ status: "unfiled" });
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE key = 'e'").get()).toEqual({ n: 0 });
+  });
+
+  it("an ingest failure mid-transaction rolls back app-DB writes", async () => {
+    // Force readTabular to throw after a successful scan:
+    const engine = await import("@runoff/engine");
+    const spy = vi.spyOn(engine, "readTabular").mockRejectedValueOnce(new Error("boom"));
+    writeFileSync(join(filesDir, "ok.csv"), "a,b\n1,2\n");
+    addSource("ok", "ok.csv", "ok.csv");
+    const res = await fileSource(db, { projectId, sourceId: "ok", newFamily: { key: "roll", label: "R", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    expect(res).toEqual({ error: "ingest failed: boom", status: 500 });
+    expect(db.sqlite.prepare("SELECT status FROM sources WHERE id = ?").get("ok")).toEqual({ status: "unfiled" });
+    expect(db.sqlite.prepare("SELECT COUNT(*) AS n FROM source_families WHERE key = 'roll'").get()).toEqual({ n: 0 });
+    spy.mockRestore();
+  });
+
+  it("non-tabular files (pdf/txt) file without touching the warehouse", async () => {
+    db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_brand', ?, 'brand', 'Brand', 'constant', NULL)").run(projectId);
+    writeFileSync(join(filesDir, "doc.pdf"), "just prose, no table");
+    addSource("doc", "doc.pdf", "doc.pdf", "application/pdf");
+    const res = await fileSource(db, { projectId, sourceId: "doc", familyId: "fam_brand", period: null });
+    expect(res).toEqual({ ok: true });
+    // additionally assert no warehouse file was created
+    expect(existsSync(warehousePath(projectId))).toBe(false);
   });
 });
 
@@ -174,7 +270,7 @@ describe("source manager routes", () => {
     const perSource = await import("../app/api/projects/[id]/sources/[sourceId]/route");
     const db = getDb();
     db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_q','proj_1','trade','Trade','periodic','quarter')").run();
-    const up = await uploadFiles("proj_1", [new File([new TextEncoder().encode("x")], "a.csv", { type: "text/csv" })]);
+    const up = await uploadFiles("proj_1", [new File([new TextEncoder().encode("a,b\n1,2\n")], "a.csv", { type: "text/csv" })]);
     const { sources } = (await up.json()) as { sources: { id: string; storedFilename: string }[] };
     const src = sources[0];
 
@@ -187,16 +283,16 @@ describe("source manager routes", () => {
     expect(db.sqlite.prepare("SELECT id FROM sources WHERE id = ?").get(src.id)).toBeUndefined();
     expect(existsSync(join(process.env.RUNOFF_FILES_DIR!, src.storedFilename))).toBe(false);
     // Slot is free: a new source can take 2026-Q1.
-    const up2 = await uploadFiles("proj_1", [new File([new TextEncoder().encode("y")], "b.csv", { type: "text/csv" })]);
+    const up2 = await uploadFiles("proj_1", [new File([new TextEncoder().encode("a,b\n3,4\n")], "b.csv", { type: "text/csv" })]);
     const { sources: s2 } = (await up2.json()) as { sources: { id: string }[] };
-    expect(fileSource(db, { projectId: "proj_1", sourceId: s2[0].id, familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
+    expect(await fileSource(db, { projectId: "proj_1", sourceId: s2[0].id, familyId: "fam_q", period: "2026-Q1" })).toEqual({ ok: true });
   });
 
   it("PATCH refiles a source into a different slot", async () => {
     const perSource = await import("../app/api/projects/[id]/sources/[sourceId]/route");
     const db = getDb();
     db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_q','proj_1','trade','Trade','periodic','quarter')").run();
-    const up = await uploadFiles("proj_1", [new File([new TextEncoder().encode("x")], "a.csv", { type: "text/csv" })]);
+    const up = await uploadFiles("proj_1", [new File([new TextEncoder().encode("a,b\n1,2\n")], "a.csv", { type: "text/csv" })]);
     const { sources } = (await up.json()) as { sources: { id: string }[] };
     const src = sources[0];
 
@@ -210,12 +306,12 @@ describe("source manager routes", () => {
     const db = getDb();
     db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_q','proj_1','trade','Trade','periodic','quarter')").run();
     const up = await uploadFiles("proj_1", [
-      new File([new TextEncoder().encode("x")], "a.csv", { type: "text/csv" }),
-      new File([new TextEncoder().encode("y")], "b.csv", { type: "text/csv" }),
+      new File([new TextEncoder().encode("a,b\n1,2\n")], "a.csv", { type: "text/csv" }),
+      new File([new TextEncoder().encode("a,b\n3,4\n")], "b.csv", { type: "text/csv" }),
     ]);
     const { sources } = (await up.json()) as { sources: { id: string }[] };
-    fileSource(db, { projectId: "proj_1", sourceId: sources[0].id, familyId: "fam_q", period: "2026-Q1" });
-    fileSource(db, { projectId: "proj_1", sourceId: sources[1].id, familyId: "fam_q", period: "2026-Q1" });
+    await fileSource(db, { projectId: "proj_1", sourceId: sources[0].id, familyId: "fam_q", period: "2026-Q1" });
+    await fileSource(db, { projectId: "proj_1", sourceId: sources[1].id, familyId: "fam_q", period: "2026-Q1" });
     // sources[0] is now 'replaced'.
     const res = await perSource.DELETE(new Request("http://x", { method: "DELETE" }), srcCtx("proj_1", sources[0].id));
     expect(res.status).toBe(400);

@@ -26,7 +26,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
   }
   if (typeof body.sourceId !== "string") return Response.json({ error: "sourceId is required" }, { status: 400 });
 
-  const result = fileSource(db, {
+  const result = await fileSource(db, {
     projectId: id,
     sourceId: body.sourceId,
     familyId: body.familyId,

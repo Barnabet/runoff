@@ -1,6 +1,25 @@
 import { join } from "node:path";
-import { newId, PERIOD_REGEX, type Granularity, type ProjectSourceRow, type RunoffDb } from "@runoff/core";
-import { buildSourcePack, packForPrompt } from "@runoff/engine";
+import {
+  attachWarehouse, detachWarehouse, whFamilyTables, applySchema, deleteRows, insertRows,
+  newId, PERIOD_REGEX, type Granularity, type ProjectSourceRow, type RunoffDb, type WhTableSchema,
+} from "@runoff/core";
+import { buildSourcePack, packForPrompt, isTabular, scanTabular, readTabular, type TabularScan } from "@runoff/engine";
+
+// Confirm/refile operations open an explicit BEGIN…COMMIT with await gaps in
+// between (streaming ingest); the shared SQLite handle must not see statements
+// from other requests inside that window. One promise chain = one at a time.
+let ingestChain: Promise<unknown> = Promise.resolve();
+function withIngestLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = ingestChain.then(fn, fn);
+  ingestChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+/** Final warehouse table name per detected slug: single table → fam_<key>. */
+export function tableNamesFor(familyKey: string, slugs: string[]): Record<string, string> {
+  const single = slugs.length === 1;
+  return Object.fromEntries(slugs.map((s) => [s, single ? `fam_${familyKey}` : `fam_${familyKey}__${s}`]));
+}
 
 // Server-only slot logic for the project source manager. Never import from
 // client code — it touches the SQLite handle and node:fs (via readContentSample).
@@ -73,66 +92,91 @@ export interface FileSourceArgs {
  * marks any live occupant `replaced`; everything in one transaction. Shared by
  * the confirm and refile routes.
  */
-export function fileSource(db: RunoffDb, args: FileSourceArgs): { ok: true } | { error: string; status: number } {
+export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ ok: true } | { error: string; status: number }> {
   const src = db.sqlite
-    .prepare("SELECT id FROM sources WHERE id = ? AND project_id = ?")
-    .get(args.sourceId, args.projectId);
+    .prepare("SELECT id, name, mime, stored_filename AS storedFilename FROM sources WHERE id = ? AND project_id = ?")
+    .get(args.sourceId, args.projectId) as { id: string; name: string; mime: string; storedFilename: string } | undefined;
   if (!src) return { error: "source not found", status: 404 };
 
-  let result: { ok: true } | { error: string; status: number } = { ok: true };
-  const tx = db.sqlite.transaction(() => {
+  return withIngestLock(async () => {
+    // --- resolve + validate (reads only; serialized by the lock) ------------
     let familyId = args.familyId ?? null;
+    let familyKey: string;
     let kind: "periodic" | "constant";
     let granularity: Granularity | null;
-
-    // Resolve the target family's kind/granularity WITHOUT writing yet: a
-    // `return` inside a better-sqlite3 transaction commits, so the new-family
-    // INSERT must land only after every validation (incl. the period) passes —
-    // otherwise a bad period would leave an orphan family row behind.
     if (args.newFamily) {
       const dup = db.sqlite
         .prepare("SELECT id FROM source_families WHERE project_id = ? AND key = ?")
         .get(args.projectId, args.newFamily.key);
-      if (dup) { result = { error: `family key already exists: ${args.newFamily.key}`, status: 400 }; return; }
-      if (args.newFamily.kind === "periodic" && !args.newFamily.granularity) { result = { error: "periodic family requires a granularity", status: 400 }; return; }
-      if (args.newFamily.kind === "constant" && args.newFamily.granularity) { result = { error: "constant family cannot have a granularity", status: 400 }; return; }
-      kind = args.newFamily.kind; granularity = args.newFamily.granularity;
+      if (dup) return { error: `family key already exists: ${args.newFamily.key}`, status: 400 };
+      if (args.newFamily.kind === "periodic" && !args.newFamily.granularity) return { error: "periodic family requires a granularity", status: 400 };
+      if (args.newFamily.kind === "constant" && args.newFamily.granularity) return { error: "constant family cannot have a granularity", status: 400 };
+      familyKey = args.newFamily.key; kind = args.newFamily.kind; granularity = args.newFamily.granularity;
     } else {
       const fam = db.sqlite
-        .prepare("SELECT kind, granularity FROM source_families WHERE id = ? AND project_id = ?")
-        .get(familyId, args.projectId) as { kind: "periodic" | "constant"; granularity: Granularity | null } | undefined;
-      if (!fam) { result = { error: "family not found", status: 404 }; return; }
-      kind = fam.kind; granularity = fam.granularity;
+        .prepare("SELECT key, kind, granularity FROM source_families WHERE id = ? AND project_id = ?")
+        .get(familyId, args.projectId) as { key: string; kind: "periodic" | "constant"; granularity: Granularity | null } | undefined;
+      if (!fam) return { error: "family not found", status: 404 };
+      familyKey = fam.key; kind = fam.kind; granularity = fam.granularity;
     }
-
     if (kind === "constant") {
-      if (args.period !== null) { result = { error: "constant families take no period", status: 400 }; return; }
-    } else {
-      if (args.period === null || !PERIOD_REGEX[granularity as Granularity].test(args.period)) {
-        result = { error: "invalid period for granularity", status: 400 }; return;
+      if (args.period !== null) return { error: "constant families take no period", status: 400 };
+    } else if (args.period === null || !PERIOD_REGEX[granularity as Granularity].test(args.period)) {
+      return { error: "invalid period for granularity", status: 400 };
+    }
+
+    // --- scan (async) before any write --------------------------------------
+    const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
+    const filePath = join(filesDir, src.storedFilename);
+    const tabular = isTabular(src.mime, src.name);
+    let scan: TabularScan | null = null;
+    if (tabular) {
+      scan = await scanTabular(filePath, src.mime, src.name);
+      if (!scan.tables.length) return { error: "no tables detected in file", status: 400 };
+    }
+
+    // --- write: one explicit transaction across app DB + attached warehouse -
+    if (tabular) attachWarehouse(db.sqlite, args.projectId);
+    try {
+      db.sqlite.exec("BEGIN IMMEDIATE");
+      try {
+        if (args.newFamily) {
+          familyId = newId("fam");
+          db.sqlite
+            .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES (?, ?, ?, ?, ?, ?)")
+            .run(familyId, args.projectId, args.newFamily.key, args.newFamily.label, args.newFamily.kind, args.newFamily.granularity);
+        }
+        db.sqlite
+          .prepare("UPDATE sources SET status='replaced' WHERE family_id = ? AND status='filed' AND (period IS ? OR period = ?) AND id != ?")
+          .run(familyId, args.period, args.period, args.sourceId);
+        db.sqlite
+          .prepare("UPDATE sources SET family_id = ?, period = ?, status='filed', filed_at=datetime('now') WHERE id = ?")
+          .run(familyId, args.period, args.sourceId);
+
+        if (tabular && scan) {
+          const names = tableNamesFor(familyKey, scan.tables.map((t) => t.slug));
+          const incoming: WhTableSchema[] = scan.tables.map((t) => ({ name: names[t.slug], columns: t.columns }));
+          applySchema(db.sqlite, kind === "periodic", incoming);
+          // Clear this slot's rows in EVERY family table (existing ∪ incoming):
+          // a table missing from this period's file must not keep stale rows.
+          const all = new Set([...whFamilyTables(db.sqlite, familyKey).map((t) => t.name), ...incoming.map((t) => t.name)]);
+          deleteRows(db.sqlite, [...all], kind === "periodic" ? args.period : null);
+          await readTabular(filePath, src.mime, src.name, (table) => {
+            const tname = names[table.slug] ?? `fam_${familyKey}__${table.slug}`;
+            const cols = table.columns.map((c) => c.name);
+            return (batch) => insertRows(db.sqlite, tname, cols, batch, kind === "periodic" ? args.period : null);
+          });
+        }
+        db.sqlite.exec("COMMIT");
+      } catch (err) {
+        db.sqlite.exec("ROLLBACK");
+        return { error: `ingest failed: ${err instanceof Error ? err.message : String(err)}`, status: 500 };
       }
+    } finally {
+      if (tabular) detachWarehouse(db.sqlite);
     }
-
-    // All validation passed — now it's safe to create the new family.
-    if (args.newFamily) {
-      familyId = newId("fam");
-      db.sqlite
-        .prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES (?, ?, ?, ?, ?, ?)")
-        .run(familyId, args.projectId, args.newFamily.key, args.newFamily.label, args.newFamily.kind, args.newFamily.granularity);
-    }
-
-    // Replace any live occupant of the slot. NULLs are distinct in SQLite unique
-    // indexes, so the constant single-live-file rule is enforced here in code:
-    // `period IS ?` matches the NULL slot, `period = ?` matches a periodic slot.
-    db.sqlite
-      .prepare("UPDATE sources SET status='replaced' WHERE family_id = ? AND status='filed' AND (period IS ? OR period = ?) AND id != ?")
-      .run(familyId, args.period, args.period, args.sourceId);
-    db.sqlite
-      .prepare("UPDATE sources SET family_id = ?, period = ?, status='filed', filed_at=datetime('now') WHERE id = ?")
-      .run(familyId, args.period, args.sourceId);
+    return { ok: true };
   });
-  tx();
-  return result;
 }
 
 /**

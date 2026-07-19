@@ -1,6 +1,6 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
-import type { Granularity } from "@runoff/core";
+import { attachWarehouse, detachWarehouse, whFamilyTables, deleteRows, type Granularity } from "@runoff/core";
 import { getDb } from "../../../../../../lib/db";
 import { fileSource } from "../../../../../../lib/sourceManager";
 
@@ -29,7 +29,7 @@ export async function PATCH(req: Request, ctx: Ctx): Promise<Response> {
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
 
-  const result = fileSource(db, {
+  const result = await fileSource(db, {
     projectId: id,
     sourceId,
     familyId: body.familyId,
@@ -48,12 +48,30 @@ export async function DELETE(_req: Request, ctx: Ctx): Promise<Response> {
   const { id, sourceId } = await ctx.params;
 
   const row = db.sqlite
-    .prepare("SELECT status, stored_filename AS storedFilename FROM sources WHERE id = ? AND project_id = ?")
-    .get(sourceId, id) as { status: string; storedFilename: string } | undefined;
+    .prepare("SELECT status, family_id AS familyId, period, stored_filename AS storedFilename FROM sources WHERE id = ? AND project_id = ?")
+    .get(sourceId, id) as { status: string; familyId: string | null; period: string | null; storedFilename: string } | undefined;
   if (!row) return Response.json({ error: "source not found" }, { status: 404 });
   if (row.status === "replaced") return Response.json({ error: "replaced sources cannot be deleted" }, { status: 400 });
 
   db.sqlite.prepare("DELETE FROM sources WHERE id = ?").run(sourceId);
+
+  // Row removal + warehouse cleanup, in that order — no transaction needed
+  // across them: worst case on crash is orphan warehouse rows, which the next
+  // re-file of the slot clears.
+  if (row.status === "filed" && row.familyId) {
+    const fam = db.sqlite
+      .prepare("SELECT key, kind FROM source_families WHERE id = ?")
+      .get(row.familyId) as { key: string; kind: "periodic" | "constant" } | undefined;
+    if (fam) {
+      attachWarehouse(db.sqlite, id);
+      try {
+        const tables = whFamilyTables(db.sqlite, fam.key).map((t) => t.name);
+        deleteRows(db.sqlite, tables, fam.kind === "periodic" ? row.period : null);
+      } finally {
+        detachWarehouse(db.sqlite);
+      }
+    }
+  }
 
   try {
     rmSync(join(filesDir(), row.storedFilename), { force: true });
