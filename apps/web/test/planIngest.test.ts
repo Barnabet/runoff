@@ -190,6 +190,50 @@ describe("fileSource — plan path", () => {
     expect(db.sqlite.prepare("SELECT status FROM sources WHERE id = 's1'").get()).toEqual({ status: "unfiled" });
   });
 
+  it("runs a plan against a messy CSV: title skipped, total excluded, currency coerced", async () => {
+    // Title line + header + two data rows + a total row, currency with quoted commas.
+    writeFileSync(
+      join(filesDir, "aging.csv"),
+      'AR Aging Report\nCustomer,Amount Due ($)\nAcme,"$1,000.00"\nBeta,"$2,500.50"\nGrand Total,"$3,500.50"\n',
+    );
+    addSource("s1", "aging.csv", "aging.csv", { mime: "text/csv", proposal: { plan: AGING_PLAN } });
+    const res = await fileSource(db, {
+      projectId, sourceId: "s1",
+      newFamily: { key: "aging", label: "Aging", kind: "periodic", granularity: "quarter" },
+      period: "2026-Q1",
+    });
+    expect(res).toEqual({ ok: true });
+
+    const out = runWarehouseSql(projectId, "SELECT customer, amount_due FROM fam_aging WHERE _period = :period ORDER BY customer", { period: "2026-Q1" });
+    expect(out.rows).toEqual([["Acme", 1000], ["Beta", 2500.5]]); // Grand Total excluded; currency coerced
+  });
+
+  it("refile of a filed source uses the family's amended plan, not the stale proposal", async () => {
+    await writeAgingFile("refile.xlsx");
+    // File with plan A (excludes the Grand Total row → 2 rows).
+    addSource("s1", "refile.xlsx", "refile.xlsx", { proposal: { plan: AGING_PLAN } });
+    const filed = await fileSource(db, {
+      projectId, sourceId: "s1",
+      newFamily: { key: "aging", label: "Aging", kind: "periodic", granularity: "quarter" },
+      period: "2026-Q1",
+    });
+    expect(filed).toEqual({ ok: true });
+    const famId = (db.sqlite.prepare("SELECT id FROM source_families WHERE key = 'aging'").get() as { id: string }).id;
+
+    // Amend the family plan to B (no exclude → the Grand Total row is now kept).
+    const planB: ParsePlan = { ...AGING_PLAN, tables: [{ ...AGING_PLAN.tables[0], exclude: [] }] };
+    db.sqlite.prepare("UPDATE source_families SET parse_plan = ? WHERE id = ?").run(JSON.stringify(planB), famId);
+
+    // Refile the (now filed) source into the same slot: it must run plan B.
+    const refiled = await fileSource(db, { projectId, sourceId: "s1", familyId: famId, period: "2026-Q1" });
+    expect(refiled).toEqual({ ok: true });
+
+    const out = runWarehouseSql(projectId, "SELECT COUNT(*) AS n FROM fam_aging WHERE _period = :period", { period: "2026-Q1" });
+    expect(out.rows[0]).toEqual([3]); // Grand Total kept under plan B (would be 2 under the stale proposal A)
+    const fam = db.sqlite.prepare("SELECT parse_plan AS p FROM source_families WHERE id = ?").get(famId) as { p: string | null };
+    expect(JSON.parse(fam.p!)).toEqual(planB); // still B — not overwritten by the source's proposal A
+  });
+
   it("plan-less family ingest still produces the v1.3b island-path result", async () => {
     writeFileSync(join(filesDir, "plain.csv"), "campaign,spend\nbrand,100\nsearch,200\n");
     addSource("s1", "plain.csv", "plain.csv", { mime: "text/csv" }); // no proposal.plan, no stored plan

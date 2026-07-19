@@ -523,6 +523,59 @@ describe("SourceManager", () => {
       expect(confirmBody).toEqual({ sourceId: "src_m", familyId: "fam_trade", period: "2026-Q2", periodMismatch: "exclude" }),
     );
   });
+
+  it("an exclude-mode plan with an untouched checkbox preserves exclude (never silently downgrades to keep)", async () => {
+    let confirmBody: Record<string, unknown> | null = null;
+    mockFetch({
+      "/sources/confirm": (init) => { confirmBody = JSON.parse(String(init!.body)); return Response.json({ ok: true }); },
+      "/sources": () => Response.json({ families: [], unfiled: [] }),
+    });
+    const families = [fam({ id: "fam_trade", key: "trade_data", label: "Trade data" })];
+    // Plan chooses onPeriodMismatch: "exclude"; the preview dropped rows.
+    const excludePlan = planProposal({
+      plan: {
+        version: 1,
+        tables: [
+          {
+            name: "aging",
+            anchor: { headerSignature: ["customer", "amount"], minMatch: 1 },
+            headerRows: 1,
+            exclude: [],
+            columns: [
+              { from: "customer", name: "customer", type: "TEXT" },
+              { from: "as of", name: "as_of", type: "TEXT", parse: "date" },
+            ],
+            periodColumn: "as_of",
+            onPeriodMismatch: "exclude",
+          },
+        ],
+      },
+      report: {
+        tables: [
+          {
+            name: "aging",
+            anchor: { sheet: "s", row: 0 },
+            problems: [],
+            rowsKept: 3,
+            rowsExcluded: [],
+            coercionFailures: [],
+            periodMismatches: { count: 3, samples: ["2025-Q4"] },
+            unknownColumns: [],
+          },
+        ],
+      },
+    });
+    render(<SourceManager projectId="prj_1" families={families} unfiled={[row({ id: "src_x", proposal: excludePlan })]} />);
+
+    // The checkbox reflects the plan's exclude choice without any user action.
+    const checkbox = screen.getByText("exclude period-mismatched rows").querySelector("input") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+    // Confirm WITHOUT touching the checkbox.
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await waitFor(() =>
+      expect(confirmBody).toEqual({ sourceId: "src_x", familyId: "fam_trade", period: "2026-Q2", periodMismatch: "exclude" }),
+    );
+  });
 });
 
 describe("enumeratePeriods", () => {

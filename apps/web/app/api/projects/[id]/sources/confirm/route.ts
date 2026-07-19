@@ -26,6 +26,11 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     return Response.json({ error: "invalid JSON body" }, { status: 400 });
   }
   if (typeof body.sourceId !== "string") return Response.json({ error: "sourceId is required" }, { status: 400 });
+  // Guard the period-mismatch override: only "keep"/"exclude" may reach the plan,
+  // so a non-UI client can't persist a schema-invalid onPeriodMismatch.
+  if (body.periodMismatch !== undefined && body.periodMismatch !== "keep" && body.periodMismatch !== "exclude") {
+    return Response.json({ error: "periodMismatch must be \"keep\" or \"exclude\"" }, { status: 400 });
+  }
 
   const result = await fileSource(db, {
     projectId: id,

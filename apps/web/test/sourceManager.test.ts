@@ -488,6 +488,16 @@ describe("source manager routes", () => {
     expect(r2.proposal).toBeNull();
   });
 
+  it("confirm POST rejects an invalid periodMismatch value (400)", async () => {
+    const confirm = await import("../app/api/projects/[id]/sources/confirm/route");
+    const res = await confirm.POST(
+      new Request("http://x", { method: "POST", body: JSON.stringify({ sourceId: "whatever", periodMismatch: "foo" }) }),
+      projCtx("proj_1"),
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: 'periodMismatch must be "keep" or "exclude"' });
+  });
+
   it("confirm POST files a source; DELETE removes the row and frees the slot", async () => {
     const confirm = await import("../app/api/projects/[id]/sources/confirm/route");
     const perSource = await import("../app/api/projects/[id]/sources/[sourceId]/route");

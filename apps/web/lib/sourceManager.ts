@@ -106,8 +106,8 @@ export interface FileSourceArgs {
  */
 export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ ok: true } | { error: string; status: number }> {
   const src = db.sqlite
-    .prepare("SELECT id, name, mime, stored_filename AS storedFilename, proposal FROM sources WHERE id = ? AND project_id = ?")
-    .get(args.sourceId, args.projectId) as { id: string; name: string; mime: string; storedFilename: string; proposal: string | null } | undefined;
+    .prepare("SELECT id, name, mime, stored_filename AS storedFilename, status, proposal FROM sources WHERE id = ? AND project_id = ?")
+    .get(args.sourceId, args.projectId) as { id: string; name: string; mime: string; storedFilename: string; status: string; proposal: string | null } | undefined;
   if (!src) return { error: "source not found", status: 404 };
 
   return withIngestLock(async () => {
@@ -137,29 +137,33 @@ export async function fileSource(db: RunoffDb, args: FileSourceArgs): Promise<{ 
       return { error: "invalid period for granularity", status: 400 };
     }
 
-    // --- plan resolution: proposal plan wins; else the family's stored plan --
-    const rowProposal = src.proposal ? JSON.parse(src.proposal) : null;
-    let plan: ParsePlan | null = null;
-    if (rowProposal?.plan) plan = ParsePlanSchema.parse(rowProposal.plan);
-    else if (familyId) {
-      const stored = db.sqlite.prepare("SELECT parse_plan AS p FROM source_families WHERE id = ?").get(familyId) as { p: string | null } | undefined;
-      if (stored?.p) plan = ParsePlanSchema.parse(JSON.parse(stored.p));
-    }
-    if (plan && args.periodMismatch) {
-      plan = { ...plan, tables: plan.tables.map((t) => (t.periodColumn ? { ...t, onPeriodMismatch: args.periodMismatch! } : t)) };
-    }
-
     // --- scan/load + attach (async) before any write ------------------------
-    // A loader rejection (corrupt/missing file) or an attachWarehouse throw must
-    // surface as the contractual `ingest failed: <cause>` 500 rather than escape
-    // as a raised exception. The `no tables detected` 400 is plan-less-only and a
-    // plain return, so this catch (which only fires on a throw) leaves it alone.
+    // A loader rejection (corrupt/missing file), a corrupt stored plan, or an
+    // attachWarehouse throw must surface as the contractual `ingest failed: <cause>`
+    // 500 rather than escape as a raised exception. The `no tables detected` 400 is
+    // plan-less-only and a plain return, so this catch (which only fires on a throw)
+    // leaves it alone.
     const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
     const filePath = join(filesDir, src.storedFilename);
     const tabular = isTabular(src.mime, src.name);
     let scan: TabularScan | null = null;
     let grids: SheetGrid[] | null = null;
+    let plan: ParsePlan | null = null;
     try {
+      // Plan resolution: the source row's classify-time proposal plan wins ONLY for
+      // an unfiled source (the confirm flow). Refiling a filed source uses the
+      // family's stored plan, so an amended family plan is never re-overwritten by a
+      // source's stale proposal.
+      const rowProposal = src.proposal ? JSON.parse(src.proposal) : null;
+      if (src.status === "unfiled" && rowProposal?.plan) plan = ParsePlanSchema.parse(rowProposal.plan);
+      else if (familyId) {
+        const stored = db.sqlite.prepare("SELECT parse_plan AS p FROM source_families WHERE id = ?").get(familyId) as { p: string | null } | undefined;
+        if (stored?.p) plan = ParsePlanSchema.parse(JSON.parse(stored.p));
+      }
+      if (plan && args.periodMismatch) {
+        plan = { ...plan, tables: plan.tables.map((t) => (t.periodColumn ? { ...t, onPeriodMismatch: args.periodMismatch! } : t)) };
+      }
+
       if (tabular && plan) {
         grids = await loadGrids(filePath, src.mime, src.name);
         attachWarehouse(db.sqlite, args.projectId);

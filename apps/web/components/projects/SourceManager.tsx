@@ -95,6 +95,11 @@ function deriveEdit(row: ProjectSourceRow, families: FamilySummary[]): ChipEdit 
   return { familyValue: "", period: "", newFamily: emptyDraft() };
 }
 
+/** Does the row's plan already choose `exclude` for a period-checked table? */
+function planExcludesMismatch(row: ProjectSourceRow): boolean {
+  return row.proposal?.plan?.tables.some((t) => t.periodColumn && t.onPeriodMismatch === "exclude") ?? false;
+}
+
 /** Is the chip's target slot already occupied? Returns the occupant label, else null. */
 function occupiedBy(edit: ChipEdit, families: FamilySummary[]): string | null {
   if (edit.familyValue === NEW_FAMILY || edit.familyValue === "") return null;
@@ -244,7 +249,10 @@ export function SourceManager({
   async function confirmOne(row: ProjectSourceRow, edit = editFor(row)) {
     // Only a plan with a period check carries the keep/exclude decision.
     const hasPeriodCheck = row.proposal?.plan?.tables.some((t) => t.periodColumn) ?? false;
-    const periodMismatch = hasPeriodCheck ? (edit.excludeMismatch ? "exclude" : "keep") : undefined;
+    // An untouched checkbox must preserve the plan's own onPeriodMismatch — seed the
+    // effective state from the plan rather than defaulting to "keep".
+    const effectiveExclude = edit.excludeMismatch ?? planExcludesMismatch(row);
+    const periodMismatch = hasPeriodCheck ? (effectiveExclude ? "exclude" : "keep") : undefined;
     await confirmSource(projectId, {
       sourceId: row.id,
       ...bodyFor(edit, families),
@@ -577,7 +585,7 @@ function ChipRow({
           })}
           {row.proposal.report?.tables.some((t) => t.periodMismatches?.count) ? (
             <label className="flex items-center gap-2 font-mono text-[10px] text-ink/70">
-              <input type="checkbox" checked={edit.excludeMismatch ?? false}
+              <input type="checkbox" checked={edit.excludeMismatch ?? planExcludesMismatch(row)}
                 onChange={(e) => onPatch({ excludeMismatch: e.target.checked })} />
               exclude period-mismatched rows
             </label>
