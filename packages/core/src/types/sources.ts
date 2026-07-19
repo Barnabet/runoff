@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ParsePlanSchema, ExecReportSchema, PlanPreviewSchema } from "./parsePlan.js";
 
 export type FamilyKind = "periodic" | "constant";
 export type Granularity = "quarter" | "month" | "year";
@@ -35,6 +36,10 @@ export const ClassifyProposalSchema = z.object({
   tables: z.array(z.object({ name: z.string(), columns: z.array(z.string()), rowCount: z.number() })).optional(),
   skippedFragments: z.number().optional(),
   drift: z.array(z.string()).optional(),
+  plan: ParsePlanSchema.optional(),
+  planStatus: z.enum(["stored", "proposed", "amended", "none"]).optional(),
+  preview: PlanPreviewSchema.optional(),
+  report: ExecReportSchema.optional(),
 });
 export type ClassifyProposal = z.infer<typeof ClassifyProposalSchema>;
 

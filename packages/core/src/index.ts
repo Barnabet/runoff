@@ -5,6 +5,7 @@ export * from "./ids.js";
 export * from "./types/blueprint.js";
 export * from "./types/copilot.js";
 export * from "./types/sources.js";
+export * from "./types/parsePlan.js";
 export * from "./types/document.js";
 export * from "./types/events.js";
 export * from "./reducer.js";

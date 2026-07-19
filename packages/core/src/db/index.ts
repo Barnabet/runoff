@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS projects (
   created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE IF NOT EXISTS source_families (
   id TEXT PRIMARY KEY, project_id TEXT NOT NULL, key TEXT NOT NULL, label TEXT NOT NULL,
-  kind TEXT NOT NULL, granularity TEXT,
+  kind TEXT NOT NULL, granularity TEXT, parse_plan TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE(project_id, key));
 CREATE TABLE IF NOT EXISTS blueprint_families (
@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS sources (
   id TEXT PRIMARY KEY, project_id TEXT NOT NULL DEFAULT '', family_id TEXT, period TEXT,
   name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'file',
   stored_filename TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL,
-  status TEXT NOT NULL DEFAULT 'unfiled', proposal TEXT,
+  status TEXT NOT NULL DEFAULT 'unfiled', proposal TEXT, parse_report TEXT,
   uploaded_at TEXT NOT NULL DEFAULT (datetime('now')), filed_at TEXT);
 CREATE TABLE IF NOT EXISTS runs (
   id TEXT PRIMARY KEY, blueprint_id TEXT NOT NULL, blueprint_rev INTEGER NOT NULL,

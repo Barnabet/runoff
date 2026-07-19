@@ -13,6 +13,7 @@ export const sourceFamilies = sqliteTable("source_families", {
   label: text("label").notNull(),
   kind: text("kind").notNull(), // periodic | constant
   granularity: text("granularity"), // quarter | month | year | null
+  parsePlan: text("parse_plan"), // ParsePlan JSON
   createdAt: text("created_at").notNull().default(""),
 });
 
@@ -52,6 +53,7 @@ export const sources = sqliteTable("sources", {
   size: integer("size").notNull(),
   status: text("status").notNull().default("unfiled"), // unfiled | filed | replaced
   proposal: text("proposal"), // ClassifyProposal JSON
+  parseReport: text("parse_report"), // ExecReport JSON
   uploadedAt: text("uploaded_at").notNull().default(""),
   filedAt: text("filed_at"),
 });
