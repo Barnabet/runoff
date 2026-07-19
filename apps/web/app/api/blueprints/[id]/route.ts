@@ -1,5 +1,6 @@
 import { getDb } from "../../../../lib/db";
 import { listProjectSources } from "../../../../lib/sourceManager";
+import { computeQueryRowCounts } from "../../../../lib/queryRowCounts";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -48,7 +49,11 @@ export async function GET(_req: Request, ctx: Ctx): Promise<Response> {
       .all(id) as { familyId: string }[]
   ).map((r) => r.familyId);
 
-  return Response.json({ blueprint, content, project, families, boundFamilyIds });
+  const queryRowCounts = content
+    ? computeQueryRowCounts(db, blueprint.projectId, content)
+    : {};
+
+  return Response.json({ blueprint, content, project, families, boundFamilyIds, queryRowCounts });
 }
 
 // PATCH /api/blueprints/:id — update any of name/clientName/cadenceLabel/status

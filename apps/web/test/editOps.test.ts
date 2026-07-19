@@ -3,7 +3,7 @@ import type { BlueprintContent, BlueprintSection, EditOp } from "@runoff/core";
 import { applyEditOp, invertEditOp } from "../lib/editOps";
 
 function section(key: string, number: number): BlueprintSection {
-  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, familyIds: [], rules: [] };
+  return { key, number, heading: key.toUpperCase(), mode: "auto", instruction: `about ${key}`, familyIds: [], queries: [], rules: [] };
 }
 
 const content: BlueprintContent = {

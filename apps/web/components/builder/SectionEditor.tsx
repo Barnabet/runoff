@@ -45,7 +45,7 @@ function AutoTextarea({
 
 const RULE_KINDS: Rule["kind"][] = ["assert", "style", "judgment"];
 
-/** Compact rules list under a section: kind · text · (expression for assert). */
+/** Compact rules list under a section: kind · text · (read-only SQL for assert). */
 function RulesEditor({
   rules,
   onChange,
@@ -72,7 +72,7 @@ function RulesEditor({
               value={rule.kind}
               onChange={(e) => {
                 const kind = e.target.value as Rule["kind"];
-                update(i, kind === "assert" ? { kind } : { kind, expression: undefined });
+                update(i, { kind });
               }}
               className="rounded-[3px] border border-ink/20 bg-transparent px-[4px] py-[2px] font-mono text-[10px] text-ink/70"
             >
@@ -90,13 +90,9 @@ function RulesEditor({
               className="flex-1 border-b border-ink/15 bg-transparent py-[2px] font-serif text-[13px] text-ink outline-none placeholder:italic placeholder:text-ink/40"
             />
             {rule.kind === "assert" ? (
-              <input
-                aria-label={`rule ${i + 1} expression`}
-                value={rule.expression ?? ""}
-                onChange={(e) => update(i, { expression: e.target.value })}
-                placeholder="expression"
-                className="w-[140px] border-b border-ink/15 bg-transparent py-[2px] font-mono text-[10.5px] text-ink/70 outline-none placeholder:text-ink/35"
-              />
+              <span className="w-[180px] shrink-0 truncate font-mono text-[10px] text-ink/50">
+                {`${rule.sql ?? ""} ${rule.op ?? ""} ${rule.value?.toLocaleString("en-US") ?? ""}`}
+              </span>
             ) : null}
             <button
               type="button"
@@ -111,11 +107,54 @@ function RulesEditor({
       </div>
       <button
         type="button"
-        onClick={() => onChange([...rules, { kind: "assert", text: "", expression: "" }])}
+        onClick={() => onChange([...rules, { kind: "assert", text: "" }])}
         className="mt-[8px] font-serif text-[13px] italic text-ink/50"
       >
         + add a rule…
       </button>
+    </div>
+  );
+}
+
+/**
+ * Read-only view of a section's baked data queries. Each query renders as a
+ * `<name> — <n> rows` chip (or `<name> — invalid` when the count is null),
+ * with its SQL beneath in faint mono. A queryable bound family whose tables no
+ * query references falls back to the run-time default file — surfaced as a
+ * `defaults active for: <keys>` line so the builder knows what isn't baked.
+ */
+function DataQueries({
+  section,
+  families,
+  rowCounts,
+}: {
+  section: BlueprintSection;
+  families: { id: string; key: string; queryable: boolean; tableNames: string[] }[];
+  rowCounts: Record<string, number | null>;
+}) {
+  const uncovered = families
+    .filter((f) => f.queryable && section.familyIds.includes(f.id))
+    .filter((f) => !section.queries.some((qy) => f.tableNames.some((t) => new RegExp(`\\b${t}\\b`).test(qy.sql))))
+    .map((f) => f.key);
+  if (!section.queries.length && !uncovered.length) return null;
+  return (
+    <div className="mt-[24px]">
+      <div className="mb-[8px] font-sans text-[9.5px] font-semibold uppercase tracking-[1.8px] text-ink/50">
+        Data queries
+      </div>
+      <div className="flex flex-col gap-[6px]">
+        {section.queries.map((qy) => (
+          <div key={qy.name}>
+            <div className="font-mono text-[10px] text-ink/70">
+              {qy.name} — {rowCounts[qy.name] === null ? "invalid" : `${(rowCounts[qy.name] ?? 0).toLocaleString("en-US")} rows`}
+            </div>
+            <div className="font-mono text-[10px] text-ink/40">{qy.sql}</div>
+          </div>
+        ))}
+        {uncovered.length > 0 && (
+          <div className="font-mono text-[10px] text-ink/40">defaults active for: {uncovered.join(", ")}</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -174,12 +213,14 @@ function SelectedSection({
   onChange,
   labelFor,
   boundFamilies,
+  rowCounts,
   touched,
 }: {
   section: BlueprintSection;
   onChange: (patch: Partial<BlueprintSection>) => void;
   labelFor: (id: string) => string;
   boundFamilies: FamilySummary[];
+  rowCounts: Record<string, number | null>;
   touched?: Set<string>;
 }) {
   const caption =
@@ -265,6 +306,17 @@ function SelectedSection({
       <div className={flash(section.key, "rules").trim()}>
         <RulesEditor rules={section.rules} onChange={(rules) => onChange({ rules })} />
       </div>
+
+      <DataQueries
+        section={section}
+        families={boundFamilies.map((f) => ({
+          id: f.id,
+          key: f.key,
+          queryable: f.tables.length > 0,
+          tableNames: f.tables.map((t) => t.name),
+        }))}
+        rowCounts={rowCounts}
+      />
     </div>
   );
 }
@@ -315,6 +367,7 @@ export function SectionEditor({
   onSelect,
   labelFor,
   boundFamilies,
+  queryRowCounts = {},
   touched,
 }: {
   content: BlueprintContent;
@@ -323,6 +376,7 @@ export function SectionEditor({
   onSelect: (key: string) => void;
   labelFor: (id: string) => string;
   boundFamilies: FamilySummary[];
+  queryRowCounts?: Record<string, Record<string, number | null>>;
   touched?: Set<string>;
 }) {
   function patchContent(patch: Partial<BlueprintContent>) {
@@ -369,6 +423,7 @@ export function SectionEditor({
             section={section}
             labelFor={labelFor}
             boundFamilies={boundFamilies}
+            rowCounts={queryRowCounts[section.key] ?? {}}
             touched={touched}
             onChange={(patch) => patchSection(section.key, patch)}
           />

@@ -36,7 +36,7 @@ export async function resolveGoldenText(
       const pack = await buildSourcePack([
         { id: g.id, name: g.name ?? "exemplar", mime: g.mime ?? "text/plain", path: join(filesDir, g.storedFilename) },
       ]);
-      return { description: `Uploaded exemplar "${g.name ?? "exemplar"}"`, text: packForPrompt(pack, [g.id], 40) };
+      return { description: `Uploaded exemplar "${g.name ?? "exemplar"}"`, text: packForPrompt(pack, [g.id]) };
     } catch {
       return null;
     }

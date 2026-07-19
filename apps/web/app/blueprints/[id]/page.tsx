@@ -3,6 +3,7 @@ import type { BlueprintContent } from "@runoff/core";
 import { Builder } from "@/components/builder/Builder";
 import { getDb } from "@/lib/db";
 import { listProjectSources } from "@/lib/sourceManager";
+import { computeQueryRowCounts } from "@/lib/queryRowCounts";
 
 // The builder reads the live current revision and bound sources on every
 // request; a save or an applied copilot edit must show on reload without a
@@ -56,6 +57,7 @@ export default async function BlueprintPage({
   ).map((r) => r.familyId);
 
   const initialSectionKey = content.sections[0]?.key ?? "";
+  const queryRowCounts = computeQueryRowCounts(db, blueprint.projectId, content);
 
   return (
     <Builder
@@ -70,6 +72,7 @@ export default async function BlueprintPage({
       families={families}
       initialBoundIds={boundFamilyIds}
       initialSectionKey={initialSectionKey}
+      queryRowCounts={queryRowCounts}
     />
   );
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { BlueprintContent } from "@runoff/core";
 
 // `vi.mock` factories are hoisted; the fns they close over come from `vi.hoisted`.
@@ -57,9 +57,9 @@ const baseContent: BlueprintContent = {
   eyebrow: "PREPARED FOR MERIDIAN",
   dateline: "June 2026",
   sections: [
-    { key: "s1", number: 1, heading: "Overview", mode: "fixed", fixedText: "Fixed copy.", instruction: "", familyIds: [], rules: [] },
-    { key: "s2", number: 2, heading: "Executive summary", mode: "review", instruction: "Summarize the month.", familyIds: ["src_a"], rules: [] },
-    { key: "s3", number: 3, heading: "Channels", mode: "auto", instruction: "Channel breakdown.", familyIds: ["src_a", "src_b"], rules: [] },
+    { key: "s1", number: 1, heading: "Overview", mode: "fixed", fixedText: "Fixed copy.", instruction: "", familyIds: [], queries: [], rules: [] },
+    { key: "s2", number: 2, heading: "Executive summary", mode: "review", instruction: "Summarize the month.", familyIds: ["src_a"], queries: [], rules: [] },
+    { key: "s3", number: 3, heading: "Channels", mode: "auto", instruction: "Channel breakdown.", familyIds: ["src_a", "src_b"], queries: [], rules: [] },
   ],
   globalRules: [],
   delivery: { recipient: "x@y.com", autoDeliverOnClear: false },
@@ -81,7 +81,13 @@ const families: FamilySummary[] = [
   fam("fam_c", "brand", "Brand", "constant", null),
 ];
 
-function renderBuilder(overrides?: { content?: BlueprintContent; boundIds?: string[] }) {
+function renderBuilder(overrides?: {
+  content?: BlueprintContent;
+  boundIds?: string[];
+  families?: FamilySummary[];
+  initialSectionKey?: string;
+  queryRowCounts?: Record<string, Record<string, number | null>>;
+}) {
   const content = overrides?.content ?? baseContent;
   return render(
     <Builder
@@ -93,9 +99,10 @@ function renderBuilder(overrides?: { content?: BlueprintContent; boundIds?: stri
       initialStatus="draft"
       initialRev={1}
       initialContent={content}
-      families={families}
+      families={overrides?.families ?? families}
       initialBoundIds={overrides?.boundIds ?? []}
-      initialSectionKey="s1"
+      initialSectionKey={overrides?.initialSectionKey ?? "s1"}
+      queryRowCounts={overrides?.queryRowCounts ?? {}}
     />,
   );
 }
@@ -218,5 +225,59 @@ describe("primary-action failure feedback", () => {
     expect(patchBlueprint).not.toHaveBeenCalled();
     expect(getByText("Save · REV 2")).toBeTruthy();
     expect(queryByText("ACTIVE · REV 1")).toBeNull();
+  });
+});
+
+describe("data queries block", () => {
+  // A bound, queryable family whose table no query covers → defaults line.
+  const ga4: FamilySummary = {
+    ...fam("fam_g", "ga4_analytics", "GA4 Analytics", "periodic", "month"),
+    tables: [{ name: "ga4_events", rowCount: 5 }],
+  };
+  function queryContent(queries: BlueprintContent["sections"][number]["queries"]): BlueprintContent {
+    return {
+      ...baseContent,
+      sections: [
+        { key: "s1", number: 1, heading: "Overview", mode: "auto", instruction: "x", familyIds: ["fam_g"], queries, rules: [] },
+      ],
+    };
+  }
+
+  it("renders read-only data-query chips with row counts and a defaults line", () => {
+    renderBuilder({
+      content: queryContent([{ name: "total_paid", sql: "SELECT SUM(amount) FROM fam_ar WHERE _period = :period" }]),
+      families: [ga4],
+      boundIds: ["fam_g"],
+      queryRowCounts: { s1: { total_paid: 12 } },
+    });
+    expect(screen.getByText("total_paid — 12 rows")).toBeTruthy();
+    expect(screen.getByText(/SELECT SUM\(amount\)/)).toBeTruthy();
+    expect(screen.getByText(/defaults active for: ga4_analytics/)).toBeTruthy();
+  });
+
+  it("renders `invalid` for a query with a null row count", () => {
+    renderBuilder({
+      content: queryContent([{ name: "broken", sql: "SELECT bad" }]),
+      families: [ga4],
+      boundIds: ["fam_g"],
+      queryRowCounts: { s1: { broken: null } },
+    });
+    expect(screen.getByText("broken — invalid")).toBeTruthy();
+  });
+
+  it("assert rules show their SQL read-only", () => {
+    const content: BlueprintContent = {
+      ...baseContent,
+      sections: [
+        {
+          key: "s1", number: 1, heading: "Overview", mode: "auto", instruction: "x", familyIds: [], queries: [],
+          rules: [{ kind: "assert", text: "cap", sql: "SELECT SUM(amount) FROM fam_spend WHERE _period = :period", op: "<=", value: 250000 }],
+        },
+      ],
+    };
+    renderBuilder({ content });
+    expect(screen.getByText(/SELECT SUM\(amount\).*<= 250,000|SELECT SUM\(amount\)/)).toBeTruthy();
+    // The SQL is read-only: no editable expression input bound to the assert rule.
+    expect(screen.queryByLabelText("rule 1 expression")).toBeNull();
   });
 });

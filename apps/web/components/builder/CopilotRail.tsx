@@ -42,6 +42,7 @@ function opTitle(op: EditOp, draft: BlueprintContent): string {
     case "remove_section": return `removed §"${op.removed.heading}"`;
     case "update_masthead": return `masthead · ${Object.keys(op.after).join(", ")}`;
     case "update_global_rules": return "global rules";
+    case "update_section_queries": return "data queries";
   }
 }
 
@@ -50,6 +51,9 @@ function diffText(op: EditOp): { before: string; after: string } | null {
     return { before: Object.values(op.before).map(String).join(" · "), after: Object.values(op.after).map(String).join(" · ") };
   }
   if (op.type === "update_global_rules") return { before: op.before.join("; "), after: op.after.join("; ") };
+  if (op.type === "update_section_queries") {
+    return { before: op.before.map((qy) => qy.name).join("; "), after: op.after.map((qy) => qy.name).join("; ") };
+  }
   return null;
 }
 

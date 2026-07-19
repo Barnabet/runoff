@@ -57,6 +57,8 @@ export interface BuilderProps {
   families: FamilySummary[];
   initialBoundIds: string[];
   initialSectionKey: string;
+  // sectionKey → query name → filed-period row count (null = query failed).
+  queryRowCounts?: Record<string, Record<string, number | null>>;
 }
 
 /**
@@ -77,6 +79,7 @@ export function Builder({
   families,
   initialBoundIds,
   initialSectionKey,
+  queryRowCounts = {},
 }: BuilderProps) {
   const [content, setContent] = useState<BlueprintContent>(initialContent);
   const [selectedKey, setSelectedKey] = useState(initialSectionKey);
@@ -120,6 +123,7 @@ export function Builder({
       mode: "auto",
       instruction: "",
       familyIds: [],
+      queries: [],
       rules: [],
     };
     updateContent({ ...content, sections: [...content.sections, section] });
@@ -271,6 +275,7 @@ export function Builder({
             onSelect={setSelectedKey}
             labelFor={labelFor}
             boundFamilies={boundFamilies}
+            queryRowCounts={queryRowCounts}
             touched={touched}
           />
           {dirty ? (

@@ -29,6 +29,11 @@ export function applyEditOp(content: BlueprintContent, op: EditOp): BlueprintCon
       return { ...content, ...op.after };
     case "update_global_rules":
       return { ...content, globalRules: op.after };
+    case "update_section_queries":
+      return {
+        ...content,
+        sections: content.sections.map((s) => (s.key === op.sectionKey ? { ...s, queries: op.after } : s)),
+      };
   }
 }
 
@@ -46,6 +51,8 @@ export function invertEditOp(op: EditOp): EditOp {
     case "update_masthead":
       return { ...op, before: op.after, after: op.before };
     case "update_global_rules":
+      return { ...op, before: op.after, after: op.before };
+    case "update_section_queries":
       return { ...op, before: op.after, after: op.before };
   }
 }

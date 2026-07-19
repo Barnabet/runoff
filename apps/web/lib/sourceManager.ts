@@ -205,5 +205,5 @@ export async function readContentSample(
   const pack = await buildSourcePack([
     { id: "sample", name: row.name, mime: row.mime, path: join(filesDir, row.storedFilename) },
   ]);
-  return packForPrompt(pack, ["sample"], 20).slice(0, 2000);
+  return packForPrompt(pack, ["sample"]).slice(0, 2000);
 }
