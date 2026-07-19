@@ -16,7 +16,7 @@ import { processOne } from "../src/runLoop.js";
 
 const CONTENT = JSON.stringify({
   title: "T", clientName: "C", eyebrow: "E", dateline: "D",
-  sections: [{ key: "exec", number: 1, heading: "Executive Summary", mode: "auto", instruction: "", fixedText: "", familyIds: [], rules: [] }],
+  sections: [{ key: "exec", number: 1, heading: "Executive Summary", mode: "auto", instruction: "", fixedText: "", familyIds: [], queries: [], rules: [] }],
   globalRules: [],
   delivery: { recipient: "", autoDeliverOnClear: false },
 });

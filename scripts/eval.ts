@@ -26,6 +26,7 @@ import {
   type EngineFile,
 } from "@runoff/engine";
 import { seedDatabase } from "./seed.js";
+import { buildRunData } from "../apps/worker/src/runData.js";
 
 const BLUEPRINT_NAME = "Quarterly Performance Report";
 const RUN_PERIOD = "2026-Q2";
@@ -241,8 +242,14 @@ async function main(): Promise<void> {
 
   const db = openDb(dbPath());
   try {
-    const { content, files, gaps, rev } = await loadBlueprint(db);
+    const { blueprintId, content, files, gaps, rev } = await loadBlueprint(db);
     console.log(`Running "${content.title}" for ${content.clientName} — ${files.length} sources, period ${RUN_PERIOD}, rev ${rev}.`);
+
+    const projectId = (db.sqlite
+      .prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?")
+      .get(blueprintId) as { projectId: string }).projectId;
+    const boundFamilyIds = [...new Set(content.sections.flatMap((s) => s.familyIds))];
+    const data = buildRunData(db, projectId, boundFamilyIds, RUN_PERIOD);
 
     // Wrap the console IO to capture the run_started event so we can assert on
     // its serialized payload (period present, gaps absent).
@@ -260,6 +267,7 @@ async function main(): Promise<void> {
       client,
       content,
       files,
+      data,
       io,
       blueprintRev: rev,
       period: RUN_PERIOD,

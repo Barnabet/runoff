@@ -15,6 +15,7 @@ import {
   type RunInputMsg,
 } from "@runoff/engine";
 import { resolveRunSources } from "./resolveSources.js";
+import { buildRunData } from "./runData.js";
 
 /** Atomically claim the oldest queued run (single statement; RETURNING gives us its identity). */
 const CLAIM_SQL = `
@@ -137,6 +138,12 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
 
     const { files, gaps } = resolveRunSources(db, claimed.blueprintId, claimed.period);
 
+    const projectId = (db.sqlite
+      .prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?")
+      .get(claimed.blueprintId) as { projectId: string }).projectId;
+    const boundFamilyIds = [...new Set(content.sections.flatMap((s) => s.familyIds))];
+    const data = buildRunData(db, projectId, boundFamilyIds, claimed.period);
+
     const runRow = db.sqlite
       .prepare("SELECT created_at AS createdAt FROM runs WHERE id = ?")
       .get(claimed.id) as { createdAt: string };
@@ -157,6 +164,7 @@ export async function processOne(db: RunoffDb, client: OpenAI): Promise<boolean>
       client,
       content,
       files,
+      data,
       io,
       blueprintRev: claimed.blueprintRev,
       previousDocument: previous?.document,
