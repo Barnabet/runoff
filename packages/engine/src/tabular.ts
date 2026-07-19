@@ -173,8 +173,22 @@ function streamCsv(path: string, onHeader: (h: string[]) => void, onRow: (row: u
 
 // --- XLSX ------------------------------------------------------------------
 
+/** Whole-file CSV grid with NO dynamic typing — plan-path callers own typing. */
+export function csvGrid(path: string): Promise<unknown[][]> {
+  return new Promise((resolvePromise, reject) => {
+    const grid: unknown[][] = [];
+    Papa.parse(createReadStream(path), {
+      dynamicTyping: false,
+      skipEmptyLines: true,
+      step: (result) => { grid.push(result.data as unknown[]); },
+      complete: () => resolvePromise(grid),
+      error: (err) => reject(err),
+    });
+  });
+}
+
 /** Load every sheet's value grid via the streaming reader (bounded by content size). */
-async function xlsxGrids(path: string): Promise<{ slug: string; grid: unknown[][] }[]> {
+export async function xlsxGrids(path: string): Promise<{ slug: string; grid: unknown[][] }[]> {
   const out: { slug: string; grid: unknown[][] }[] = [];
   const usedSlugs = new Set<string>();
   const reader = new ExcelJS.stream.xlsx.WorkbookReader(path, { entries: "emit", worksheets: "emit" });
