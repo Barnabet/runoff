@@ -1,199 +1,136 @@
 import { describe, it, expect } from "vitest";
-import { evaluateAssert, auditCitations, countCitations, computeLocator } from "../src/checks.js";
-import type { SourcePack } from "../src/sourcePack.js";
-import type { Block } from "@runoff/core";
+import type { Rule, Block } from "@runoff/core";
+import { compileLocator, evaluateAssert, auditCitations } from "../src/checks.js";
+import type { RunData } from "../src/runData.js";
+import { parseSectionText } from "../src/dialect.js";
 
-const pack: SourcePack = { sources: [{
-  id: "src_spend", label: "spend_june.csv", kind: "table", summary: "",
-  tables: [{ name: "spend_june", columns: ["channel", "amount"], rows: [
-    { channel: "search", amount: 120050 }, { channel: "social", amount: 120050 },
-  ]}],
-}]};
+const CATALOG = [
+  {
+    id: "famA", key: "ar", label: "AR", kind: "periodic" as const, granularity: "quarter" as const,
+    queryable: true, filedPeriods: ["2026-Q1"],
+    tables: [{ name: "fam_ar", columns: [{ name: "amount", type: "REAL" as const }, { name: "status", type: "TEXT" as const }], rowCounts: { "2026-Q1": 3 } }],
+  },
+  {
+    id: "famC", key: "ref", label: "Ref", kind: "constant" as const, granularity: null,
+    queryable: true, filedPeriods: [],
+    tables: [{ name: "fam_ref", columns: [{ name: "share", type: "REAL" as const }], rowCounts: { "": 2 } }],
+  },
+];
 
-describe("evaluateAssert", () => {
-  it("passes a true comparison with tolerance", () => {
-    expect(evaluateAssert("sum(src_spend.amount) <= 250000", pack).pass).toBe(true);
-    expect(evaluateAssert("sum(src_spend.amount) == 240000 within 1%", pack).pass).toBe(true);
-    expect(evaluateAssert("count(src_spend.channel) == 3", pack).pass).toBe(false);
+function dataReturning(value: unknown, capture?: string[]): RunData {
+  return { catalog: CATALOG, exec: (sql) => { capture?.push(sql); return { columns: ["v"], rows: [[value]] }; } };
+}
+
+describe("compileLocator", () => {
+  it("compiles a periodic sum with a string filter", () => {
+    const { sql, family } = compileLocator("sum(fam_ar.amount where status=paid)", CATALOG);
+    expect(family.id).toBe("famA");
+    expect(sql).toBe(`SELECT COALESCE(SUM("amount"), 0) FROM "fam_ar" WHERE _period = :period AND lower(CAST("status" AS TEXT)) = lower('paid')`);
   });
-  it("reports unparseable expressions as failures", () => {
-    const r = evaluateAssert("spend looks reasonable", pack);
-    expect(r.pass).toBe(false);
-    expect(r.detail).toContain("unparseable");
+
+  it("numeric filter values get the numeric OR-branch", () => {
+    const { sql } = compileLocator("count(fam_ar.amount where status=42)", CATALOG);
+    expect(sql).toBe(`SELECT COUNT("amount") FROM "fam_ar" WHERE _period = :period AND ("status" = 42 OR lower(CAST("status" AS TEXT)) = lower('42'))`);
   });
 
-  it("filters rows with a where clause, matching values case-insensitively", () => {
-    expect(evaluateAssert("sum(src_spend.amount where channel=search) == 120050", pack).pass).toBe(true);
-    expect(evaluateAssert("sum(src_spend.amount where channel=SEARCH) == 120050", pack).pass).toBe(true);
-    // No matching rows aggregates over nothing.
-    expect(evaluateAssert("sum(src_spend.amount where channel=video) == 0", pack).pass).toBe(true);
+  it("constant tables get no _period clause; count has no COALESCE", () => {
+    const { sql } = compileLocator("count(fam_ref.share)", CATALOG);
+    expect(sql).toBe(`SELECT COUNT("share") FROM "fam_ref"`);
+  });
+
+  it("escapes single quotes in filter values", () => {
+    const { sql } = compileLocator("sum(fam_ar.amount where status=o'brien)", CATALOG);
+    expect(sql).toContain(`lower('o''brien')`);
+  });
+
+  it("throws on a table not in the catalog", () => {
+    expect(() => compileLocator("sum(fam_nope.amount)", CATALOG)).toThrow();
   });
 });
 
-describe("auditCitations", () => {
-  const cited: Block[] = [{ type: "paragraph", spans: [
-    { text: "Total spend was " },
-    { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount)" } },
-  ]}];
-  it("passes cited + recomputable figures", () => {
-    expect(auditCitations(cited, pack, ["src_spend"]).pass).toBe(true);
-    expect(countCitations(cited)).toBe(1);
-  });
-  it("fails uncited figures and mismatched recomputation", () => {
-    const uncited: Block[] = [{ type: "paragraph", spans: [{ text: "Spend was $999,999." }] }];
-    expect(auditCitations(uncited, pack, ["src_spend"]).pass).toBe(false);
-    const wrong: Block[] = [{ type: "paragraph", spans: [
-      { text: "$999,999", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount)" } },
-    ]}];
-    const r = auditCitations(wrong, pack, ["src_spend"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toContain("mismatch");
+describe("evaluateAssert (SQL)", () => {
+  const rule = (over: Partial<Rule>): Rule => ({ kind: "assert", text: "t", sql: "SELECT SUM(amount) FROM fam_ar WHERE _period = :period", op: ">", value: 0, ...over });
+
+  it("passes and formats the detail from the SQL", () => {
+    const out = evaluateAssert(rule({}), dataReturning(1204));
+    expect(out.pass).toBe(true);
+    expect(out.detail).toBe("SELECT SUM(amount) FROM fam_ar WHERE _period = :period = 1,204 (expected > 0) — pass");
   });
 
-  // Task 9 embeds these failure strings verbatim in retry feedback — pin their prefixes.
-  it("pins the uncited-figure failure prefix", () => {
-    const uncited: Block[] = [{ type: "paragraph", spans: [{ text: "Spend was $999,999." }] }];
-    const r = auditCitations(uncited, pack, ["src_spend"]);
+  it("fails with withinPct tolerance semantics", () => {
+    const out = evaluateAssert(rule({ op: "==", value: 1000, withinPct: 5 }), dataReturning(1100));
+    expect(out.pass).toBe(false);
+    expect(out.detail).toContain("within 5%");
+  });
+
+  it("missing sql/op/value fails byte-exact", () => {
+    expect(evaluateAssert({ kind: "assert", text: "t" }, dataReturning(1)).detail).toBe("assert rule is missing sql/op/value");
+  });
+
+  it("non-scalar results fail byte-exact", () => {
+    const data: RunData = { catalog: CATALOG, exec: () => ({ columns: ["a", "b"], rows: [[1, 2]] }) };
+    expect(evaluateAssert(rule({}), data).detail).toBe("check query must return one numeric value");
+    const empty: RunData = { catalog: CATALOG, exec: () => ({ columns: ["a"], rows: [] }) };
+    expect(evaluateAssert(rule({}), empty).detail).toBe("check query must return one numeric value");
+  });
+
+  it("SQL errors surface as the detail", () => {
+    const data: RunData = { catalog: CATALOG, exec: () => { throw new Error("query references :period but no period was provided"); } };
+    expect(evaluateAssert(rule({}), data).detail).toBe("query references :period but no period was provided");
+  });
+});
+
+describe("auditCitations (warehouse)", () => {
+  const blocksWith = (locator: string, fig = "1,204", sourceId = "famA") =>
+    parseSectionText(`Total was [[${fig}|${sourceId}|${locator}]] this quarter.`);
+
+  it("verifies a matching aggregate citation", () => {
+    const calls: string[] = [];
+    const audit = auditCitations(blocksWith("sum(fam_ar.amount)"), dataReturning(1204, calls), ["famA"]);
+    expect(audit.pass).toBe(true);
+    expect(calls[0]).toBe(`SELECT COALESCE(SUM("amount"), 0) FROM "fam_ar" WHERE _period = :period`);
+  });
+
+  it("flags a mismatch beyond 0.5%", () => {
+    const audit = auditCitations(blocksWith("sum(fam_ar.amount)"), dataReturning(2000), ["famA"]);
+    expect(audit.failures).toEqual(["citation mismatch: 1,204 vs computed 2000"]);
+  });
+
+  it("flags locator source mismatch when the table belongs to another family", () => {
+    const audit = auditCitations(blocksWith("sum(fam_ref.share)", "0.62", "famA"), dataReturning(0.62), ["famA", "famC"]);
+    expect(audit.failures).toEqual(["locator source mismatch: cites famA but locator references fam_ref"]);
+  });
+
+  it("flags unknown tables and exec failures as unverifiable", () => {
+    const bad = auditCitations(blocksWith("sum(fam_nope.amount)"), dataReturning(1), ["famA"]);
+    expect(bad.failures).toEqual(["unverifiable locator: sum(fam_nope.amount)"]);
+    const throwing: RunData = { catalog: CATALOG, exec: () => { throw new Error("no data ingested yet"); } };
+    const audit = auditCitations(blocksWith("sum(fam_ar.amount)"), throwing, ["famA"]);
+    expect(audit.failures).toEqual(["unverifiable locator: sum(fam_ar.amount)"]);
+  });
+
+  it("leaves quote-reference locators alone and keeps unbound/uncited failures", () => {
+    const blocks = parseSectionText(`The guide says [["plain voice"|famDoc|brand guide p.2]] and 500 units.`);
+    const audit = auditCitations(blocks, dataReturning(1), ["famDoc"]);
+    expect(audit.failures).toEqual(["uncited figure: 500"]);
+  });
+
+  it("fails a cited span whose text carries no figure, with a pinned prefix", () => {
+    // A live retry produced [[figure|src|max]] — placeholder text rendered to the reader.
+    const blocks: Block[] = [{ type: "paragraph", spans: [
+      { text: "figure", citation: { sourceId: "famA", locator: "max" } },
+    ]}];
+    const r = auditCitations(blocks, dataReturning(0), ["famA"]);
     expect(r.pass).toBe(false);
-    expect(r.failures[0]).toMatch(/^uncited figure: /);
+    expect(r.failures[0]).toMatch(/^cited span has no figure: /);
   });
 
   it("pins the unbound-source failure prefix", () => {
     const unbound: Block[] = [{ type: "paragraph", spans: [
       { text: "$240,100", citation: { sourceId: "src_other", locator: "x" } },
     ]}];
-    const r = auditCitations(unbound, pack, ["src_spend"]);
+    const r = auditCitations(unbound, dataReturning(0), ["famA"]);
     expect(r.pass).toBe(false);
     expect(r.failures[0]).toMatch(/^figure cites unbound source src_other: /);
-  });
-
-  it("recomputes row-filtered locators", () => {
-    // Per-channel figures cite filtered sums — a live run's model asked permission
-    // to use this form because the grammar could not express it.
-    const good: Block[] = [{ type: "paragraph", spans: [
-      { text: "120,050", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where channel=search)" } },
-    ]}];
-    expect(auditCitations(good, pack, ["src_spend"]).pass).toBe(true);
-
-    const bad: Block[] = [{ type: "paragraph", spans: [
-      { text: "240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where channel=search)" } },
-    ]}];
-    const r = auditCitations(bad, pack, ["src_spend"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toMatch(/^citation mismatch: /);
-  });
-
-  it("does not read digits embedded in identifiers like GA4 as figures", () => {
-    // "GA4 recorded…" flagged "uncited figure: 4" in a live run — the 4 belongs to the word.
-    const blocks: Block[] = [{ type: "paragraph", spans: [
-      { text: "GA4 recorded strong Q2 growth across channels." },
-    ]}];
-    expect(auditCitations(blocks, pack, ["src_spend"]).pass).toBe(true);
-  });
-
-  it("fails a cited span whose text carries no figure, with a pinned prefix", () => {
-    // A live retry produced [[figure|src|max]] — placeholder text rendered to the reader.
-    const blocks: Block[] = [{ type: "paragraph", spans: [
-      { text: "figure", citation: { sourceId: "src_spend", locator: "max" } },
-    ]}];
-    const r = auditCitations(blocks, pack, ["src_spend"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toMatch(/^cited span has no figure: /);
-  });
-
-  it("audits citations inside table cells but not header columns", () => {
-    // A digit in a header column ("Q2 Value") must NOT be flagged; a cell figure must be.
-    const cited: Block[] = [{ type: "table", columns: ["Metric", "Q2 Value"], rows: [
-      { cells: [
-        [{ text: "Total" }],
-        [{ text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount)" } }],
-      ] },
-    ]}];
-    expect(auditCitations(cited, pack, ["src_spend"]).pass).toBe(true);
-    expect(countCitations(cited)).toBe(1);
-
-    const uncited: Block[] = [{ type: "table", columns: ["Metric", "Value"], rows: [
-      { cells: [ [{ text: "Total" }], [{ text: "$240,100" }] ] },
-    ]}];
-    const r = auditCitations(uncited, pack, ["src_spend"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toMatch(/^uncited figure: /);
-  });
-
-  it("fails when the locator references a different source than the citation, with a pinned prefix", () => {
-    const blocks: Block[] = [{ type: "paragraph", spans: [
-      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_other.amount)" } },
-    ]}];
-    const r = auditCitations(blocks, pack, ["src_spend"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toBe("locator source mismatch: cites src_spend but locator references src_other");
-  });
-
-  it("fails aggregate locators it cannot recompute, with a pinned prefix", () => {
-    const unknownColumn: Block[] = [{ type: "paragraph", spans: [
-      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.missing)" } },
-    ]}];
-    const r1 = auditCitations(unknownColumn, pack, ["src_spend"]);
-    expect(r1.pass).toBe(false);
-    expect(r1.failures[0]).toBe("unverifiable locator: sum(src_spend.missing)");
-
-    const unknownFilterColumn: Block[] = [{ type: "paragraph", spans: [
-      { text: "$240,100", citation: { sourceId: "src_spend", locator: "sum(src_spend.amount where nope=search)" } },
-    ]}];
-    const r2 = auditCitations(unknownFilterColumn, pack, ["src_spend"]);
-    expect(r2.pass).toBe(false);
-    expect(r2.failures[0]).toBe("unverifiable locator: sum(src_spend.amount where nope=search)");
-  });
-
-  it("fails an aggregate locator whose bound source has no table, with a pinned prefix", () => {
-    // A doc/PDF source can be bound to the section but carries no table, so an
-    // aggregate locator over it can never be recomputed — verifiability fails.
-    const docPack: SourcePack = { sources: [{
-      id: "src_doc", label: "invoices.pdf", kind: "pdf", summary: "invoices.pdf — PDF",
-      text: "Q2 invoices totalling assorted amounts.",
-    }]};
-    const blocks: Block[] = [{ type: "paragraph", spans: [
-      { text: "$240,100", citation: { sourceId: "src_doc", locator: "sum(src_doc.amount)" } },
-    ]}];
-    const r = auditCitations(blocks, docPack, ["src_doc"]);
-    expect(r.pass).toBe(false);
-    expect(r.failures[0]).toBe("unverifiable locator: sum(src_doc.amount)");
-  });
-
-  it("still exempts quote-style locators from recomputation", () => {
-    const blocks: Block[] = [{ type: "paragraph", spans: [
-      { text: "$240,100", citation: { sourceId: "src_spend", locator: "invoice footnote 3" } },
-    ]}];
-    expect(auditCitations(blocks, pack, ["src_spend"]).pass).toBe(true);
-  });
-});
-
-describe("computeLocator", () => {
-  it("evaluates plain and filtered aggregates and throws on junk", () => {
-    expect(computeLocator("sum(src_spend.amount)", pack)).toBe(240100);
-    expect(computeLocator("sum(src_spend.amount where channel=search)", pack)).toBe(120050);
-    expect(() => computeLocator("banana", pack)).toThrow(/unparseable expression/);
-    expect(() => computeLocator("sum(src_missing.amount)", pack)).toThrow(/unknown source/);
-  });
-});
-
-describe("aggregation type guard", () => {
-  // CSV/XLSX parsing can leak null/boolean into numeric columns — they must not corrupt sums.
-  const leaky: SourcePack = { sources: [{
-    id: "src_spend", label: "spend.csv", kind: "table", summary: "",
-    tables: [{ name: "spend", columns: ["channel", "amount"], rows: [
-      { channel: "search", amount: 120050 },
-      { channel: "social", amount: 120050 },
-      { channel: null as unknown as string, amount: null as unknown as number },
-      { channel: "promo", amount: true as unknown as number },
-    ]}],
-  }]};
-
-  it("ignores null/boolean cells in sum and avg", () => {
-    expect(evaluateAssert("sum(src_spend.amount) == 240100", leaky).pass).toBe(true);
-    expect(evaluateAssert("avg(src_spend.amount) == 120050", leaky).pass).toBe(true);
-    expect(evaluateAssert("max(src_spend.amount) == 120050", leaky).pass).toBe(true);
-    // count counts non-empty cells: 3 non-null channels ("search", "social", "promo").
-    expect(evaluateAssert("count(src_spend.channel) == 3", leaky).pass).toBe(true);
   });
 });

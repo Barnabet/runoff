@@ -1,5 +1,6 @@
-import { parseFigure, type Block, type Span } from "@runoff/core";
-import type { SourcePack } from "./sourcePack.js";
+import { parseFigure, type Block, type Span, type Rule, type SqlResult } from "@runoff/core";
+import type { CatalogFamily } from "./catalogFormat.js";
+import type { RunData } from "./runData.js";
 
 export interface CheckOutcome {
   pass: boolean;
@@ -8,67 +9,48 @@ export interface CheckOutcome {
 
 type Agg = "sum" | "avg" | "min" | "max" | "count";
 
-// Full assert grammar: <agg>(<sourceId>.<column> [where <col>=<value>]) <op> <number> ["within" <pct> "%"]
-const EXPR =
-  /^(sum|avg|min|max|count)\((\w+)\.(\w+)(?:\s+where\s+(\w+)\s*=\s*([^)]+?))?\)\s*(==|<=|>=|<|>)\s*([\d.]+)(?:\s+within\s+([\d.]+)%)?$/;
-
-// Left side of the grammar on its own — how citation locators reference a source
+// Left side of the locator grammar: how citation locators reference a source
 // column, optionally row-filtered: sum(src.amount where channel=search).
 const AGG_REF = /^(sum|avg|min|max|count)\((\w+)\.(\w+)(?:\s+where\s+(\w+)\s*=\s*([^)]+?))?\)$/;
-
-type Filter = { column: string; value: string };
 
 // A digit-bearing numeric figure: optional $, digits/commas, optional decimal, optional %.
 // The lookbehind keeps digits embedded in identifiers ("GA4", "Q2") from reading as figures.
 const FIGURE = /(?<!\w)\$?\d[\d,]*(?:\.\d+)?%?/;
 
-/** Aggregate a source column, optionally over rows matching a filter. Throws if the source or column is missing. */
-function computeAgg(agg: Agg, sourceId: string, column: string, pack: SourcePack, filter?: Filter): number {
-  const source = pack.sources.find((s) => s.id === sourceId);
-  if (!source || !source.tables) throw new Error(`unknown source ${sourceId}`);
-  const table = source.tables.find(
-    (t) => t.columns.includes(column) && (!filter || t.columns.includes(filter.column)),
-  );
-  if (!table) throw new Error(`unknown column ${sourceId}.${column}`);
+const AGG_SQL: Record<Agg, string> = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX", count: "COUNT" };
 
-  const rows = filter
-    ? table.rows.filter(
-        (r) => String(r[filter.column]).trim().toLowerCase() === filter.value.trim().toLowerCase(),
-      )
-    : table.rows;
-  const cells = rows.map((r) => r[column]);
-  // CSV/XLSX parsing can leak null/boolean; only real numbers feed numeric aggregates.
-  const nums = cells.filter((v): v is number => typeof v === "number" && Number.isFinite(v));
+function q(ident: string): string {
+  return `"${ident.replace(/"/g, '""')}"`;
+}
 
-  switch (agg) {
-    case "sum":
-      return nums.reduce((a, b) => a + b, 0);
-    case "avg":
-      return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : 0;
-    case "min":
-      return nums.length ? Math.min(...nums) : 0;
-    case "max":
-      return nums.length ? Math.max(...nums) : 0;
-    case "count":
-      return cells.filter((v) => v !== "" && v !== null && v !== undefined).length;
-  }
+/** Old pack semantics: case-insensitive string compare, plus numeric equality when the value is a number. */
+function filterClause(col: string, rawValue: string): string {
+  const v = rawValue.trim();
+  const esc = v.replace(/'/g, "''");
+  const textEq = `lower(CAST(${q(col)} AS TEXT)) = lower('${esc}')`;
+  const n = Number(v);
+  return v !== "" && Number.isFinite(n) ? `(${q(col)} = ${n} OR ${textEq})` : textEq;
 }
 
 /**
- * Evaluate one aggregate locator expression — `agg(src.col)` or
- * `agg(src.col where col=value)` — against the pack. Throws with the audit's
- * vocabulary on unknown source/column so callers can surface the message.
+ * Compile an aggregate locator to warehouse SQL. Non-count aggregates COALESCE
+ * to 0 so an empty match set computes 0 (the old pack semantics), not NULL.
+ * Throws when the expression is not locator grammar or the table is unknown.
  */
-export function computeLocator(expression: string, pack: SourcePack): number {
+export function compileLocator(
+  expression: string,
+  catalog: CatalogFamily[],
+): { sql: string; family: CatalogFamily } {
   const ref = AGG_REF.exec(expression.trim());
   if (!ref) throw new Error(`unparseable expression: ${expression}`);
-  return computeAgg(
-    ref[1] as Agg,
-    ref[2],
-    ref[3],
-    pack,
-    ref[4] ? { column: ref[4], value: ref[5] } : undefined,
-  );
+  const [, agg, table, column, filterCol, filterVal] = ref;
+  const family = catalog.find((f) => f.tables.some((t) => t.name === table));
+  if (!family) throw new Error(`unknown table ${table}`);
+  const select = agg === "count" ? `COUNT(${q(column)})` : `COALESCE(${AGG_SQL[agg as Agg]}(${q(column)}), 0)`;
+  const where: string[] = [];
+  if (family.kind === "periodic") where.push("_period = :period");
+  if (filterCol) where.push(filterClause(filterCol, filterVal));
+  return { sql: `SELECT ${select} FROM ${q(table)}${where.length ? ` WHERE ${where.join(" AND ")}` : ""}`, family };
 }
 
 function fmt(n: number): string {
@@ -96,29 +78,28 @@ function compare(actual: number, op: string, target: number, pct?: number): bool
   }
 }
 
-export function evaluateAssert(expression: string, pack: SourcePack): CheckOutcome {
-  const m = expression.trim().match(EXPR);
-  if (!m) return { pass: false, detail: `unparseable expression: ${expression}` };
+/** Single numeric cell of a result, or undefined. */
+function scalarOf(res: SqlResult): number | undefined {
+  const v = res.rows.length === 1 && res.rows[0].length === 1 ? res.rows[0][0] : undefined;
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
+}
 
-  const [, agg, sourceId, column, filterCol, filterVal, op, targetStr, pctStr] = m;
-  const target = parseFloat(targetStr);
-  const pct = pctStr !== undefined ? parseFloat(pctStr) : undefined;
-  const filter = filterCol ? { column: filterCol, value: filterVal } : undefined;
-
-  let actual: number;
-  try {
-    actual = computeAgg(agg as Agg, sourceId, column, pack, filter);
-  } catch (e) {
-    return { pass: false, detail: (e as Error).message };
+export function evaluateAssert(rule: Rule, data: RunData): CheckOutcome {
+  if (!rule.sql || !rule.op || rule.value === undefined) {
+    return { pass: false, detail: "assert rule is missing sql/op/value" };
   }
-
-  const pass = compare(actual, op, target, pct);
-  const expected = `${op} ${fmt(target)}${pct !== undefined ? ` within ${pctStr}%` : ""}`;
-  const where = filter ? ` where ${filter.column}=${filter.value.trim()}` : "";
-  return {
-    pass,
-    detail: `${agg}(${sourceId}.${column}${where}) = ${fmt(actual)} (expected ${expected}) — ${pass ? "pass" : "fail"}`,
-  };
+  let res: SqlResult;
+  try {
+    res = data.exec(rule.sql);
+  } catch (e) {
+    return { pass: false, detail: e instanceof Error ? e.message : String(e) };
+  }
+  const actual = scalarOf(res);
+  if (actual === undefined) return { pass: false, detail: "check query must return one numeric value" };
+  const pass = compare(actual, rule.op, rule.value, rule.withinPct);
+  const sqlLine = rule.sql.replace(/\s*\n\s*/g, " ").trim();
+  const expected = `${rule.op} ${fmt(rule.value)}${rule.withinPct !== undefined ? ` within ${rule.withinPct}%` : ""}`;
+  return { pass, detail: `${sqlLine} = ${fmt(actual)} (expected ${expected}) — ${pass ? "pass" : "fail"}` };
 }
 
 /** Yield every auditable span: paragraph spans and table cell spans (header columns skipped). */
@@ -145,7 +126,7 @@ function figureIn(text: string): string | null {
 
 export function auditCitations(
   blocks: Block[],
-  pack: SourcePack,
+  data: RunData,
   boundSourceIds: string[],
 ): { pass: boolean; failures: string[] } {
   const failures: string[] = [];
@@ -154,8 +135,9 @@ export function auditCitations(
     const fig = figureIn(span.text);
     if (!fig) {
       // The dialect cites figures; a cited span with no digits renders placeholder
-      // text to the reader verbatim (e.g. the literal word "figure").
-      if (span.citation && !/\d/.test(span.text)) {
+      // text to the reader verbatim (e.g. the literal word "figure"). A quote-style
+      // citation legitimately cites a verbatim quote, so it is exempt.
+      if (span.citation && !/\d/.test(span.text) && !/^".*"$/s.test(span.text.trim())) {
         failures.push(`cited span has no figure: "${span.text}"`);
       }
       continue;
@@ -171,9 +153,19 @@ export function auditCitations(
     }
 
     // When the locator itself is an aggregate reference, recompute and cross-check.
-    const ref = span.citation.locator.trim().match(AGG_REF);
+    const locator = span.citation.locator.trim();
+    const ref = locator.match(AGG_REF);
     if (ref) {
-      if (ref[2] !== span.citation.sourceId) {
+      let compiled: { sql: string; family: CatalogFamily };
+      try {
+        compiled = compileLocator(locator, data.catalog);
+      } catch {
+        // Aggregate-shaped but pointing at nothing we can compile — the whole
+        // point of an aggregate locator is verifiability, so this is a failure.
+        failures.push(`unverifiable locator: ${locator}`);
+        continue;
+      }
+      if (compiled.family.id !== span.citation.sourceId) {
         failures.push(
           `locator source mismatch: cites ${span.citation.sourceId} but locator references ${ref[2]}`,
         );
@@ -181,12 +173,11 @@ export function auditCitations(
       }
       let computed: number;
       try {
-        const filter = ref[4] ? { column: ref[4], value: ref[5] } : undefined;
-        computed = computeAgg(ref[1] as Agg, ref[2], ref[3], pack, filter);
+        const v = scalarOf(data.exec(compiled.sql));
+        if (v === undefined) throw new Error("non-numeric");
+        computed = v;
       } catch {
-        // Aggregate-shaped but pointing at nothing we can recompute — the whole
-        // point of an aggregate locator is verifiability, so this is a failure.
-        failures.push(`unverifiable locator: ${span.citation.locator.trim()}`);
+        failures.push(`unverifiable locator: ${locator}`);
         continue;
       }
       const actual = parseFigure(fig);
