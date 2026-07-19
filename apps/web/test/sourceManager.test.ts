@@ -204,6 +204,22 @@ describe("fileSource — warehouse ingestion", () => {
     spy.mockRestore();
   });
 
+  it("listProjectSources reports warehouse tables with total row counts; document families get []", async () => {
+    db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_brand', ?, 'brand', 'Brand', 'constant', NULL)").run(projectId);
+    writeFileSync(join(filesDir, "q1.csv"), "campaign,spend\nbrand,100\nsearch,200\n");
+    writeFileSync(join(filesDir, "doc.pdf"), "just prose, no table");
+    addSource("q1", "q1.csv", "q1.csv");
+    addSource("doc", "doc.pdf", "doc.pdf", "application/pdf");
+    await fileSource(db, { projectId, sourceId: "q1", newFamily: { key: "spend", label: "Spend", kind: "periodic", granularity: "quarter" }, period: "2026-Q1" });
+    await fileSource(db, { projectId, sourceId: "doc", familyId: "fam_brand", period: null });
+
+    const { families } = listProjectSources(db, projectId);
+    const spend = families.find((f) => f.key === "spend")!;
+    expect(spend.tables).toEqual([{ name: "fam_spend", rowCount: 2 }]);
+    const brand = families.find((f) => f.key === "brand")!;
+    expect(brand.tables).toEqual([]);
+  });
+
   it("non-tabular files (pdf/txt) file without touching the warehouse", async () => {
     db.sqlite.prepare("INSERT INTO source_families (id, project_id, key, label, kind, granularity) VALUES ('fam_brand', ?, 'brand', 'Brand', 'constant', NULL)").run(projectId);
     writeFileSync(join(filesDir, "doc.pdf"), "just prose, no table");

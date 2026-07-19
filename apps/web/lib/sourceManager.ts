@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import {
   attachWarehouse, detachWarehouse, whFamilyTables, applySchema, deleteRows, insertRows,
-  newId, PERIOD_REGEX, type Granularity, type ProjectSourceRow, type RunoffDb, type WhTableSchema,
+  readWarehouseTables, newId, PERIOD_REGEX, type Granularity, type ProjectSourceRow, type RunoffDb, type WhTableSchema,
 } from "@runoff/core";
 import { buildSourcePack, packForPrompt, isTabular, scanTabular, readTabular, type TabularScan } from "@runoff/engine";
 
@@ -34,6 +34,8 @@ export interface FamilySummary {
   /** Filed periodic entries (ascending by period); `[]` for constant families. */
   filedEntries: { period: string; sourceId: string; name: string }[];
   liveFile: { sourceId: string; name: string } | null;
+  /** Warehouse tables with total rows across periods; `[]` for document families. */
+  tables: { name: string; rowCount: number }[];
 }
 
 /**
@@ -64,6 +66,10 @@ export function listProjectSources(
       filedPeriods: filedEntries.map((r) => r.period),
       filedEntries,
       liveFile: live ? { sourceId: live.id, name: live.name } : null,
+      tables: readWarehouseTables(projectId, f.key).map((t) => ({
+        name: t.name,
+        rowCount: Object.values(t.rowCounts).reduce((a, n) => a + n, 0),
+      })),
     };
   });
 
