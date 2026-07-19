@@ -155,6 +155,31 @@ describe("scanTabular + readTabular", () => {
       (t) => { seen.push(t.slug); return () => {}; });
     expect(seen).toEqual(["report_data", "report_data_2"]);
   });
+  it("dedupes table slugs across sheets: 'Data' (two islands) vs sibling 'Data (2)'", async () => {
+    // Reviewer scenario: sheet "Data" yields data + data_2 (two islands); a
+    // sibling sheet "Data (2)" slugs to data_2 at the sheet level, whose single
+    // island must not collide with the earlier island's data_2.
+    const path = await writeXlsx("dup.xlsx", (ws, wb) => {
+      ws.name = "Data";
+      ws.addRow(["campaign", "spend"]);
+      ws.addRow(["brand", 100]);
+      ws.addRow([]);
+      ws.addRow(["region", "revenue"]);
+      ws.addRow(["emea", 900]);
+      const ws2 = wb.addWorksheet("Data (2)");
+      ws2.addRow(["metric", "value"]);
+      ws2.addRow(["clicks", 5]);
+    });
+    const mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const scan = await scanTabular(path, mime, "dup.xlsx");
+    const slugs = scan.tables.map((t) => t.slug);
+    expect(slugs).toEqual(["data", "data_2", "data_2_2"]);
+    expect(new Set(slugs).size).toBe(slugs.length); // all distinct
+    // readTabular shares the scan pass, so it emits the identical slug set.
+    const seen: string[] = [];
+    await readTabular(path, mime, "dup.xlsx", (t) => { seen.push(t.slug); return () => {}; });
+    expect(seen).toEqual(slugs);
+  });
   it("isTabular accepts csv/xlsx, rejects pdf/txt", () => {
     expect(isTabular("text/csv", "a.csv")).toBe(true);
     expect(isTabular("application/octet-stream", "a.xlsx")).toBe(true);

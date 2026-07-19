@@ -76,10 +76,16 @@ function headerNames(raw: unknown[]): string[] {
   return names;
 }
 
-/** Deterministic island detection: blank-row bands × blank-column runs. */
+/**
+ * Deterministic island detection: blank-row bands × blank-column runs.
+ * `usedSlugs` accumulates every slug already emitted so callers can enforce
+ * uniqueness across a whole file (all sheets + islands), not just within one
+ * sheet — pass a shared set to dedupe across sheets via the `_2`/`_3` convention.
+ */
 export function detectIslands(
   grid: unknown[][],
   sheetSlug: string,
+  usedSlugs: Set<string> = new Set(),
 ): { tables: { slug: string; header: string[]; rows: unknown[][] }[]; skipped: string[] } {
   const tables: { slug: string; header: string[]; rows: unknown[][] }[] = [];
   const skipped: string[] = [];
@@ -124,7 +130,11 @@ export function detectIslands(
         const row = cells(r);
         if (row.some((v) => !isEmpty(v))) rows.push(row);
       }
-      tables.push({ slug: tables.length === 0 ? sheetSlug : `${sheetSlug}_${tables.length + 1}`, header, rows });
+      const base = tables.length === 0 ? sheetSlug : `${sheetSlug}_${tables.length + 1}`;
+      let slug = base;
+      for (let n = 2; usedSlugs.has(slug); n++) slug = `${base}_${n}`;
+      usedSlugs.add(slug);
+      tables.push({ slug, header, rows });
     }
   }
   return { tables, skipped };
@@ -189,8 +199,12 @@ async function xlsxGrids(path: string): Promise<{ slug: string; grid: unknown[][
 function detectXlsx(grids: { slug: string; grid: unknown[][] }[]): { tables: { slug: string; header: string[]; rows: unknown[][] }[]; skipped: string[] } {
   const tables: { slug: string; header: string[]; rows: unknown[][] }[] = [];
   const skipped: string[] = [];
+  // One shared set across every sheet so island slugs are unique per file: a
+  // sheet-level slug can still collide with an earlier sheet's suffixed island
+  // (e.g. "Data" → data,data_2 vs. "Data (2)" → data_2), so dedupe the union.
+  const usedSlugs = new Set<string>();
   for (const { slug, grid } of grids) {
-    const d = detectIslands(grid, slug);
+    const d = detectIslands(grid, slug, usedSlugs);
     tables.push(...d.tables);
     skipped.push(...d.skipped);
   }
