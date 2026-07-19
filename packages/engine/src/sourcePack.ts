@@ -244,7 +244,7 @@ function csvCell(value: string | number | undefined): string {
 
 // --- exceljs cell coercion -------------------------------------------------
 
-function cellText(value: unknown): string {
+export function cellText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString();
   if (typeof value === "object") {
@@ -257,7 +257,7 @@ function cellText(value: unknown): string {
   return String(value);
 }
 
-function cellValue(value: unknown): string | number {
+export function cellValue(value: unknown): string | number {
   if (value === null || value === undefined) return "";
   if (typeof value === "number") return value;
   if (typeof value === "boolean") return String(value);

@@ -17,3 +17,4 @@ export { distillRun } from "./distill.js";
 export type { RunInteractions, DistilledMemory } from "./distill.js";
 export { classifySource } from "./classify.js";
 export type { ClassifyFamily } from "./classify.js";
+export * from "./tabular.js";
