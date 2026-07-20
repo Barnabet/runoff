@@ -251,6 +251,7 @@ export function buildCopilotContext(
   db: RunoffDb,
   blueprintId: string,
   goldenCache: Map<string, { description: string; text: string }>,
+  scaffoldCache: Map<string, string>,
 ): CopilotContext {
   const filesDir = process.env.RUNOFF_FILES_DIR ?? "data/files";
 
@@ -403,6 +404,7 @@ export function buildCopilotContext(
     },
     listGoldens: () => listGoldenSummaries(db, blueprintId),
     getGolden: (id) => goldenCache.get(id) ?? null,
+    scaffoldDigest: (goldenId) => scaffoldCache.get(goldenId) ?? `golden not found: ${goldenId}`,
     saveMemory(body: string, scope: "blueprint" | "project"): string {
       const id = newId("mem");
       // Cap 30 active per scope; project keys on project_id, blueprint on blueprint_id.

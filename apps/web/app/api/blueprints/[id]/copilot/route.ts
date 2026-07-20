@@ -1,5 +1,5 @@
 import { BlueprintContentSchema, newId, type CopilotAction } from "@runoff/core";
-import { boundnessLine, copilotTurn, renderGoldenForPrompt, type CopilotEvent } from "@runoff/engine";
+import { boundnessLine, buildScaffoldDigest, copilotTurn, renderGoldenForPrompt, renderScaffoldDigest, type CopilotEvent } from "@runoff/engine";
 import { getDb } from "../../../../../lib/db";
 import { getLlmClient } from "../../../../../lib/llm";
 import { buildCopilotContext } from "../../../../../lib/queries";
@@ -62,17 +62,29 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
     .prepare("INSERT INTO copilot_messages (id, blueprint_id, role, body) VALUES (?, ?, 'user', ?)")
     .run(newId("cmsg"), id, message);
 
-  // Pre-resolve golden texts so the engine context stays synchronous.
+  // Pre-resolve golden texts + scaffold digests so the engine context stays synchronous.
   const goldenCache = new Map<string, { description: string; text: string }>();
+  const scaffoldCache = new Map<string, string>();
   for (const g of listGoldens(db, id)) {
     const resolved = resolveGolden(db, g.id);
-    if (resolved)
-      goldenCache.set(g.id, {
-        description: `${resolved.label} — ${boundnessLine(resolved.inventory)}`,
-        text: renderGoldenForPrompt(resolved),
-      });
+    if (!resolved) continue;
+    goldenCache.set(g.id, {
+      description: `${resolved.label} — ${boundnessLine(resolved.inventory)}`,
+      text: renderGoldenForPrompt(resolved),
+    });
+    scaffoldCache.set(
+      g.id,
+      !resolved.document
+        ? `golden "${resolved.label}" is not unified (${resolved.unifyError ?? "not yet processed"})`
+        : !resolved.inventory
+          ? `golden "${resolved.label}" has no bindings — run Bind to data first`
+          : renderScaffoldDigest(buildScaffoldDigest({
+              id: resolved.id, label: resolved.label, period: resolved.period,
+              document: resolved.document, inventory: resolved.inventory,
+            })),
+    );
   }
-  const context = buildCopilotContext(db, id, goldenCache);
+  const context = buildCopilotContext(db, id, goldenCache, scaffoldCache);
 
   const enc = new TextEncoder();
   const stream = new ReadableStream({

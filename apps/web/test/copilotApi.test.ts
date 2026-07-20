@@ -159,7 +159,7 @@ describe("copilot API", () => {
     ev(1, "question_raised", { questionId: "q_1", sectionKey: "a", question: "Which fiscal year?", options: [], fallback: "", deadlineSection: "a" });
     ev(2, "question_answered", { questionId: "q_1", answer: "FY2026" });
 
-    const context = buildCopilotContext(getDb(), "bp_1", new Map());
+    const context = buildCopilotContext(getDb(), "bp_1", new Map(), new Map());
 
     const sectionA = context.getRunSection("run_1", "a");
     expect(sectionA?.answers).toEqual([{ question: "Which fiscal year?", answer: "FY2026" }]);
@@ -169,7 +169,7 @@ describe("copilot API", () => {
   });
 
   it("buildCopilotContext exposes the family tree, default resolution, and per-period files", () => {
-    const context = buildCopilotContext(getDb(), "bp_1", new Map());
+    const context = buildCopilotContext(getDb(), "bp_1", new Map(), new Map());
 
     // Every project family appears; bound ones marked, filed periods ascending.
     expect(context.families).toEqual([
@@ -193,6 +193,56 @@ describe("copilot API", () => {
     // Warehouse surface: catalog is an array; runSql throws on the empty warehouse.
     expect(Array.isArray(context.catalog)).toBe(true);
     expect(() => context.runSql("SELECT 1")).toThrow("no data ingested yet");
+  });
+
+  it("scaffoldDigest serves a digest for a bound golden and inert strings otherwise", async () => {
+    const { listGoldens, resolveGolden } = await import("../lib/goldens");
+    const { buildScaffoldDigest, renderScaffoldDigest } = await import("@runoff/engine");
+
+    const doc = {
+      title: "T", eyebrow: "E", dateline: "D",
+      sections: [{ key: "overview", heading: "Overview", blocks: [{ type: "paragraph", spans: [{ text: "Total $150" }] }] }],
+    };
+    const inventory = {
+      version: 1,
+      items: [{
+        id: "total", kind: "value",
+        anchor: { sectionKey: "overview", blockIndex: 0, spanIndex: 0 },
+        raw: "$150", parsed: 150, reason: null,
+        binding: { familyId: "fam_x", sql: "SELECT SUM(amount) FROM fam_x WHERE _period = :period", verifiedValue: 150, status: "bound" },
+      }],
+    };
+    const ins = db.sqlite.prepare(
+      "INSERT INTO goldens (id, blueprint_id, kind, name, period, document, unify_error, bindings) VALUES (?, 'bp_1', 'exemplar', ?, ?, ?, ?, ?)",
+    );
+    ins.run("g_ok", "OK exemplar", "2026-Q1", JSON.stringify(doc), null, JSON.stringify(inventory));
+    ins.run("g_raw", "Raw exemplar", null, null, "unify failed: boom", null);
+    ins.run("g_unbound", "Unbound exemplar", "2026-Q1", JSON.stringify(doc), null, null);
+
+    // Mirror the copilot route's scaffold-cache construction.
+    const scaffoldCache = new Map<string, string>();
+    for (const g of listGoldens(db, "bp_1")) {
+      const resolved = resolveGolden(db, g.id);
+      if (!resolved) continue;
+      scaffoldCache.set(
+        g.id,
+        !resolved.document
+          ? `golden "${resolved.label}" is not unified (${resolved.unifyError ?? "not yet processed"})`
+          : !resolved.inventory
+            ? `golden "${resolved.label}" has no bindings — run Bind to data first`
+            : renderScaffoldDigest(buildScaffoldDigest({
+                id: resolved.id, label: resolved.label, period: resolved.period,
+                document: resolved.document, inventory: resolved.inventory,
+              })),
+      );
+    }
+    const context = buildCopilotContext(getDb(), "bp_1", new Map(), scaffoldCache);
+
+    expect(context.scaffoldDigest("g_ok")).toContain('SCAFFOLD DIGEST — golden');
+    expect(context.scaffoldDigest("g_ok")).toContain("SELECT SUM(amount) FROM fam_x WHERE _period = :period  [verified]");
+    expect(context.scaffoldDigest("g_raw")).toBe('golden "Raw exemplar" is not unified (unify failed: boom)');
+    expect(context.scaffoldDigest("g_unbound")).toBe('golden "Unbound exemplar" has no bindings — run Bind to data first');
+    expect(context.scaffoldDigest("nope")).toBe("golden not found: nope");
   });
 
   it("memories: GET lists, PATCH toggles status, DELETE removes", async () => {

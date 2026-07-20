@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -31,6 +31,7 @@ function ctx(overrides: Partial<CopilotContext> = {}): CopilotContext {
     getRunSection: () => null,
     listGoldens: () => [],
     getGolden: () => null,
+    scaffoldDigest: () => "golden not found",
     saveMemory: () => "mem_1",
     ...overrides,
   };
@@ -528,5 +529,34 @@ describe("copilotTurn", () => {
       thread: [], memories: [], ctx: ctx({ families: FAMILIES }), io,
     });
     expect(toolResults()[0]).toBe("Tool error: unknown tool compute");
+  });
+
+  it("get_golden_scaffold returns the ctx digest verbatim", async () => {
+    const digest = 'SCAFFOLD DIGEST — golden "g" (period none, nothing to bind)';
+    const scaffoldDigest = vi.fn(() => digest);
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "get_golden_scaffold", input: { goldenId: "g1" } } }],
+      [{ text: "Scaffolded from the golden." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "scaffold sections from g1",
+      thread: [], memories: [], ctx: ctx({ scaffoldDigest }), io,
+    });
+    expect(scaffoldDigest).toHaveBeenCalledWith("g1");
+    expect(toolResults()[0]).toBe(digest);
+  });
+
+  it("clamps get_golden_scaffold results at 20000 chars (other tools stay at 10100)", async () => {
+    const { client, toolResults } = recording([
+      [{ toolUse: { name: "get_golden_scaffold", input: { goldenId: "g1" } } }],
+      [{ text: "Done." }],
+    ]);
+    const { io } = collect();
+    await copilotTurn({
+      client, draft: content, selectedKey: null, message: "scaffold from a big golden",
+      thread: [], memories: [], ctx: ctx({ scaffoldDigest: () => "x".repeat(25_000) }), io,
+    });
+    expect(toolResults()[0]).toHaveLength(20_000);
   });
 });

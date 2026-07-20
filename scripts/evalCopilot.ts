@@ -209,6 +209,7 @@ export function buildEvalContext(db: RunoffDb, blueprintId: string): CopilotCont
     getRunSection: () => null,
     listGoldens: () => [],
     getGolden: () => null,
+    scaffoldDigest: (goldenId) => `golden not found: ${goldenId}`,
     saveMemory: () => "mem_eval",
   };
 }

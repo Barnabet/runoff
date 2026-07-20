@@ -83,6 +83,8 @@ export interface CopilotContext {
   getRunSection(runId: string, key: string): RunSectionDetail | null;
   listGoldens(): GoldenSummary[];
   getGolden(id: string): { description: string; text: string } | null;
+  /** Rendered scaffold digest for one golden, or an inert explanation string. Deterministic, no LLM. */
+  scaffoldDigest(goldenId: string): string;
   saveMemory(body: string, scope: "blueprint" | "project"): string;
 }
 
@@ -180,6 +182,9 @@ const TOOLS = [
   }),
   fn("list_goldens", "List this blueprint's golden examples (starred runs/sections and uploaded exemplars).", {}),
   fn("get_golden", "Fetch one golden example's full text.", { id: { type: "string" } }),
+  fn("get_golden_scaffold", "Fetch a bound golden example's scaffold digest: per-section prose (tone source), verified data queries lifted from its bindings (lift these verbatim into section queries), and warnings for unverified figures. Use when asked to scaffold blueprint sections from a golden.", {
+    goldenId: { type: "string" },
+  }),
   fn("save_memory", "Save one durable, generalized preference. scope \"blueprint\" = about this document; scope \"project\" = about the client or its data, true for every document in the project.", {
     body: { type: "string" },
     scope: { type: "string", enum: ["blueprint", "project"] },
@@ -213,7 +218,12 @@ update_section_queries — the run executes them (with :period bound to the run'
 their results, so keep them small and purposeful. Assert rules are scalar SQL: { sql, op, value } where \
 sql returns one number (use :period for periodic tables). Test any SQL with run_sql first; run_sql binds \
 :period to the latest filed period. Data is organized into families (one file per period, or \
-constant reference files); query_sources shows what periods exist. When the user states a durable \
+constant reference files); query_sources shows what periods exist. \
+To scaffold blueprint sections from a golden example, call get_golden_scaffold and build from its digest: \
+add_section per digest section (distill the golden's tone from the prose into the instruction — never paste \
+the prose verbatim), lift [verified] and [verified-mismatch] queries verbatim (same names) via the section's \
+queries, add complementary queries where the narration needs more, and relay the digest's warnings to the user. \
+Prefer one section per edit so the user can steer between them. When the user states a durable \
 preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.${selected}${catalogBlock}
 
 Current draft (JSON):
@@ -238,6 +248,7 @@ function activityLabel(name: string, args: any, families: FamilyInfo[]): string 
     case "get_run_section": return `reading run ${args?.runId ?? "?"} §${args?.key ?? "?"}`;
     case "list_goldens": return "listing goldens";
     case "get_golden": return `reading golden ${args?.id ?? "?"}`;
+    case "get_golden_scaffold": return `scaffolding from golden ${args?.goldenId ?? "?"}`;
     case "save_memory": return "saving a memory";
     default: return name;
   }
@@ -353,7 +364,8 @@ export async function copilotTurn(opts: {
       } catch (err) {
         result = `Tool error: ${err instanceof Error ? err.message : String(err)}`;
       }
-      messages.push({ role: "tool", tool_call_id: call.id, content: result.slice(0, MAX_TOOL_RESULT_CHARS) });
+      const cap = call.name === "get_golden_scaffold" ? 20_000 : MAX_TOOL_RESULT_CHARS;
+      messages.push({ role: "tool", tool_call_id: call.id, content: result.slice(0, cap) });
     }
   }
 
@@ -580,6 +592,9 @@ function executeTool(
       const g = ctx.getGolden(String(args.id ?? ""));
       if (!g) return { draft, result: "Tool error: golden not found" };
       return { draft, result: `${g.description}\n\n${g.text}` };
+    }
+    case "get_golden_scaffold": {
+      return { draft, result: ctx.scaffoldDigest(String(args.goldenId ?? "")) };
     }
     case "save_memory": {
       const body = String(args.body ?? "").trim();
