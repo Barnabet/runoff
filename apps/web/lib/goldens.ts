@@ -1,5 +1,5 @@
 import {
-  BindingInventorySchema,
+  parseBindings,
   type BindingInventory,
   type GoldenRow,
   type RunDocument,
@@ -21,16 +21,6 @@ export function getGoldenRow(db: RunoffDb, id: string): GoldenRow | null {
 
 const goldenLabel = (g: GoldenRow): string =>
   g.kind === "exemplar" ? (g.name ?? "exemplar") : `run ${g.runId}${g.kind === "section" ? ` §${g.sectionKey}` : ""}`;
-
-/** Parse stored bindings JSON, degrading a corrupt/schema-drifted row to null. */
-function parseBindings(bindings: string | null): BindingInventory | null {
-  if (!bindings) return null;
-  try {
-    return BindingInventorySchema.parse(JSON.parse(bindings)) as BindingInventory;
-  } catch {
-    return null;
-  }
-}
 
 export function listGoldenSummaries(db: RunoffDb, blueprintId: string): GoldenSummary[] {
   return listGoldens(db, blueprintId).map((g) => ({

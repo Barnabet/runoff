@@ -2,11 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { RunEvent } from "@runoff/core";
-// Import the reducer from its own module rather than the package barrel: the
-// barrel re-exports the SQLite db layer (node:fs / better-sqlite3), which a
-// browser bundle must not pull in. Type-only imports from the barrel are erased
-// and stay safe.
-import { reduceRun, type RunProjection } from "@runoff/core/src/reducer.js";
+import { reduceRun, type RunProjection } from "@runoff/core/client";
 
 export interface RunProjectionState {
   projection: RunProjection;
