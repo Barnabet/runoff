@@ -1,22 +1,8 @@
-// The engine owns the catalog SHAPE (the web/eval callers build it), mirroring
-// how FamilyInfo works for the copilot context.
-
-export interface CatalogTable {
-  name: string;
-  columns: { name: string; type: "INTEGER" | "REAL" | "TEXT" }[];
-  rowCounts: Record<string, number>;
-}
-
-export interface CatalogFamily {
-  id: string;
-  key: string;
-  label: string;
-  kind: "periodic" | "constant";
-  granularity: "quarter" | "month" | "year" | null;
-  queryable: boolean;
-  tables: CatalogTable[];
-  filedPeriods: string[];
-}
+// The catalog SHAPE now lives in @runoff/core; the engine re-exports it so
+// existing `import type { CatalogFamily } from "@runoff/engine"` sites are
+// unchanged, and owns the serialization below.
+export type { CatalogFamily, CatalogTable } from "@runoff/core";
+import type { CatalogFamily, CatalogTable } from "@runoff/core";
 
 function familyHead(f: CatalogFamily): string {
   const gran = f.kind === "periodic" ? `periodic, ${f.granularity}` : "constant";

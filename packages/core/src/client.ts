@@ -10,6 +10,7 @@ export * from "./types/parsePlan.js";
 export * from "./types/document.js";
 export * from "./types/goldenBinding.js";
 export * from "./types/events.js";
+export * from "./types/catalog.js";
 export * from "./reducer.js";
 export * from "./dialect.js";
 export * from "./diff.js";
