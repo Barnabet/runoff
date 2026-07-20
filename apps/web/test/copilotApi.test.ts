@@ -196,8 +196,7 @@ describe("copilot API", () => {
   });
 
   it("scaffoldDigest serves a digest for a bound golden and inert strings otherwise", async () => {
-    const { listGoldens, resolveGolden } = await import("../lib/goldens");
-    const { buildScaffoldDigest, renderScaffoldDigest } = await import("@runoff/engine");
+    const { listGoldens, resolveGolden, scaffoldDigestFor } = await import("../lib/goldens");
 
     const doc = {
       title: "T", eyebrow: "E", dateline: "D",
@@ -219,22 +218,12 @@ describe("copilot API", () => {
     ins.run("g_raw", "Raw exemplar", null, null, "unify failed: boom", null);
     ins.run("g_unbound", "Unbound exemplar", "2026-Q1", JSON.stringify(doc), null, null);
 
-    // Mirror the copilot route's scaffold-cache construction.
+    // Build the scaffold cache via the same helper the copilot route uses.
     const scaffoldCache = new Map<string, string>();
     for (const g of listGoldens(db, "bp_1")) {
       const resolved = resolveGolden(db, g.id);
       if (!resolved) continue;
-      scaffoldCache.set(
-        g.id,
-        !resolved.document
-          ? `golden "${resolved.label}" is not unified (${resolved.unifyError ?? "not yet processed"})`
-          : !resolved.inventory
-            ? `golden "${resolved.label}" has no bindings — run Bind to data first`
-            : renderScaffoldDigest(buildScaffoldDigest({
-                id: resolved.id, label: resolved.label, period: resolved.period,
-                document: resolved.document, inventory: resolved.inventory,
-              })),
-      );
+      scaffoldCache.set(g.id, scaffoldDigestFor(resolved));
     }
     const context = buildCopilotContext(getDb(), "bp_1", new Map(), scaffoldCache);
 

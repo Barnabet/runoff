@@ -1,9 +1,9 @@
 import { BlueprintContentSchema, newId, type CopilotAction } from "@runoff/core";
-import { boundnessLine, buildScaffoldDigest, copilotTurn, renderGoldenForPrompt, renderScaffoldDigest, type CopilotEvent } from "@runoff/engine";
+import { boundnessLine, copilotTurn, renderGoldenForPrompt, type CopilotEvent } from "@runoff/engine";
 import { getDb } from "../../../../../lib/db";
 import { getLlmClient } from "../../../../../lib/llm";
 import { buildCopilotContext } from "../../../../../lib/queries";
-import { listGoldens, resolveGolden } from "../../../../../lib/goldens";
+import { listGoldens, resolveGolden, scaffoldDigestFor } from "../../../../../lib/goldens";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -72,17 +72,7 @@ export async function POST(req: Request, ctx: Ctx): Promise<Response> {
       description: `${resolved.label} — ${boundnessLine(resolved.inventory)}`,
       text: renderGoldenForPrompt(resolved),
     });
-    scaffoldCache.set(
-      g.id,
-      !resolved.document
-        ? `golden "${resolved.label}" is not unified (${resolved.unifyError ?? "not yet processed"})`
-        : !resolved.inventory
-          ? `golden "${resolved.label}" has no bindings — run Bind to data first`
-          : renderScaffoldDigest(buildScaffoldDigest({
-              id: resolved.id, label: resolved.label, period: resolved.period,
-              document: resolved.document, inventory: resolved.inventory,
-            })),
-    );
+    scaffoldCache.set(g.id, scaffoldDigestFor(resolved));
   }
   const context = buildCopilotContext(db, id, goldenCache, scaffoldCache);
 

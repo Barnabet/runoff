@@ -5,7 +5,7 @@ import {
   type RunDocument,
   type RunoffDb,
 } from "@runoff/core";
-import { boundnessLine, type GoldenSummary } from "@runoff/engine";
+import { boundnessLine, buildScaffoldDigest, renderScaffoldDigest, type GoldenSummary } from "@runoff/engine";
 
 const SELECT =
   "SELECT id, blueprint_id AS blueprintId, kind, run_id AS runId, section_key AS sectionKey, name, mime, stored_filename AS storedFilename, note, period, document, unify_error AS unifyError, bindings, created_at AS createdAt FROM goldens";
@@ -88,4 +88,14 @@ export function resolveGolden(db: RunoffDb, goldenId: string): ResolvedGolden | 
     inventory,
     unifyError: g.unifyError,
   };
+}
+
+/** Scaffold digest (or inert explanation) for one resolved golden — the single construction the copilot route and tests share. */
+export function scaffoldDigestFor(resolved: ResolvedGolden): string {
+  if (!resolved.document) return `golden "${resolved.label}" is not unified (${resolved.unifyError ?? "not yet processed"})`;
+  if (!resolved.inventory) return `golden "${resolved.label}" has no bindings — run Bind to data first`;
+  return renderScaffoldDigest(buildScaffoldDigest({
+    id: resolved.id, label: resolved.label, period: resolved.period,
+    document: resolved.document, inventory: resolved.inventory,
+  }));
 }
