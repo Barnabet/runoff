@@ -6,16 +6,12 @@
  * lifted a section query byte-equal from the golden's verified bindings.
  * Exit codes match scripts/eval.ts: 0 ok, 1 failed, 2 proxy unreachable, 3 auth.
  */
-import { join } from "node:path";
 import OpenAI from "openai";
 import {
   openDb,
   BlueprintContentSchema,
   RunDocumentSchema,
   BindingInventorySchema,
-  buildWarehouseCatalog,
-  formatSqlResult,
-  runWarehouseSql,
   type RunoffDb,
 } from "@runoff/core";
 import {
@@ -26,18 +22,14 @@ import {
   renderScaffoldDigest,
   type CopilotContext,
   type CopilotTurnResult,
-  type EngineFile,
-  type FamilyInfo,
 } from "@runoff/engine";
+import { buildEvalContext } from "./evalCopilot.js";
 import { seedDatabase } from "./seed.js";
 
 const BLUEPRINT_NAME = "Quarterly Performance Report";
 
 function dbPath(): string {
   return process.env.RUNOFF_DB ?? "data/runoff.db";
-}
-function filesDir(): string {
-  return process.env.RUNOFF_FILES_DIR ?? "data/files";
 }
 function baseURL(): string {
   return process.env.OPENAI_BASE_URL ?? "http://localhost:8317/v1";
@@ -106,104 +98,22 @@ async function loadBlueprint(db: RunoffDb): Promise<{ blueprintId: string; rev: 
 }
 
 /**
- * Build the CopilotContext for the seeded blueprint, mirroring buildCopilotContext
- * in apps/web/lib/queries.ts: bound families → live/latest defaultFiles, every
- * filed periodic row → periodFiles, warehouse catalog via buildWarehouseCatalog.
- * runSql binds :period to the latest filed period so add_section's dry-run
- * validation of the golden's :period-parameterized lifted SQL succeeds. Golden
- * access is wired to serve exactly the one seeded exemplar's rendered digest.
+ * Build the CopilotContext for the seeded blueprint by reusing evalCopilot's
+ * shared buildEvalContext (families/defaultFiles/periodFiles/catalog and the
+ * :period-bound runSql are all identical to what this eval needs), then
+ * overriding only golden access: listGoldens surfaces the one seeded exemplar,
+ * and scaffoldDigest serves its pre-rendered digest by id so get_golden_scaffold
+ * returns it. getGolden already returns null in the shared context.
  */
 function buildScaffoldContext(
   db: RunoffDb,
   blueprintId: string,
   golden: { id: string; name: string | null; digest: string },
 ): CopilotContext {
-  const dir = filesDir();
-  const projectId =
-    (db.sqlite.prepare("SELECT project_id AS projectId FROM blueprints WHERE id = ?").get(blueprintId) as
-      | { projectId: string }
-      | undefined)?.projectId ?? "";
-  const boundSet = new Set(
-    (db.sqlite
-      .prepare("SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?")
-      .all(blueprintId) as { familyId: string }[]).map((r) => r.familyId),
-  );
-  const famRows = db.sqlite
-    .prepare("SELECT id, key, label, kind, granularity FROM source_families WHERE project_id = ? ORDER BY key")
-    .all(projectId) as {
-    id: string;
-    key: string;
-    label: string;
-    kind: "periodic" | "constant";
-    granularity: FamilyInfo["granularity"];
-  }[];
-  const periodsStmt = db.sqlite.prepare(
-    "SELECT period FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
-  );
-  const liveStmt = db.sqlite.prepare(
-    "SELECT 1 FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL LIMIT 1",
-  );
-  const families: FamilyInfo[] = famRows.map((f) => ({
-    id: f.id,
-    key: f.key,
-    label: f.label,
-    kind: f.kind,
-    granularity: f.granularity,
-    filedPeriods:
-      f.kind === "constant" ? [] : (periodsStmt.all(f.id) as { period: string }[]).map((r) => r.period),
-    hasLiveFile: f.kind === "constant" ? !!liveStmt.get(f.id) : false,
-    bound: boundSet.has(f.id),
-  }));
-
-  const constantSlot = db.sqlite.prepare(
-    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL",
-  );
-  const latestSlot = db.sqlite.prepare(
-    "SELECT mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period DESC LIMIT 1",
-  );
-  const defaultFiles: EngineFile[] = [];
-  for (const f of families) {
-    if (!f.bound) continue;
-    const r = (f.kind === "constant" ? constantSlot : latestSlot).get(f.id) as
-      | { mime: string; storedFilename: string }
-      | undefined;
-    if (!r) continue;
-    defaultFiles.push({ id: f.id, name: f.label, mime: r.mime, path: join(dir, r.storedFilename) });
-  }
-
-  const periodRowsStmt = db.sqlite.prepare(
-    "SELECT period, mime, stored_filename AS storedFilename FROM sources WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
-  );
-  const periodFiles: CopilotContext["periodFiles"] = [];
-  for (const f of families) {
-    if (!f.bound || f.kind !== "periodic") continue;
-    for (const r of periodRowsStmt.all(f.id) as { period: string; mime: string; storedFilename: string }[]) {
-      periodFiles.push({
-        familyId: f.id,
-        period: r.period,
-        file: { id: f.id, name: f.label, mime: r.mime, path: join(dir, r.storedFilename) },
-      });
-    }
-  }
-
-  // Latest filed period across the project: add_section dry-runs the lifted
-  // :period-parameterized SQL through runSql, which fails without a bound value.
-  const latestPeriod = (db.sqlite
-    .prepare("SELECT MAX(period) AS p FROM sources WHERE project_id = ? AND status='filed' AND period IS NOT NULL")
-    .get(projectId) as { p: string | null }).p;
-
   return {
-    families,
-    defaultFiles,
-    periodFiles,
-    catalog: buildWarehouseCatalog(db, projectId),
-    runSql: (sql: string) => formatSqlResult(runWarehouseSql(projectId, sql, { period: latestPeriod })),
-    listRuns: () => [],
-    getRunSection: () => null,
+    ...buildEvalContext(db, blueprintId),
     listGoldens: () => [{ id: golden.id, kind: "exemplar", label: golden.name ?? golden.id, note: null }],
-    getGolden: () => null,
     scaffoldDigest: (id) => (id === golden.id ? golden.digest : `golden not found: ${id}`),
-    saveMemory: () => "mem_eval",
   };
 }
 
