@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-// `formatPeriod` is a VALUE: deep-import from the source module — the client
-// bundle must never value-import the @runoff/core barrel (better-sqlite3 leak).
-import { formatPeriod } from "@runoff/core/src/types/sources.js";
+import { formatPeriod } from "@runoff/core/client";
 import { createRun, getRunOptionsApi, type RunOptions } from "@/lib/api";
 
 /** The server's `{ error }` string out of a rejected fetchJson promise. */

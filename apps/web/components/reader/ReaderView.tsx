@@ -3,13 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import type { Block, DocSection, GoldenRow, RunDocument, RunProjection, RunStats } from "@runoff/core";
-import { diffRuns } from "@runoff/core/src/diff.js";
-// Deep import the reducer (not the barrel) so this client bundle never pulls in
-// the SQLite db layer — same guard the diff import above follows. Type-only
-// imports from the barrel are erased and stay safe.
-import { reduceRun } from "@runoff/core/src/reducer.js";
-// Deep import (not the barrel) keeps this client bundle free of the db layer.
-import { formatPeriod } from "@runoff/core/src/types/sources.js";
+import { diffRuns, formatPeriod, reduceRun } from "@runoff/core/client";
 import type { FlagRow, GetRunResponse } from "@/lib/api";
 import { deleteGolden, getBlueprint, getGoldens, resolveFlag, saveRevision, starGolden } from "@/lib/api";
 import { showToast } from "@/components/Toast";

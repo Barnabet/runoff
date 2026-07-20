@@ -2,9 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { ClassifyProposal, Granularity, ProjectSourceRow } from "@runoff/core";
-// `formatPeriod`/`PERIOD_REGEX` are VALUES: deep-import from the source module —
-// the `@runoff/core` barrel pulls better-sqlite3 into the client bundle.
-import { formatPeriod, PERIOD_REGEX } from "@runoff/core/src/types/sources.js";
+import { formatPeriod, PERIOD_REGEX } from "@runoff/core/client";
 import {
   classifySources,
   confirmSource,

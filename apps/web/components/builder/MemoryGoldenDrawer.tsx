@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { GoldenRow, MemoryRow } from "@runoff/core";
-// `formatPeriod` is a VALUE: deep-import from the source module — the `@runoff/core`
-// barrel pulls better-sqlite3 into the client bundle.
-import { formatPeriod } from "@runoff/core/src/types/sources.js";
+import type { BindingItem, GoldenRow, MemoryRow } from "@runoff/core/client";
+import { formatPeriod, parseBindings, boundnessCounts } from "@runoff/core/client";
 import {
   bindGoldenApi,
   deleteGolden,
@@ -17,45 +15,14 @@ import {
   uploadGolden,
 } from "@/lib/api";
 
-/** Client-side view of a stored BindingItem (client cannot import engine/core value code). */
-interface BindingItemView {
-  id: string;
-  raw: string;
-  reason: string | null;
-  binding: { familyId: string; sql: string; verifiedValue: number | string | null; status: "bound" | "mismatch" | "error" } | null;
-}
-
-/**
- * Guarded parse of a golden's stored bindings (raw API row — not the
- * server-guarded resolveGolden path). Malformed JSON, or a shape without an
- * `items` array, degrades to inert (like a bad golden in Task 5): returns null
- * so the card still renders header/badges/delete/actions rather than throwing
- * during React render and taking down the whole Memory drawer.
- */
-function parseBindings(bindings: string | null): { items: BindingItemView[] } | null {
-  if (!bindings) return null;
-  try {
-    const parsed = JSON.parse(bindings) as { items?: unknown };
-    return Array.isArray(parsed.items) ? { items: parsed.items as BindingItemView[] } : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Boundness line, mirroring engine `boundnessLine`
- * (packages/engine/src/goldenBinding.ts) — client can't import engine, so the
- * counting rule is duplicated. Dot separators match the drawer's card idiom.
- */
+/** UI boundness line — counts from core `boundnessCounts`, drawer's ` · ` format kept locally. */
 function boundness(bindings: string | null): string {
   if (!bindings) return "not yet bound";
   const inv = parseBindings(bindings);
   if (!inv) return "bindings unreadable";
-  const items = inv.items;
-  if (items.length === 0) return "nothing to bind";
-  const bound = items.filter((i) => i.binding?.status === "bound").length;
-  const mismatch = items.filter((i) => i.binding?.status === "mismatch").length;
-  return `${bound}/${items.length} bound · ${mismatch} mismatch · ${items.length - bound - mismatch} unbound`;
+  const c = boundnessCounts(inv)!;
+  if (c.total === 0) return "nothing to bind";
+  return `${c.bound}/${c.total} bound · ${c.mismatch} mismatch · ${c.total - c.bound - c.mismatch} unbound`;
 }
 
 const truncate = (s: string, n: number): string => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
@@ -165,7 +132,7 @@ export function GoldenCard({ g, blueprintId, reload }: { g: GoldenRow; blueprint
 
       {open && inv ? (
         <div className="mt-1">
-          {inv.items.map((it) => (
+          {inv.items.map((it: BindingItem) => (
             <div key={it.id} className="mt-1 font-mono text-[9px] leading-[1.6]">
               <span className="text-ink">{it.raw}</span>
               {it.binding?.status === "bound" ? (

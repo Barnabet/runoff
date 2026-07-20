@@ -1,6 +1,7 @@
 import type {
   BindingInventory, BindingItem, RunDocument, SqlResult, SubmittedInventory, SubmittedItem,
 } from "@runoff/core";
+import { boundnessCounts } from "@runoff/core";
 import type { CatalogFamily } from "./catalogFormat.js";
 import { compileLocator } from "./checks.js";
 
@@ -64,11 +65,10 @@ export function verifyInventory(
 }
 
 export function boundnessLine(inv: BindingInventory | null): string {
-  if (!inv) return "not yet bound";
-  if (inv.items.length === 0) return "nothing to bind";
-  const bound = inv.items.filter((i) => i.binding?.status === "bound").length;
-  const mismatch = inv.items.filter((i) => i.binding?.status === "mismatch").length;
-  return `${bound}/${inv.items.length} bound, ${mismatch} mismatch, ${inv.items.length - bound - mismatch} unbound`;
+  const c = boundnessCounts(inv);
+  if (!c) return "not yet bound";
+  if (c.total === 0) return "nothing to bind";
+  return `${c.bound}/${c.total} bound, ${c.mismatch} mismatch, ${c.total - c.bound - c.mismatch} unbound`;
 }
 
 /**
