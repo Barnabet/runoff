@@ -1,8 +1,8 @@
 {
-  "projectId": "proj_eeb46caffe1c",
+  "projectId": "proj_d0922ce773ca",
   "catalog": [
     {
-      "id": "fam_25a228989c66",
+      "id": "fam_b530c55f36d8",
       "key": "ar_aging",
       "label": "AR aging",
       "kind": "periodic",
@@ -59,7 +59,7 @@
       ]
     },
     {
-      "id": "fam_f16d16e9abe4",
+      "id": "fam_1887e5160434",
       "key": "ar_transactions",
       "label": "AR transactions",
       "kind": "periodic",
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "id": "fam_631702eb3f62",
+      "id": "fam_7e662577a4b7",
       "key": "brand_guidelines",
       "label": "Brand guidelines",
       "kind": "constant",
@@ -112,7 +112,7 @@
       "filedPeriods": []
     },
     {
-      "id": "fam_a082aaeb1eb5",
+      "id": "fam_1af4341286ac",
       "key": "ga4_analytics",
       "label": "GA4 analytics",
       "kind": "periodic",
@@ -147,7 +147,7 @@
       ]
     },
     {
-      "id": "fam_e7b8b197adb4",
+      "id": "fam_30a7b3f1575c",
       "key": "marketing_spend",
       "label": "Marketing spend",
       "kind": "periodic",
@@ -182,7 +182,7 @@
       ]
     },
     {
-      "id": "fam_e451f0fcf137",
+      "id": "fam_dd0308677d99",
       "key": "regional_summary",
       "label": "Regional summary",
       "kind": "periodic",

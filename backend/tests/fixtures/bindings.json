@@ -1,5 +1,5 @@
 {
-  "raw": "{\"version\":1,\"items\":[{\"id\":\"overview_total\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":0,\"spanIndex\":1},\"raw\":\"$50,724,254\",\"parsed\":50724254,\"reason\":null,\"binding\":{\"familyId\":\"fam_f16d16e9abe4\",\"sql\":\"SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period\",\"verifiedValue\":50724254,\"status\":\"bound\"}},{\"id\":\"overview_count\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":0,\"spanIndex\":3},\"raw\":\"10,000\",\"parsed\":10000,\"reason\":null,\"binding\":{\"familyId\":\"fam_f16d16e9abe4\",\"sql\":\"SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = :period\",\"verifiedValue\":10000,\"status\":\"bound\"}},{\"id\":\"open_total\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"status_mix\",\"blockIndex\":0,\"spanIndex\":1},\"raw\":\"$17,009,943\",\"parsed\":17009943,\"reason\":null,\"binding\":{\"familyId\":\"fam_f16d16e9abe4\",\"sql\":\"SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period AND status = 'open'\",\"verifiedValue\":17009943,\"status\":\"bound\"}},{\"id\":\"status_table\",\"kind\":\"table\",\"anchor\":{\"sectionKey\":\"status_mix\",\"blockIndex\":1,\"spanIndex\":null},\"raw\":\"table: status, total\",\"parsed\":null,\"reason\":null,\"binding\":{\"familyId\":\"fam_f16d16e9abe4\",\"sql\":\"SELECT status, ROUND(SUM(amount),2) FROM fam_ar_transactions WHERE _period = :period GROUP BY status ORDER BY status\",\"verifiedValue\":3,\"status\":\"bound\"}}]}",
+  "raw": "{\"version\":1,\"items\":[{\"id\":\"overview_total\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":0,\"spanIndex\":1},\"raw\":\"$50,724,254\",\"parsed\":50724254,\"reason\":null,\"binding\":{\"familyId\":\"fam_1887e5160434\",\"sql\":\"SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period\",\"verifiedValue\":50724254,\"status\":\"bound\"}},{\"id\":\"overview_count\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":0,\"spanIndex\":3},\"raw\":\"10,000\",\"parsed\":10000,\"reason\":null,\"binding\":{\"familyId\":\"fam_1887e5160434\",\"sql\":\"SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = :period\",\"verifiedValue\":10000,\"status\":\"bound\"}},{\"id\":\"open_total\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"status_mix\",\"blockIndex\":0,\"spanIndex\":1},\"raw\":\"$17,009,943\",\"parsed\":17009943,\"reason\":null,\"binding\":{\"familyId\":\"fam_1887e5160434\",\"sql\":\"SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period AND status = 'open'\",\"verifiedValue\":17009943,\"status\":\"bound\"}},{\"id\":\"status_table\",\"kind\":\"table\",\"anchor\":{\"sectionKey\":\"status_mix\",\"blockIndex\":1,\"spanIndex\":null},\"raw\":\"table: status, total\",\"parsed\":null,\"reason\":null,\"binding\":{\"familyId\":\"fam_1887e5160434\",\"sql\":\"SELECT status, ROUND(SUM(amount),2) FROM fam_ar_transactions WHERE _period = :period GROUP BY status ORDER BY status\",\"verifiedValue\":3,\"status\":\"bound\"}}]}",
   "parsed": {
     "version": 1,
     "items": [
@@ -15,7 +15,7 @@
         "parsed": 50724254,
         "reason": null,
         "binding": {
-          "familyId": "fam_f16d16e9abe4",
+          "familyId": "fam_1887e5160434",
           "sql": "SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period",
           "verifiedValue": 50724254,
           "status": "bound"
@@ -33,7 +33,7 @@
         "parsed": 10000,
         "reason": null,
         "binding": {
-          "familyId": "fam_f16d16e9abe4",
+          "familyId": "fam_1887e5160434",
           "sql": "SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = :period",
           "verifiedValue": 10000,
           "status": "bound"
@@ -51,7 +51,7 @@
         "parsed": 17009943,
         "reason": null,
         "binding": {
-          "familyId": "fam_f16d16e9abe4",
+          "familyId": "fam_1887e5160434",
           "sql": "SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = :period AND status = 'open'",
           "verifiedValue": 17009943,
           "status": "bound"
@@ -69,7 +69,7 @@
         "parsed": null,
         "reason": null,
         "binding": {
-          "familyId": "fam_f16d16e9abe4",
+          "familyId": "fam_1887e5160434",
           "sql": "SELECT status, ROUND(SUM(amount),2) FROM fam_ar_transactions WHERE _period = :period GROUP BY status ORDER BY status",
           "verifiedValue": 3,
           "status": "bound"

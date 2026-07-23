@@ -21,11 +21,13 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import {
   openDb, newId, attachWarehouse, detachWarehouse, applySchema, deleteRows, insertRows,
-  whFamilyTables, planTableName, ParsePlanSchema, runWarehouseSql,
+  whFamilyTables, planTableName, ParsePlanSchema, runWarehouseSql, countWords, blocksToPlainText,
   BindingInventorySchema, RunDocumentSchema, validateInventoryAnchors,
-  type RunoffDb, type BlueprintContent, type WhTableSchema, type ParsePlan, type Granularity,
+  type RunoffDb, type BlueprintContent, type BlueprintSection, type WhTableSchema,
+  type ParsePlan, type Granularity, type Block, type Span, type DocSection,
+  type RunDocument, type RunEvent, type RunStats,
 } from "@runoff/core";
-import { isTabular, readTabular, loadGrids, executeParsePlan, type DetectedTable } from "@runoff/engine";
+import { isTabular, readTabular, loadGrids, executeParsePlan, countCitations, type DetectedTable } from "@runoff/engine";
 
 const BLUEPRINT_NAME = "Quarterly Performance Report";
 const PROJECT_NAME = "Meridian Retail";
@@ -499,6 +501,146 @@ ${statusRows.map(([s, t]) => `| ${s} | $${fmt(t)} |`).join("\n")}
   ).run(goldenId, blueprintId, "AR Review — Q1 2026", goldenFile, "seeded bound exemplar",
     JSON.stringify(parsedDoc), JSON.stringify(parsedInventory));
   console.log(`Seeded bound exemplar golden — id: ${goldenId} (${parsedInventory.items.length} items)`);
+
+  // ---- R2: two canned completed runs (2026-Q1 then 2026-Q2) so the reducer +
+  // diff parity fixtures regenerate from a fresh reseed. Figures read from the
+  // same warehouse the golden uses (text and data agree by construction); the
+  // two periods differ only in AR data, so diffRuns sees real figure deltas on
+  // Receivables and unchanged sections elsewhere. A predecessor run is required
+  // for a non-null diff fixture, so we bake two.
+  const CANNED_SECTION_MS = 12_000; // canned per-section elapsed (deterministic)
+  const CANNED_RUN_MS = 96_000; // canned run duration
+
+  const sortedSections = [...content.sections].sort((a, b) => a.number - b.number);
+
+  /** A cited span (bound family id + locator) or a plain span. */
+  const sp = (text: string, sourceId?: string, locator?: string): Span =>
+    sourceId ? { text, citation: { sourceId, locator: locator ?? "" } } : { text };
+
+  // One section's blocks, drawn from warehouse figures for `period`. Locators are
+  // period-free so the same figure keys line up run-over-run in diffRuns.
+  function sectionBlocks(section: BlueprintSection, period: string): Block[] {
+    switch (section.key) {
+      case "kpi-summary": {
+        const spend = whVal(`SELECT SUM(amount) FROM fam_marketing_spend WHERE _period = '${period}'`);
+        const sessions = whVal(`SELECT SUM(sessions) FROM fam_ga4_analytics WHERE _period = '${period}'`);
+        const conversions = whVal(`SELECT SUM(conversions) FROM fam_ga4_analytics WHERE _period = '${period}'`);
+        return [{ type: "paragraph", spans: [
+          sp("Total marketing spend for the quarter was "),
+          sp(`$${fmt(spend)}`, spendFam, "Total marketing spend"),
+          sp(", driving "), sp(fmt(sessions), ga4Fam, "Total sessions"),
+          sp(" sessions and "), sp(fmt(conversions), ga4Fam, "Total conversions"),
+          sp(" conversions."),
+        ] }];
+      }
+      case "exec-summary":
+        // Period-labelled prose, no cited figures: a run-over-run "changed"
+        // section that yields no figure delta.
+        return [{ type: "paragraph", spans: [
+          sp(`Performance for ${period} held to plan. `),
+          sp("Spend discipline held and channel efficiency stayed steady across the quarter."),
+        ] }];
+      case "channel-performance": {
+        const rows = whRows(`SELECT channel, SUM(amount) AS t FROM fam_marketing_spend WHERE _period = '${period}' GROUP BY channel ORDER BY channel`);
+        return [{ type: "table", columns: ["channel", "spend"],
+          rows: rows.map(([c, t]) => ({ cells: [[sp(c)], [sp(`$${fmt(t)}`, spendFam, `${c} spend`)]] })) }];
+      }
+      case "budget": {
+        const spend = whVal(`SELECT SUM(amount) FROM fam_marketing_spend WHERE _period = '${period}'`);
+        const maxLine = whVal(`SELECT MAX(amount) FROM fam_marketing_spend WHERE _period = '${period}'`);
+        return [{ type: "paragraph", spans: [
+          sp("Total spend of "), sp(`$${fmt(spend)}`, spendFam, "Total spend"),
+          sp(" stayed within budget, with no single line exceeding "),
+          sp(`$${fmt(maxLine)}`, spendFam, "Largest single line"), sp("."),
+        ] }];
+      }
+      case "receivables": {
+        const total = whVal(`SELECT ROUND(SUM(amount), 2) FROM fam_ar_transactions WHERE _period = '${period}'`);
+        const count = whVal(`SELECT COUNT(*) FROM fam_ar_transactions WHERE _period = '${period}'`);
+        const byStatus = whRows(`SELECT status, ROUND(SUM(amount),2) AS t FROM fam_ar_transactions WHERE _period = '${period}' GROUP BY status ORDER BY status`);
+        return [
+          { type: "paragraph", spans: [
+            sp("Receivables totalled "), sp(`$${fmt(total)}`, arFam, "Total invoiced"),
+            sp(" across "), sp(fmt(count), arFam, "Invoice count"), sp(" invoices."),
+          ] },
+          { type: "table", columns: ["status", "total"],
+            rows: byStatus.map(([s, t]) => ({ cells: [[sp(s)], [sp(`$${fmt(t)}`, arFam, `${s} balance`)]] })) },
+        ];
+      }
+      case "appendix":
+        return [{ type: "paragraph", spans: [sp(section.fixedText ?? "")] }];
+      default:
+        return [{ type: "paragraph", spans: [sp(section.heading)] }];
+    }
+  }
+
+  // Bake one completed run: build its document, replay a realistic event log
+  // (run_started → source_read → per-section started/delta/checks/completed →
+  // render_started → run_completed), and persist the run + ordered events.
+  function bakeCannedRun(period: string, createdAt: string): void {
+    const runId = newId("run");
+    const doc: DocSection[] = sortedSections.map((s) => ({ key: s.key, heading: s.heading, blocks: sectionBlocks(s, period) }));
+    const document: RunDocument = { title: content.title, eyebrow: content.eyebrow, dateline: content.dateline, sections: doc };
+
+    const events: RunEvent[] = [];
+    let checksPassed = 0;
+    events.push({ type: "run_started", sectionKeys: sortedSections.map((s) => s.key), blueprintRev: 1, period });
+    for (const r of sourceRows) {
+      const fam = famById.get(r.familyId)!;
+      if (fam.key === "ar_aging") continue; // demo-only family, unbound to the blueprint
+      if (r.period !== null && r.period !== period) continue; // a different quarter's filing
+      events.push({ type: "source_read", sourceId: r.id, label: r.name, summary: `${fam.label} — ${r.period ?? "constant"}` });
+    }
+    const sourcesUsed = events.filter((e) => e.type === "source_read").length;
+
+    for (const s of sortedSections) {
+      const blocks = doc.find((d) => d.key === s.key)!.blocks;
+      events.push({ type: "section_started", sectionKey: s.key });
+      if (s.mode === "fixed") {
+        // Fixed sections take no model call and run no checks (engine rule 2).
+        events.push({ type: "section_completed", sectionKey: s.key, blocks, words: countWords(blocks), ms: CANNED_SECTION_MS, retries: 0 });
+        continue;
+      }
+      events.push({ type: "text_delta", sectionKey: s.key, text: blocksToPlainText(blocks) });
+      for (const rule of s.rules) {
+        if (rule.kind !== "assert" || rule.sql == null) continue;
+        events.push({ type: "check_passed", sectionKey: s.key, rule: rule.text.trim() ? rule.text : rule.sql });
+        checksPassed++;
+      }
+      events.push({ type: "check_passed", sectionKey: s.key, rule: "citations" });
+      checksPassed++;
+      events.push({ type: "section_completed", sectionKey: s.key, blocks, words: countWords(blocks), ms: CANNED_SECTION_MS, retries: 0 });
+    }
+
+    events.push({ type: "render_started" });
+    const stats: RunStats = {
+      durationMs: CANNED_RUN_MS,
+      words: doc.reduce((n, d) => n + countWords(d.blocks), 0),
+      sourcesUsed,
+      checksPassed, checksFailed: 0, flagCount: 0,
+      citationCount: doc.reduce((n, d) => n + countCitations(d.blocks), 0),
+      retries: 0,
+    };
+    events.push({ type: "run_completed", stats, document });
+
+    const tx = db.sqlite.transaction(() => {
+      db.sqlite.prepare(
+        "INSERT INTO runs (id, blueprint_id, blueprint_rev, trigger_kind, status, period, started_at, finished_at, stats, document, created_at) " +
+          "VALUES (?, ?, 1, 'manual', 'complete', ?, ?, ?, ?, ?, ?)",
+      ).run(runId, blueprintId, period, createdAt, createdAt, JSON.stringify(stats), JSON.stringify(document), createdAt);
+      const insEvent = db.sqlite.prepare("INSERT INTO run_events (run_id, seq, type, payload) VALUES (?, ?, ?, ?)");
+      events.forEach((e, i) => insEvent.run(runId, i + 1, e.type, JSON.stringify(e)));
+    });
+    tx();
+    console.log(`Baked canned completed run for ${period} — id: ${runId} (${events.length} events)`);
+  }
+
+  // Q1 run created before Q2 so previousCompletedDocument pairs Q2→Q1 (the diff
+  // fixture reads the latest completed run and its predecessor).
+  const stamp = (offsetSec: number): string =>
+    new Date(Date.now() - offsetSec * 1000).toISOString().replace("T", " ").slice(0, 19);
+  bakeCannedRun("2026-Q1", stamp(120));
+  bakeCannedRun("2026-Q2", stamp(60));
 
   return { projectId, blueprintId, created: true };
 }

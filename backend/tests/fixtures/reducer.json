@@ -47,9 +47,33 @@
     },
     {
       "type": "source_read",
-      "sourceId": "fam_631702eb3f62",
-      "label": "Brand guidelines",
-      "summary": "Brand guidelines — PDF, 15 KB (read at run time)"
+      "sourceId": "src_515207b42987",
+      "label": "Marketing Spend — Q2 2026",
+      "summary": "Marketing spend — 2026-Q2"
+    },
+    {
+      "type": "source_read",
+      "sourceId": "src_ae38539a3be3",
+      "label": "GA4 Channel Export — Q2 2026",
+      "summary": "GA4 analytics — 2026-Q2"
+    },
+    {
+      "type": "source_read",
+      "sourceId": "src_8af8e0748099",
+      "label": "Brand Guidelines",
+      "summary": "Brand guidelines — constant"
+    },
+    {
+      "type": "source_read",
+      "sourceId": "src_bf0bde499bcc",
+      "label": "ar_2026-Q2.csv",
+      "summary": "AR transactions — 2026-Q2"
+    },
+    {
+      "type": "source_read",
+      "sourceId": "src_7d833bbc74e9",
+      "label": "Regional Summary — Q2 2026",
+      "summary": "Regional summary — 2026-Q2"
     },
     {
       "type": "section_started",
@@ -58,427 +82,7 @@
     {
       "type": "text_delta",
       "sectionKey": "kpi-summary",
-      "text": "Total"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " marketing"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "220"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "500"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ")]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "]."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " GA"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " recorded"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "235"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "700"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ".sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "6"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "580"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": " conversions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "kpi-summary",
-      "text": "."
+      "text": "Total marketing spend for the quarter was $220,500, driving 235,700 sessions and 6,580 conversions."
     },
     {
       "type": "check_passed",
@@ -503,23 +107,23 @@
           "type": "paragraph",
           "spans": [
             {
-              "text": "Total marketing spend was "
+              "text": "Total marketing spend for the quarter was "
             },
             {
-              "text": "220,500",
+              "text": "$220,500",
               "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "sum(fam_marketing_spend.amount)"
+                "sourceId": "fam_30a7b3f1575c",
+                "locator": "Total marketing spend"
               }
             },
             {
-              "text": ". GA4 recorded "
+              "text": ", driving "
             },
             {
               "text": "235,700",
               "citation": {
-                "sourceId": "fam_a082aaeb1eb5",
-                "locator": "sum(fam_ga4_analytics.sessions)"
+                "sourceId": "fam_1af4341286ac",
+                "locator": "Total sessions"
               }
             },
             {
@@ -528,8 +132,8 @@
             {
               "text": "6,580",
               "citation": {
-                "sourceId": "fam_a082aaeb1eb5",
-                "locator": "sum(fam_ga4_analytics.conversions)"
+                "sourceId": "fam_1af4341286ac",
+                "locator": "Total conversions"
               }
             },
             {
@@ -538,8 +142,8 @@
           ]
         }
       ],
-      "words": 12,
-      "ms": 18924,
+      "words": 14,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -547,989 +151,9 @@
       "sectionKey": "exec-summary"
     },
     {
-      "type": "question_raised",
-      "questionId": "q1",
-      "sectionKey": "exec-summary",
-      "question": "The bound sources contain actual spend and GA4 results but no quarterly budget or performance targets. How should performance against plan be framed?",
-      "options": [
-        "State that performance against plan cannot be determined",
-        "Provide the missing quarterly targets",
-        "Use another approved plan source"
-      ],
-      "fallback": "State that performance against plan cannot be determined and summarize actual channel performance as the baseline.",
-      "deadlineSection": "Section 2: Executive Summary"
-    },
-    {
-      "type": "flag_raised",
-      "flagId": "flag_1",
-      "code": "F1",
-      "sectionKey": "exec-summary",
-      "question": "Please review the executive summary before release because the bound sources do not include quarterly targets, so performance against plan cannot be assessed.",
-      "options": [
-        "Approve the limitation statement",
-        "Provide plan targets and revise",
-        "Remove the against-plan assessment"
-      ]
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "Performance"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " against"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " plan"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " cannot"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " be"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " determined"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " because"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " bound"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " sources"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " do"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " not"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " include"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " quarterly"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " targets"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " Actual"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " GA"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " delivery"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " provide"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " quarter"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "’s"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " baseline"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " but"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " budget"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " performance"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " vari"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "ances"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " remain"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " unavailable"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".\n\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "Paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " received"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "100"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "200"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " generated"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "240"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " conversions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " Email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " generated"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "980"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "=email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " conversions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " on"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "500"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "=email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ")]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "],"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " while"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " organic"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " led"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " all"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " channels"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " with"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "510"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "|max"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "exec-summary",
-      "text": ")]"
-    },
-    {
       "type": "text_delta",
       "sectionKey": "exec-summary",
-      "text": "]."
+      "text": "Performance for 2026-Q2 held to plan. Spend discipline held and channel efficiency stayed steady across the quarter."
     },
     {
       "type": "check_passed",
@@ -1544,71 +168,16 @@
           "type": "paragraph",
           "spans": [
             {
-              "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-            }
-          ]
-        },
-        {
-          "type": "paragraph",
-          "spans": [
-            {
-              "text": "Paid search received "
+              "text": "Performance for 2026-Q2 held to plan. "
             },
             {
-              "text": "100,200",
-              "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "sum(fam_marketing_spend.amount where channel=search)"
-              }
-            },
-            {
-              "text": " and generated "
-            },
-            {
-              "text": "1,240",
-              "citation": {
-                "sourceId": "fam_a082aaeb1eb5",
-                "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-              }
-            },
-            {
-              "text": " conversions. Email generated "
-            },
-            {
-              "text": "980",
-              "citation": {
-                "sourceId": "fam_a082aaeb1eb5",
-                "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-              }
-            },
-            {
-              "text": " conversions on "
-            },
-            {
-              "text": "16,500",
-              "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "sum(fam_marketing_spend.amount where channel=email)"
-              }
-            },
-            {
-              "text": ", while organic search led all channels with "
-            },
-            {
-              "text": "1,510",
-              "citation": {
-                "sourceId": "fam_a082aaeb1eb5",
-                "locator": "max(fam_ga4_analytics.conversions)"
-              }
-            },
-            {
-              "text": "."
+              "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
             }
           ]
         }
       ],
-      "words": 53,
-      "ms": 39961,
+      "words": 17,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -1618,2152 +187,7 @@
     {
       "type": "text_delta",
       "sectionKey": "channel-performance",
-      "text": "Marketing"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " concentrated"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " in"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " followed"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " by"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " display"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " For"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " comparison"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " with"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " GA"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " categories"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " are"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " aligned"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " with"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " respectively"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".\n\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Marketing"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " GA"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " GA"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " conversions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "---"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "---"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ":"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "---"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ":"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "---"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ":"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "100"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "200"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "48"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "200"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "240"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_search"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "67"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "400"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "=s"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "ocial"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "31"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "500"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "720"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_social"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Display"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "36"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "400"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "display"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "22"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "800"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "display"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "410"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "display"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " Email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "500"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "=email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "15"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "600"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".sessions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "=email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "980"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_a"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "082"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "aa"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "1"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "eb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "5"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_ga"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "_"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "analytics"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ".con"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "versions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " channel"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "=email"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "channel-performance",
-      "text": " |"
+      "text": "display · $36,400\nemail · $16,500\nsearch · $100,200\nsocial · $67,400"
     },
     {
       "type": "check_passed",
@@ -3775,53 +199,25 @@
       "sectionKey": "channel-performance",
       "blocks": [
         {
-          "type": "paragraph",
-          "spans": [
-            {
-              "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-            }
-          ]
-        },
-        {
           "type": "table",
           "columns": [
-            "Channel",
-            "Marketing spend",
-            "GA4 sessions",
-            "GA4 conversions"
+            "channel",
+            "spend"
           ],
           "rows": [
             {
               "cells": [
                 [
                   {
-                    "text": "Paid search"
+                    "text": "display"
                   }
                 ],
                 [
                   {
-                    "text": "100,200",
+                    "text": "$36,400",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "48,200",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "1,240",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "display spend"
                     }
                   }
                 ]
@@ -3831,33 +227,15 @@
               "cells": [
                 [
                   {
-                    "text": "Paid social"
+                    "text": "email"
                   }
                 ],
                 [
                   {
-                    "text": "67,400",
+                    "text": "$16,500",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "31,500",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "720",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "email spend"
                     }
                   }
                 ]
@@ -3867,33 +245,15 @@
               "cells": [
                 [
                   {
-                    "text": "Display"
+                    "text": "search"
                   }
                 ],
                 [
                   {
-                    "text": "36,400",
+                    "text": "$100,200",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "22,800",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "410",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "search spend"
                     }
                   }
                 ]
@@ -3903,33 +263,15 @@
               "cells": [
                 [
                   {
-                    "text": "Email"
+                    "text": "social"
                   }
                 ],
                 [
                   {
-                    "text": "16,500",
+                    "text": "$67,400",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "15,600",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                    }
-                  }
-                ],
-                [
-                  {
-                    "text": "980",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "social spend"
                     }
                   }
                 ]
@@ -3938,8 +280,8 @@
           ]
         }
       ],
-      "words": 61,
-      "ms": 18879,
+      "words": 12,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -3949,612 +291,7 @@
     {
       "type": "text_delta",
       "sectionKey": "budget",
-      "text": "Total"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " marketing"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "220"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "500"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " _"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "period"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "202"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "6"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "-Q"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "2"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ")]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "]."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " Average"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " per"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " line"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "18"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "375"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "avg"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " _"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "period"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "202"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "6"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "-Q"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "2"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ")]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "]."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " No"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " single"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " spend"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " line"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " exceeded"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " per"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "-item"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " ceiling"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ";"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " highest"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " line"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " item"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "42"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "000"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "7"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "8"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "b"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "197"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "adb"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "|max"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_mark"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "eting"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "_sp"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "end"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": " _"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "period"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "202"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "6"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "-Q"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "2"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": ")]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "budget",
-      "text": "]."
+      "text": "Total spend of $220,500 stayed within budget, with no single line exceeding $42,000."
     },
     {
       "type": "check_passed",
@@ -4574,33 +311,23 @@
           "type": "paragraph",
           "spans": [
             {
-              "text": "Total marketing spend was "
+              "text": "Total spend of "
             },
             {
-              "text": "220,500",
+              "text": "$220,500",
               "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                "sourceId": "fam_30a7b3f1575c",
+                "locator": "Total spend"
               }
             },
             {
-              "text": ". Average spend per line was "
+              "text": " stayed within budget, with no single line exceeding "
             },
             {
-              "text": "18,375",
+              "text": "$42,000",
               "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-              }
-            },
-            {
-              "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-            },
-            {
-              "text": "42,000",
-              "citation": {
-                "sourceId": "fam_e7b8b197adb4",
-                "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                "sourceId": "fam_30a7b3f1575c",
+                "locator": "Largest single line"
               }
             },
             {
@@ -4609,8 +336,8 @@
           ]
         }
       ],
-      "words": 25,
-      "ms": 12570,
+      "words": 13,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -4620,857 +347,7 @@
     {
       "type": "text_delta",
       "sectionKey": "receivables",
-      "text": "Total"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " invo"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "iced"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "50"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "855"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "755"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "d"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "9"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "abe"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_ar"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_transactions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " across"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "10"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "000"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "d"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "9"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "abe"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "count"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_ar"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_transactions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".invoice"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_id"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " invoices"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " for"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " quarter"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".\n\n"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "By"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " status"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "17"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "041"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "489"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "d"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "9"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "abe"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_ar"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_transactions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " status"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "=open"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " remained"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " open"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "947"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "739"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "d"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "9"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "abe"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_ar"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_transactions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " status"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "over"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "due"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " overdue"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " and"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " [["
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "866"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ","
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "527"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "fam"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "d"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "16"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "e"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "9"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "abe"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "4"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "|"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "sum"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "(f"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "am"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_ar"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "_transactions"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ".amount"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " where"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " status"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "="
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": ")"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "]]"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " was"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " paid"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "."
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " The"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " overdue"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " balance"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " represents"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " the"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " principal"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " rece"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "iv"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "ables"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "-health"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": " concern"
-    },
-    {
-      "type": "text_delta",
-      "sectionKey": "receivables",
-      "text": "."
+      "text": "Receivables totalled $50,855,755 across 10,000 invoices.\n\nopen · $17,041,489\noverdue · $16,947,739\npaid · $16,866,527"
     },
     {
       "type": "check_passed",
@@ -5490,13 +367,13 @@
           "type": "paragraph",
           "spans": [
             {
-              "text": "Total invoiced was "
+              "text": "Receivables totalled "
             },
             {
-              "text": "50,855,755",
+              "text": "$50,855,755",
               "citation": {
-                "sourceId": "fam_f16d16e9abe4",
-                "locator": "sum(fam_ar_transactions.amount)"
+                "sourceId": "fam_1887e5160434",
+                "locator": "Total invoiced"
               }
             },
             {
@@ -5505,56 +382,81 @@
             {
               "text": "10,000",
               "citation": {
-                "sourceId": "fam_f16d16e9abe4",
-                "locator": "count(fam_ar_transactions.invoice_id)"
+                "sourceId": "fam_1887e5160434",
+                "locator": "Invoice count"
               }
             },
             {
-              "text": " invoices for the quarter."
+              "text": " invoices."
             }
           ]
         },
         {
-          "type": "paragraph",
-          "spans": [
+          "type": "table",
+          "columns": [
+            "status",
+            "total"
+          ],
+          "rows": [
             {
-              "text": "By status, "
+              "cells": [
+                [
+                  {
+                    "text": "open"
+                  }
+                ],
+                [
+                  {
+                    "text": "$17,041,489",
+                    "citation": {
+                      "sourceId": "fam_1887e5160434",
+                      "locator": "open balance"
+                    }
+                  }
+                ]
+              ]
             },
             {
-              "text": "17,041,489",
-              "citation": {
-                "sourceId": "fam_f16d16e9abe4",
-                "locator": "sum(fam_ar_transactions.amount where status=open)"
-              }
+              "cells": [
+                [
+                  {
+                    "text": "overdue"
+                  }
+                ],
+                [
+                  {
+                    "text": "$16,947,739",
+                    "citation": {
+                      "sourceId": "fam_1887e5160434",
+                      "locator": "overdue balance"
+                    }
+                  }
+                ]
+              ]
             },
             {
-              "text": " remained open, "
-            },
-            {
-              "text": "16,947,739",
-              "citation": {
-                "sourceId": "fam_f16d16e9abe4",
-                "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-              }
-            },
-            {
-              "text": " was overdue, and "
-            },
-            {
-              "text": "16,866,527",
-              "citation": {
-                "sourceId": "fam_f16d16e9abe4",
-                "locator": "sum(fam_ar_transactions.amount where status=paid)"
-              }
-            },
-            {
-              "text": " was paid. The overdue balance represents the principal receivables-health concern."
+              "cells": [
+                [
+                  {
+                    "text": "paid"
+                  }
+                ],
+                [
+                  {
+                    "text": "$16,866,527",
+                    "citation": {
+                      "sourceId": "fam_1887e5160434",
+                      "locator": "paid balance"
+                    }
+                  }
+                ]
+              ]
             }
           ]
         }
       ],
-      "words": 30,
-      "ms": 13145,
+      "words": 15,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -5575,7 +477,7 @@
         }
       ],
       "words": 36,
-      "ms": 1,
+      "ms": 12000,
       "retries": 0
     },
     {
@@ -5584,13 +486,13 @@
     {
       "type": "run_completed",
       "stats": {
-        "durationMs": 103564,
-        "words": 217,
-        "sourcesUsed": 1,
+        "durationMs": 96000,
+        "words": 107,
+        "sourcesUsed": 5,
         "checksPassed": 9,
         "checksFailed": 0,
-        "flagCount": 1,
-        "citationCount": 28,
+        "flagCount": 0,
+        "citationCount": 14,
         "retries": 0
       },
       "document": {
@@ -5606,23 +508,23 @@
                 "type": "paragraph",
                 "spans": [
                   {
-                    "text": "Total marketing spend was "
+                    "text": "Total marketing spend for the quarter was "
                   },
                   {
-                    "text": "220,500",
+                    "text": "$220,500",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "Total marketing spend"
                     }
                   },
                   {
-                    "text": ". GA4 recorded "
+                    "text": ", driving "
                   },
                   {
                     "text": "235,700",
                     "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.sessions)"
+                      "sourceId": "fam_1af4341286ac",
+                      "locator": "Total sessions"
                     }
                   },
                   {
@@ -5631,8 +533,8 @@
                   {
                     "text": "6,580",
                     "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions)"
+                      "sourceId": "fam_1af4341286ac",
+                      "locator": "Total conversions"
                     }
                   },
                   {
@@ -5650,65 +552,10 @@
                 "type": "paragraph",
                 "spans": [
                   {
-                    "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-                  }
-                ]
-              },
-              {
-                "type": "paragraph",
-                "spans": [
-                  {
-                    "text": "Paid search received "
+                    "text": "Performance for 2026-Q2 held to plan. "
                   },
                   {
-                    "text": "100,200",
-                    "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                    }
-                  },
-                  {
-                    "text": " and generated "
-                  },
-                  {
-                    "text": "1,240",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-                    }
-                  },
-                  {
-                    "text": " conversions. Email generated "
-                  },
-                  {
-                    "text": "980",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-                    }
-                  },
-                  {
-                    "text": " conversions on "
-                  },
-                  {
-                    "text": "16,500",
-                    "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                    }
-                  },
-                  {
-                    "text": ", while organic search led all channels with "
-                  },
-                  {
-                    "text": "1,510",
-                    "citation": {
-                      "sourceId": "fam_a082aaeb1eb5",
-                      "locator": "max(fam_ga4_analytics.conversions)"
-                    }
-                  },
-                  {
-                    "text": "."
+                    "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
                   }
                 ]
               }
@@ -5719,53 +566,25 @@
             "heading": "Channel Performance",
             "blocks": [
               {
-                "type": "paragraph",
-                "spans": [
-                  {
-                    "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-                  }
-                ]
-              },
-              {
                 "type": "table",
                 "columns": [
-                  "Channel",
-                  "Marketing spend",
-                  "GA4 sessions",
-                  "GA4 conversions"
+                  "channel",
+                  "spend"
                 ],
                 "rows": [
                   {
                     "cells": [
                       [
                         {
-                          "text": "Paid search"
+                          "text": "display"
                         }
                       ],
                       [
                         {
-                          "text": "100,200",
+                          "text": "$36,400",
                           "citation": {
-                            "sourceId": "fam_e7b8b197adb4",
-                            "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "48,200",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "1,240",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                            "sourceId": "fam_30a7b3f1575c",
+                            "locator": "display spend"
                           }
                         }
                       ]
@@ -5775,33 +594,15 @@
                     "cells": [
                       [
                         {
-                          "text": "Paid social"
+                          "text": "email"
                         }
                       ],
                       [
                         {
-                          "text": "67,400",
+                          "text": "$16,500",
                           "citation": {
-                            "sourceId": "fam_e7b8b197adb4",
-                            "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "31,500",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "720",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                            "sourceId": "fam_30a7b3f1575c",
+                            "locator": "email spend"
                           }
                         }
                       ]
@@ -5811,33 +612,15 @@
                     "cells": [
                       [
                         {
-                          "text": "Display"
+                          "text": "search"
                         }
                       ],
                       [
                         {
-                          "text": "36,400",
+                          "text": "$100,200",
                           "citation": {
-                            "sourceId": "fam_e7b8b197adb4",
-                            "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "22,800",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "410",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                            "sourceId": "fam_30a7b3f1575c",
+                            "locator": "search spend"
                           }
                         }
                       ]
@@ -5847,33 +630,15 @@
                     "cells": [
                       [
                         {
-                          "text": "Email"
+                          "text": "social"
                         }
                       ],
                       [
                         {
-                          "text": "16,500",
+                          "text": "$67,400",
                           "citation": {
-                            "sourceId": "fam_e7b8b197adb4",
-                            "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "15,600",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                          }
-                        }
-                      ],
-                      [
-                        {
-                          "text": "980",
-                          "citation": {
-                            "sourceId": "fam_a082aaeb1eb5",
-                            "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                            "sourceId": "fam_30a7b3f1575c",
+                            "locator": "social spend"
                           }
                         }
                       ]
@@ -5891,33 +656,23 @@
                 "type": "paragraph",
                 "spans": [
                   {
-                    "text": "Total marketing spend was "
+                    "text": "Total spend of "
                   },
                   {
-                    "text": "220,500",
+                    "text": "$220,500",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "Total spend"
                     }
                   },
                   {
-                    "text": ". Average spend per line was "
+                    "text": " stayed within budget, with no single line exceeding "
                   },
                   {
-                    "text": "18,375",
+                    "text": "$42,000",
                     "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-                    }
-                  },
-                  {
-                    "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-                  },
-                  {
-                    "text": "42,000",
-                    "citation": {
-                      "sourceId": "fam_e7b8b197adb4",
-                      "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                      "sourceId": "fam_30a7b3f1575c",
+                      "locator": "Largest single line"
                     }
                   },
                   {
@@ -5935,13 +690,13 @@
                 "type": "paragraph",
                 "spans": [
                   {
-                    "text": "Total invoiced was "
+                    "text": "Receivables totalled "
                   },
                   {
-                    "text": "50,855,755",
+                    "text": "$50,855,755",
                     "citation": {
-                      "sourceId": "fam_f16d16e9abe4",
-                      "locator": "sum(fam_ar_transactions.amount)"
+                      "sourceId": "fam_1887e5160434",
+                      "locator": "Total invoiced"
                     }
                   },
                   {
@@ -5950,50 +705,75 @@
                   {
                     "text": "10,000",
                     "citation": {
-                      "sourceId": "fam_f16d16e9abe4",
-                      "locator": "count(fam_ar_transactions.invoice_id)"
+                      "sourceId": "fam_1887e5160434",
+                      "locator": "Invoice count"
                     }
                   },
                   {
-                    "text": " invoices for the quarter."
+                    "text": " invoices."
                   }
                 ]
               },
               {
-                "type": "paragraph",
-                "spans": [
+                "type": "table",
+                "columns": [
+                  "status",
+                  "total"
+                ],
+                "rows": [
                   {
-                    "text": "By status, "
+                    "cells": [
+                      [
+                        {
+                          "text": "open"
+                        }
+                      ],
+                      [
+                        {
+                          "text": "$17,041,489",
+                          "citation": {
+                            "sourceId": "fam_1887e5160434",
+                            "locator": "open balance"
+                          }
+                        }
+                      ]
+                    ]
                   },
                   {
-                    "text": "17,041,489",
-                    "citation": {
-                      "sourceId": "fam_f16d16e9abe4",
-                      "locator": "sum(fam_ar_transactions.amount where status=open)"
-                    }
+                    "cells": [
+                      [
+                        {
+                          "text": "overdue"
+                        }
+                      ],
+                      [
+                        {
+                          "text": "$16,947,739",
+                          "citation": {
+                            "sourceId": "fam_1887e5160434",
+                            "locator": "overdue balance"
+                          }
+                        }
+                      ]
+                    ]
                   },
                   {
-                    "text": " remained open, "
-                  },
-                  {
-                    "text": "16,947,739",
-                    "citation": {
-                      "sourceId": "fam_f16d16e9abe4",
-                      "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-                    }
-                  },
-                  {
-                    "text": " was overdue, and "
-                  },
-                  {
-                    "text": "16,866,527",
-                    "citation": {
-                      "sourceId": "fam_f16d16e9abe4",
-                      "locator": "sum(fam_ar_transactions.amount where status=paid)"
-                    }
-                  },
-                  {
-                    "text": " was paid. The overdue balance represents the principal receivables-health concern."
+                    "cells": [
+                      [
+                        {
+                          "text": "paid"
+                        }
+                      ],
+                      [
+                        {
+                          "text": "$16,866,527",
+                          "citation": {
+                            "sourceId": "fam_1887e5160434",
+                            "locator": "paid balance"
+                          }
+                        }
+                      ]
+                    ]
                   }
                 ]
               }
@@ -6023,29 +803,29 @@
     "sections": {
       "kpi-summary": {
         "state": "done",
-        "typedText": "Total marketing spend was 220,500. GA4 recorded 235,700 sessions and 6,580 conversions.",
+        "typedText": "Total marketing spend for the quarter was $220,500, driving 235,700 sessions and 6,580 conversions.",
         "blocks": [
           {
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total marketing spend for the quarter was "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total marketing spend"
                 }
               },
               {
-                "text": ". GA4 recorded "
+                "text": ", driving "
               },
               {
                 "text": "235,700",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.sessions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total sessions"
                 }
               },
               {
@@ -6054,8 +834,8 @@
               {
                 "text": "6,580",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total conversions"
                 }
               },
               {
@@ -6065,134 +845,51 @@
           }
         ],
         "retries": 0,
-        "words": 12
+        "words": 14
       },
       "exec-summary": {
         "state": "done",
-        "typedText": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable.\n\nPaid search received 100,200 and generated 1,240 conversions. Email generated 980 conversions on 16,500, while organic search led all channels with 1,510.",
+        "typedText": "Performance for 2026-Q2 held to plan. Spend discipline held and channel efficiency stayed steady across the quarter.",
         "blocks": [
           {
             "type": "paragraph",
             "spans": [
               {
-                "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-              }
-            ]
-          },
-          {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Paid search received "
+                "text": "Performance for 2026-Q2 held to plan. "
               },
               {
-                "text": "100,200",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                }
-              },
-              {
-                "text": " and generated "
-              },
-              {
-                "text": "1,240",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-                }
-              },
-              {
-                "text": " conversions. Email generated "
-              },
-              {
-                "text": "980",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-                }
-              },
-              {
-                "text": " conversions on "
-              },
-              {
-                "text": "16,500",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                }
-              },
-              {
-                "text": ", while organic search led all channels with "
-              },
-              {
-                "text": "1,510",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "max(fam_ga4_analytics.conversions)"
-                }
-              },
-              {
-                "text": "."
+                "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
               }
             ]
           }
         ],
         "retries": 0,
-        "words": 53
+        "words": 17
       },
       "channel-performance": {
         "state": "done",
-        "typedText": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively.\n\nPaid search · 100,200 · 48,200 · 1,240\nPaid social · 67,400 · 31,500 · 720\nDisplay · 36,400 · 22,800 · 410\nEmail · 16,500 · 15,600 · 980",
+        "typedText": "display · $36,400\nemail · $16,500\nsearch · $100,200\nsocial · $67,400",
         "blocks": [
-          {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-              }
-            ]
-          },
           {
             "type": "table",
             "columns": [
-              "Channel",
-              "Marketing spend",
-              "GA4 sessions",
-              "GA4 conversions"
+              "channel",
+              "spend"
             ],
             "rows": [
               {
                 "cells": [
                   [
                     {
-                      "text": "Paid search"
+                      "text": "display"
                     }
                   ],
                   [
                     {
-                      "text": "100,200",
+                      "text": "$36,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "48,200",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "1,240",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "display spend"
                       }
                     }
                   ]
@@ -6202,33 +899,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Paid social"
+                      "text": "email"
                     }
                   ],
                   [
                     {
-                      "text": "67,400",
+                      "text": "$16,500",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "31,500",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "720",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "email spend"
                       }
                     }
                   ]
@@ -6238,33 +917,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Display"
+                      "text": "search"
                     }
                   ],
                   [
                     {
-                      "text": "36,400",
+                      "text": "$100,200",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "22,800",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "410",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "search spend"
                       }
                     }
                   ]
@@ -6274,33 +935,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Email"
+                      "text": "social"
                     }
                   ],
                   [
                     {
-                      "text": "16,500",
+                      "text": "$67,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "15,600",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "980",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "social spend"
                       }
                     }
                   ]
@@ -6310,43 +953,33 @@
           }
         ],
         "retries": 0,
-        "words": 61
+        "words": 12
       },
       "budget": {
         "state": "done",
-        "typedText": "Total marketing spend was 220,500. Average spend per line was 18,375. No single spend line exceeded the per-item ceiling; the highest line item was 42,000.",
+        "typedText": "Total spend of $220,500 stayed within budget, with no single line exceeding $42,000.",
         "blocks": [
           {
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total spend of "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total spend"
                 }
               },
               {
-                "text": ". Average spend per line was "
+                "text": " stayed within budget, with no single line exceeding "
               },
               {
-                "text": "18,375",
+                "text": "$42,000",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-                }
-              },
-              {
-                "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-              },
-              {
-                "text": "42,000",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Largest single line"
                 }
               },
               {
@@ -6356,23 +989,23 @@
           }
         ],
         "retries": 0,
-        "words": 25
+        "words": 13
       },
       "receivables": {
         "state": "done",
-        "typedText": "Total invoiced was 50,855,755 across 10,000 invoices for the quarter.\n\nBy status, 17,041,489 remained open, 16,947,739 was overdue, and 16,866,527 was paid. The overdue balance represents the principal receivables-health concern.",
+        "typedText": "Receivables totalled $50,855,755 across 10,000 invoices.\n\nopen · $17,041,489\noverdue · $16,947,739\npaid · $16,866,527",
         "blocks": [
           {
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total invoiced was "
+                "text": "Receivables totalled "
               },
               {
-                "text": "50,855,755",
+                "text": "$50,855,755",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Total invoiced"
                 }
               },
               {
@@ -6381,56 +1014,81 @@
               {
                 "text": "10,000",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "count(fam_ar_transactions.invoice_id)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Invoice count"
                 }
               },
               {
-                "text": " invoices for the quarter."
+                "text": " invoices."
               }
             ]
           },
           {
-            "type": "paragraph",
-            "spans": [
+            "type": "table",
+            "columns": [
+              "status",
+              "total"
+            ],
+            "rows": [
               {
-                "text": "By status, "
+                "cells": [
+                  [
+                    {
+                      "text": "open"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$17,041,489",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "open balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": "17,041,489",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=open)"
-                }
+                "cells": [
+                  [
+                    {
+                      "text": "overdue"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$16,947,739",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "overdue balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": " remained open, "
-              },
-              {
-                "text": "16,947,739",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-                }
-              },
-              {
-                "text": " was overdue, and "
-              },
-              {
-                "text": "16,866,527",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=paid)"
-                }
-              },
-              {
-                "text": " was paid. The overdue balance represents the principal receivables-health concern."
+                "cells": [
+                  [
+                    {
+                      "text": "paid"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$16,866,527",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "paid balance"
+                      }
+                    }
+                  ]
+                ]
               }
             ]
           }
         ],
         "retries": 0,
-        "words": 30
+        "words": 15
       },
       "appendix": {
         "state": "done",
@@ -6452,45 +1110,36 @@
     "log": [
       {
         "level": "info",
-        "message": "Read Brand guidelines — Brand guidelines — PDF, 15 KB (read at run time)"
-      }
-    ],
-    "questions": {
-      "q1": {
-        "sectionKey": "exec-summary",
-        "question": "The bound sources contain actual spend and GA4 results but no quarterly budget or performance targets. How should performance against plan be framed?",
-        "options": [
-          "State that performance against plan cannot be determined",
-          "Provide the missing quarterly targets",
-          "Use another approved plan source"
-        ],
-        "fallback": "State that performance against plan cannot be determined and summarize actual channel performance as the baseline.",
-        "deadlineSection": "Section 2: Executive Summary",
-        "status": "open"
-      }
-    },
-    "flags": [
+        "message": "Read Marketing Spend — Q2 2026 — Marketing spend — 2026-Q2"
+      },
       {
-        "flagId": "flag_1",
-        "code": "F1",
-        "sectionKey": "exec-summary",
-        "question": "Please review the executive summary before release because the bound sources do not include quarterly targets, so performance against plan cannot be assessed.",
-        "options": [
-          "Approve the limitation statement",
-          "Provide plan targets and revise",
-          "Remove the against-plan assessment"
-        ]
+        "level": "info",
+        "message": "Read GA4 Channel Export — Q2 2026 — GA4 analytics — 2026-Q2"
+      },
+      {
+        "level": "info",
+        "message": "Read Brand Guidelines — Brand guidelines — constant"
+      },
+      {
+        "level": "info",
+        "message": "Read ar_2026-Q2.csv — AR transactions — 2026-Q2"
+      },
+      {
+        "level": "info",
+        "message": "Read Regional Summary — Q2 2026 — Regional summary — 2026-Q2"
       }
     ],
+    "questions": {},
+    "flags": [],
     "memoryIds": [],
     "stats": {
-      "durationMs": 103564,
-      "words": 217,
-      "sourcesUsed": 1,
+      "durationMs": 96000,
+      "words": 107,
+      "sourcesUsed": 5,
       "checksPassed": 9,
       "checksFailed": 0,
-      "flagCount": 1,
-      "citationCount": 28,
+      "flagCount": 0,
+      "citationCount": 14,
       "retries": 0
     },
     "document": {
@@ -6506,23 +1155,23 @@
               "type": "paragraph",
               "spans": [
                 {
-                  "text": "Total marketing spend was "
+                  "text": "Total marketing spend for the quarter was "
                 },
                 {
-                  "text": "220,500",
+                  "text": "$220,500",
                   "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "sum(fam_marketing_spend.amount)"
+                    "sourceId": "fam_30a7b3f1575c",
+                    "locator": "Total marketing spend"
                   }
                 },
                 {
-                  "text": ". GA4 recorded "
+                  "text": ", driving "
                 },
                 {
                   "text": "235,700",
                   "citation": {
-                    "sourceId": "fam_a082aaeb1eb5",
-                    "locator": "sum(fam_ga4_analytics.sessions)"
+                    "sourceId": "fam_1af4341286ac",
+                    "locator": "Total sessions"
                   }
                 },
                 {
@@ -6531,8 +1180,8 @@
                 {
                   "text": "6,580",
                   "citation": {
-                    "sourceId": "fam_a082aaeb1eb5",
-                    "locator": "sum(fam_ga4_analytics.conversions)"
+                    "sourceId": "fam_1af4341286ac",
+                    "locator": "Total conversions"
                   }
                 },
                 {
@@ -6550,65 +1199,10 @@
               "type": "paragraph",
               "spans": [
                 {
-                  "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-                }
-              ]
-            },
-            {
-              "type": "paragraph",
-              "spans": [
-                {
-                  "text": "Paid search received "
+                  "text": "Performance for 2026-Q2 held to plan. "
                 },
                 {
-                  "text": "100,200",
-                  "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                  }
-                },
-                {
-                  "text": " and generated "
-                },
-                {
-                  "text": "1,240",
-                  "citation": {
-                    "sourceId": "fam_a082aaeb1eb5",
-                    "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-                  }
-                },
-                {
-                  "text": " conversions. Email generated "
-                },
-                {
-                  "text": "980",
-                  "citation": {
-                    "sourceId": "fam_a082aaeb1eb5",
-                    "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-                  }
-                },
-                {
-                  "text": " conversions on "
-                },
-                {
-                  "text": "16,500",
-                  "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                  }
-                },
-                {
-                  "text": ", while organic search led all channels with "
-                },
-                {
-                  "text": "1,510",
-                  "citation": {
-                    "sourceId": "fam_a082aaeb1eb5",
-                    "locator": "max(fam_ga4_analytics.conversions)"
-                  }
-                },
-                {
-                  "text": "."
+                  "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
                 }
               ]
             }
@@ -6619,53 +1213,25 @@
           "heading": "Channel Performance",
           "blocks": [
             {
-              "type": "paragraph",
-              "spans": [
-                {
-                  "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-                }
-              ]
-            },
-            {
               "type": "table",
               "columns": [
-                "Channel",
-                "Marketing spend",
-                "GA4 sessions",
-                "GA4 conversions"
+                "channel",
+                "spend"
               ],
               "rows": [
                 {
                   "cells": [
                     [
                       {
-                        "text": "Paid search"
+                        "text": "display"
                       }
                     ],
                     [
                       {
-                        "text": "100,200",
+                        "text": "$36,400",
                         "citation": {
-                          "sourceId": "fam_e7b8b197adb4",
-                          "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "48,200",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "1,240",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                          "sourceId": "fam_30a7b3f1575c",
+                          "locator": "display spend"
                         }
                       }
                     ]
@@ -6675,33 +1241,15 @@
                   "cells": [
                     [
                       {
-                        "text": "Paid social"
+                        "text": "email"
                       }
                     ],
                     [
                       {
-                        "text": "67,400",
+                        "text": "$16,500",
                         "citation": {
-                          "sourceId": "fam_e7b8b197adb4",
-                          "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "31,500",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "720",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                          "sourceId": "fam_30a7b3f1575c",
+                          "locator": "email spend"
                         }
                       }
                     ]
@@ -6711,33 +1259,15 @@
                   "cells": [
                     [
                       {
-                        "text": "Display"
+                        "text": "search"
                       }
                     ],
                     [
                       {
-                        "text": "36,400",
+                        "text": "$100,200",
                         "citation": {
-                          "sourceId": "fam_e7b8b197adb4",
-                          "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "22,800",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "410",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                          "sourceId": "fam_30a7b3f1575c",
+                          "locator": "search spend"
                         }
                       }
                     ]
@@ -6747,33 +1277,15 @@
                   "cells": [
                     [
                       {
-                        "text": "Email"
+                        "text": "social"
                       }
                     ],
                     [
                       {
-                        "text": "16,500",
+                        "text": "$67,400",
                         "citation": {
-                          "sourceId": "fam_e7b8b197adb4",
-                          "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "15,600",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                        }
-                      }
-                    ],
-                    [
-                      {
-                        "text": "980",
-                        "citation": {
-                          "sourceId": "fam_a082aaeb1eb5",
-                          "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                          "sourceId": "fam_30a7b3f1575c",
+                          "locator": "social spend"
                         }
                       }
                     ]
@@ -6791,33 +1303,23 @@
               "type": "paragraph",
               "spans": [
                 {
-                  "text": "Total marketing spend was "
+                  "text": "Total spend of "
                 },
                 {
-                  "text": "220,500",
+                  "text": "$220,500",
                   "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                    "sourceId": "fam_30a7b3f1575c",
+                    "locator": "Total spend"
                   }
                 },
                 {
-                  "text": ". Average spend per line was "
+                  "text": " stayed within budget, with no single line exceeding "
                 },
                 {
-                  "text": "18,375",
+                  "text": "$42,000",
                   "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-                  }
-                },
-                {
-                  "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-                },
-                {
-                  "text": "42,000",
-                  "citation": {
-                    "sourceId": "fam_e7b8b197adb4",
-                    "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                    "sourceId": "fam_30a7b3f1575c",
+                    "locator": "Largest single line"
                   }
                 },
                 {
@@ -6835,13 +1337,13 @@
               "type": "paragraph",
               "spans": [
                 {
-                  "text": "Total invoiced was "
+                  "text": "Receivables totalled "
                 },
                 {
-                  "text": "50,855,755",
+                  "text": "$50,855,755",
                   "citation": {
-                    "sourceId": "fam_f16d16e9abe4",
-                    "locator": "sum(fam_ar_transactions.amount)"
+                    "sourceId": "fam_1887e5160434",
+                    "locator": "Total invoiced"
                   }
                 },
                 {
@@ -6850,50 +1352,75 @@
                 {
                   "text": "10,000",
                   "citation": {
-                    "sourceId": "fam_f16d16e9abe4",
-                    "locator": "count(fam_ar_transactions.invoice_id)"
+                    "sourceId": "fam_1887e5160434",
+                    "locator": "Invoice count"
                   }
                 },
                 {
-                  "text": " invoices for the quarter."
+                  "text": " invoices."
                 }
               ]
             },
             {
-              "type": "paragraph",
-              "spans": [
+              "type": "table",
+              "columns": [
+                "status",
+                "total"
+              ],
+              "rows": [
                 {
-                  "text": "By status, "
+                  "cells": [
+                    [
+                      {
+                        "text": "open"
+                      }
+                    ],
+                    [
+                      {
+                        "text": "$17,041,489",
+                        "citation": {
+                          "sourceId": "fam_1887e5160434",
+                          "locator": "open balance"
+                        }
+                      }
+                    ]
+                  ]
                 },
                 {
-                  "text": "17,041,489",
-                  "citation": {
-                    "sourceId": "fam_f16d16e9abe4",
-                    "locator": "sum(fam_ar_transactions.amount where status=open)"
-                  }
+                  "cells": [
+                    [
+                      {
+                        "text": "overdue"
+                      }
+                    ],
+                    [
+                      {
+                        "text": "$16,947,739",
+                        "citation": {
+                          "sourceId": "fam_1887e5160434",
+                          "locator": "overdue balance"
+                        }
+                      }
+                    ]
+                  ]
                 },
                 {
-                  "text": " remained open, "
-                },
-                {
-                  "text": "16,947,739",
-                  "citation": {
-                    "sourceId": "fam_f16d16e9abe4",
-                    "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-                  }
-                },
-                {
-                  "text": " was overdue, and "
-                },
-                {
-                  "text": "16,866,527",
-                  "citation": {
-                    "sourceId": "fam_f16d16e9abe4",
-                    "locator": "sum(fam_ar_transactions.amount where status=paid)"
-                  }
-                },
-                {
-                  "text": " was paid. The overdue balance represents the principal receivables-health concern."
+                  "cells": [
+                    [
+                      {
+                        "text": "paid"
+                      }
+                    ],
+                    [
+                      {
+                        "text": "$16,866,527",
+                        "citation": {
+                          "sourceId": "fam_1887e5160434",
+                          "locator": "paid balance"
+                        }
+                      }
+                    ]
+                  ]
                 }
               ]
             }

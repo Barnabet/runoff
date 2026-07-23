@@ -12,23 +12,23 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total marketing spend for the quarter was "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total marketing spend"
                 }
               },
               {
-                "text": ". GA4 recorded "
+                "text": ", driving "
               },
               {
                 "text": "235,700",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.sessions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total sessions"
                 }
               },
               {
@@ -37,8 +37,8 @@
               {
                 "text": "6,580",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total conversions"
                 }
               },
               {
@@ -56,65 +56,10 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-              }
-            ]
-          },
-          {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Paid search received "
+                "text": "Performance for 2026-Q2 held to plan. "
               },
               {
-                "text": "100,200",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                }
-              },
-              {
-                "text": " and generated "
-              },
-              {
-                "text": "1,240",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-                }
-              },
-              {
-                "text": " conversions. Email generated "
-              },
-              {
-                "text": "980",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-                }
-              },
-              {
-                "text": " conversions on "
-              },
-              {
-                "text": "16,500",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                }
-              },
-              {
-                "text": ", while organic search led all channels with "
-              },
-              {
-                "text": "1,510",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "max(fam_ga4_analytics.conversions)"
-                }
-              },
-              {
-                "text": "."
+                "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
               }
             ]
           }
@@ -125,53 +70,25 @@
         "heading": "Channel Performance",
         "blocks": [
           {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-              }
-            ]
-          },
-          {
             "type": "table",
             "columns": [
-              "Channel",
-              "Marketing spend",
-              "GA4 sessions",
-              "GA4 conversions"
+              "channel",
+              "spend"
             ],
             "rows": [
               {
                 "cells": [
                   [
                     {
-                      "text": "Paid search"
+                      "text": "display"
                     }
                   ],
                   [
                     {
-                      "text": "100,200",
+                      "text": "$36,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "48,200",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "1,240",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "display spend"
                       }
                     }
                   ]
@@ -181,33 +98,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Paid social"
+                      "text": "email"
                     }
                   ],
                   [
                     {
-                      "text": "67,400",
+                      "text": "$16,500",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "31,500",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "720",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "email spend"
                       }
                     }
                   ]
@@ -217,33 +116,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Display"
+                      "text": "search"
                     }
                   ],
                   [
                     {
-                      "text": "36,400",
+                      "text": "$100,200",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "22,800",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "410",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "search spend"
                       }
                     }
                   ]
@@ -253,33 +134,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Email"
+                      "text": "social"
                     }
                   ],
                   [
                     {
-                      "text": "16,500",
+                      "text": "$67,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "15,600",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "980",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "social spend"
                       }
                     }
                   ]
@@ -297,33 +160,23 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total spend of "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total spend"
                 }
               },
               {
-                "text": ". Average spend per line was "
+                "text": " stayed within budget, with no single line exceeding "
               },
               {
-                "text": "18,375",
+                "text": "$42,000",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-                }
-              },
-              {
-                "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-              },
-              {
-                "text": "42,000",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Largest single line"
                 }
               },
               {
@@ -341,13 +194,13 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total invoiced was "
+                "text": "Receivables totalled "
               },
               {
-                "text": "50,855,755",
+                "text": "$50,855,755",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Total invoiced"
                 }
               },
               {
@@ -356,50 +209,75 @@
               {
                 "text": "10,000",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "count(fam_ar_transactions.invoice_id)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Invoice count"
                 }
               },
               {
-                "text": " invoices for the quarter."
+                "text": " invoices."
               }
             ]
           },
           {
-            "type": "paragraph",
-            "spans": [
+            "type": "table",
+            "columns": [
+              "status",
+              "total"
+            ],
+            "rows": [
               {
-                "text": "By status, "
+                "cells": [
+                  [
+                    {
+                      "text": "open"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$17,041,489",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "open balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": "17,041,489",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=open)"
-                }
+                "cells": [
+                  [
+                    {
+                      "text": "overdue"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$16,947,739",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "overdue balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": " remained open, "
-              },
-              {
-                "text": "16,947,739",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-                }
-              },
-              {
-                "text": " was overdue, and "
-              },
-              {
-                "text": "16,866,527",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=paid)"
-                }
-              },
-              {
-                "text": " was paid. The overdue balance represents the principal receivables-health concern."
+                "cells": [
+                  [
+                    {
+                      "text": "paid"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$16,866,527",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "paid balance"
+                      }
+                    }
+                  ]
+                ]
               }
             ]
           }
@@ -434,23 +312,23 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total marketing spend for the quarter was "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total marketing spend"
                 }
               },
               {
-                "text": ". GA4 recorded "
+                "text": ", driving "
               },
               {
                 "text": "235,700",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.sessions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total sessions"
                 }
               },
               {
@@ -459,8 +337,8 @@
               {
                 "text": "6,580",
                 "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions)"
+                  "sourceId": "fam_1af4341286ac",
+                  "locator": "Total conversions"
                 }
               },
               {
@@ -478,65 +356,10 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Performance against plan cannot be determined because the bound sources do not include quarterly targets. Actual spend and GA4 delivery provide the quarter’s baseline, but budget and performance variances remain unavailable."
-              }
-            ]
-          },
-          {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Paid search received "
+                "text": "Performance for 2026-Q1 held to plan. "
               },
               {
-                "text": "100,200",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                }
-              },
-              {
-                "text": " and generated "
-              },
-              {
-                "text": "1,240",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
-                }
-              },
-              {
-                "text": " conversions. Email generated "
-              },
-              {
-                "text": "980",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
-                }
-              },
-              {
-                "text": " conversions on "
-              },
-              {
-                "text": "16,500",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                }
-              },
-              {
-                "text": ", while organic search led all channels with "
-              },
-              {
-                "text": "1,510",
-                "citation": {
-                  "sourceId": "fam_a082aaeb1eb5",
-                  "locator": "max(fam_ga4_analytics.conversions)"
-                }
-              },
-              {
-                "text": " conversions."
+                "text": "Spend discipline held and channel efficiency stayed steady across the quarter."
               }
             ]
           }
@@ -547,53 +370,25 @@
         "heading": "Channel Performance",
         "blocks": [
           {
-            "type": "paragraph",
-            "spans": [
-              {
-                "text": "Marketing spend was concentrated in search, followed by social, display, and email. For comparison with GA4, the search and social spend categories are aligned with paid search and paid social, respectively."
-              }
-            ]
-          },
-          {
             "type": "table",
             "columns": [
-              "Channel",
-              "Marketing spend",
-              "GA4 sessions",
-              "GA4 conversions"
+              "channel",
+              "spend"
             ],
             "rows": [
               {
                 "cells": [
                   [
                     {
-                      "text": "Paid search"
+                      "text": "display"
                     }
                   ],
                   [
                     {
-                      "text": "100,200",
+                      "text": "$36,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "48,200",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_search)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "1,240",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_search)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "display spend"
                       }
                     }
                   ]
@@ -603,33 +398,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Paid social"
+                      "text": "email"
                     }
                   ],
                   [
                     {
-                      "text": "67,400",
+                      "text": "$16,500",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "31,500",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=paid_social)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "720",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=paid_social)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "email spend"
                       }
                     }
                   ]
@@ -639,33 +416,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Display"
+                      "text": "search"
                     }
                   ],
                   [
                     {
-                      "text": "36,400",
+                      "text": "$100,200",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "22,800",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=display)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "410",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=display)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "search spend"
                       }
                     }
                   ]
@@ -675,33 +434,15 @@
                 "cells": [
                   [
                     {
-                      "text": "Email"
+                      "text": "social"
                     }
                   ],
                   [
                     {
-                      "text": "16,500",
+                      "text": "$67,400",
                       "citation": {
-                        "sourceId": "fam_e7b8b197adb4",
-                        "locator": "sum(fam_marketing_spend.amount where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "15,600",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.sessions where channel=email)"
-                      }
-                    }
-                  ],
-                  [
-                    {
-                      "text": "980",
-                      "citation": {
-                        "sourceId": "fam_a082aaeb1eb5",
-                        "locator": "sum(fam_ga4_analytics.conversions where channel=email)"
+                        "sourceId": "fam_30a7b3f1575c",
+                        "locator": "social spend"
                       }
                     }
                   ]
@@ -719,33 +460,23 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Total marketing spend was "
+                "text": "Total spend of "
               },
               {
-                "text": "220,500",
+                "text": "$220,500",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "sum(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Total spend"
                 }
               },
               {
-                "text": ". Average spend per line was "
+                "text": " stayed within budget, with no single line exceeding "
               },
               {
-                "text": "18,375",
+                "text": "$42,000",
                 "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "avg(fam_marketing_spend.amount where _period=2026-Q2)"
-                }
-              },
-              {
-                "text": ". No single spend line exceeded the per-item ceiling; the highest line item was "
-              },
-              {
-                "text": "42,000",
-                "citation": {
-                  "sourceId": "fam_e7b8b197adb4",
-                  "locator": "max(fam_marketing_spend.amount where _period=2026-Q2)"
+                  "sourceId": "fam_30a7b3f1575c",
+                  "locator": "Largest single line"
                 }
               },
               {
@@ -763,13 +494,13 @@
             "type": "paragraph",
             "spans": [
               {
-                "text": "Accounts receivable totaled "
+                "text": "Receivables totalled "
               },
               {
-                "text": "50,855,755",
+                "text": "$50,724,254",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Total invoiced"
                 }
               },
               {
@@ -778,50 +509,75 @@
               {
                 "text": "10,000",
                 "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "count(fam_ar_transactions.invoice_id)"
+                  "sourceId": "fam_1887e5160434",
+                  "locator": "Invoice count"
                 }
               },
               {
-                "text": " invoices for the quarter."
+                "text": " invoices."
               }
             ]
           },
           {
-            "type": "paragraph",
-            "spans": [
+            "type": "table",
+            "columns": [
+              "status",
+              "total"
+            ],
+            "rows": [
               {
-                "text": "By status, "
+                "cells": [
+                  [
+                    {
+                      "text": "open"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$17,009,943",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "open balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": "17,041,489",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=open)"
-                }
+                "cells": [
+                  [
+                    {
+                      "text": "overdue"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$17,015,968",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "overdue balance"
+                      }
+                    }
+                  ]
+                ]
               },
               {
-                "text": " remained open, "
-              },
-              {
-                "text": "16,947,739",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=overdue)"
-                }
-              },
-              {
-                "text": " was overdue, and "
-              },
-              {
-                "text": "16,866,527",
-                "citation": {
-                  "sourceId": "fam_f16d16e9abe4",
-                  "locator": "sum(fam_ar_transactions.amount where status=paid)"
-                }
-              },
-              {
-                "text": " was paid. The overdue balance represents the principal receivables-health concern."
+                "cells": [
+                  [
+                    {
+                      "text": "paid"
+                    }
+                  ],
+                  [
+                    {
+                      "text": "$16,698,343",
+                      "citation": {
+                        "sourceId": "fam_1887e5160434",
+                        "locator": "paid balance"
+                      }
+                    }
+                  ]
+                ]
               }
             ]
           }
@@ -844,7 +600,36 @@
     ]
   },
   "diff": {
-    "deltas": [],
+    "deltas": [
+      {
+        "sectionKey": "receivables",
+        "sourceId": "fam_1887e5160434",
+        "locator": "Total invoiced",
+        "before": 50724254,
+        "after": 50855755
+      },
+      {
+        "sectionKey": "receivables",
+        "sourceId": "fam_1887e5160434",
+        "locator": "open balance",
+        "before": 17009943,
+        "after": 17041489
+      },
+      {
+        "sectionKey": "receivables",
+        "sourceId": "fam_1887e5160434",
+        "locator": "overdue balance",
+        "before": 17015968,
+        "after": 16947739
+      },
+      {
+        "sectionKey": "receivables",
+        "sourceId": "fam_1887e5160434",
+        "locator": "paid balance",
+        "before": 16698343,
+        "after": 16866527
+      }
+    ],
     "sections": {
       "kpi-summary": "unchanged",
       "exec-summary": "changed",
