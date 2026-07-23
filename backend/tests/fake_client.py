@@ -113,7 +113,10 @@ def _split_words(s: str) -> list[str]:
         if ch == " ":
             out.append(s[start : i + 1])
             start = i + 1
-    out.append(s[start:])
+    # JS never attempts the zero-width match at end-of-string, so a trailing
+    # space yields no extra "" fragment; but an empty input still returns [""].
+    if start < len(s) or not out:
+        out.append(s[start:])
     return out
 
 
