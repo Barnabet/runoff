@@ -20,10 +20,9 @@ from __future__ import annotations
 
 import datetime as _dt
 import os
-import re
-import zipfile
 from typing import Any
 
+import mammoth
 import pypdf
 
 from .tabular import _to_iso_string
@@ -84,7 +83,10 @@ def _build_document(file: dict) -> dict:
     if kind == "docx":
         text = _extract_docx(file["path"])
     else:
-        with open(file["path"], encoding="utf-8") as fh:
+        # Node's readFile(path, "utf8") never throws on invalid bytes (it yields
+        # U+FFFD); match that with errors="replace" so a bad byte can't crash the
+        # whole pack build.
+        with open(file["path"], encoding="utf-8", errors="replace") as fh:
             text = fh.read()
     words = len(text.strip().split()) if text.strip() else 0
     return {
@@ -118,20 +120,15 @@ def _build_pdf(file: dict) -> dict:
 
 
 def _extract_docx(path: str) -> str:
-    """Raw-text extraction from a .docx (mammoth's role in TS).
+    """Raw-text extraction from a .docx via python-mammoth — the same library
+    (same author) TS uses via mammoth.extractRawText({path}). Python's port takes
+    a fileobj; open the path in binary and return the result's `.value`.
 
-    Dependency-free near-parity path: read word/document.xml from the zip,
-    treat each </w:p> as a paragraph break and strip the remaining tags. Tests
-    monkeypatch this exactly as the TS suite mocks mammoth.
+    Errors are NOT swallowed: mammoth raises on a missing/corrupt file, matching
+    TS. (buildSourcePack only guards the PDF branch, never docx.)
     """
-    try:
-        with zipfile.ZipFile(path) as z:
-            xml = z.read("word/document.xml").decode("utf-8")
-    except (KeyError, zipfile.BadZipFile, FileNotFoundError):
-        return ""
-    xml = re.sub(r"</w:p>", "\n", xml)
-    text = re.sub(r"<[^>]+>", "", xml)
-    return text.strip()
+    with open(path, "rb") as fh:
+        return mammoth.extract_raw_text(fh).value
 
 
 def extract_file_text(file: dict) -> str:

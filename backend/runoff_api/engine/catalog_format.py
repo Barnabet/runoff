@@ -19,6 +19,11 @@ def _family_head(f: dict) -> str:
 
 def _table_line(t: dict) -> str:
     cols = ", ".join(f"{c['name']} {c['type']}" for c in t["columns"])
+    # Parity note: TS uses Object.entries(rowCounts), which reorders integer-like
+    # keys numerically ascending regardless of insertion order. Year-granularity
+    # periods ("2026") are integer-like, so for byte-exact per-period output the
+    # rowCounts dict must already be built in sorted-key order upstream; this port
+    # preserves whatever order the dict arrives in (dict.items() = insertion order).
     counts = list(t["rowCounts"].items())
     total = sum(n for _, n in counts)
     per_period = (

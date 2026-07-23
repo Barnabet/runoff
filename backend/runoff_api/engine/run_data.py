@@ -74,6 +74,9 @@ def section_data_block(section: dict, data: dict, pack: dict) -> str:
         lines = [f"### {fam['label']} ({fam['id']})"]
         for t in fam["tables"]:
             cols = ", ".join(f"{c['name']} {c['type']}" for c in t["columns"])
+            # Only the summed total is rendered here (order-independent), so the
+            # Object.entries integer-key reordering caveat that matters for
+            # catalog_format's per-period listing does not affect this line.
             total = sum(t["rowCounts"].values())
             lines.append(f"{t['name']}({cols}) — {total:,} rows")
         baked = [qy for qy in section["queries"] if _covers_family(qy["sql"], fam)]
