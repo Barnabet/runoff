@@ -128,7 +128,7 @@ backend/
   pyproject.toml            # uv-managed; requires-python >= 3.12
   runoff_api/
     core/                   # port of packages/core (see §6)
-      schema.py db.py ids.py reducer.py bindings.py
+      db.py ids.py reducer.py bindings.py
       dialect.py diff.py warehouse_catalog.py previous_run.py
       types/                # one module per TS types file (see §5)
     api/                    # FastAPI routers, one per resource
@@ -169,8 +169,7 @@ Ported in R1 (each with its pytest suite translated from the TS tests):
 
 | TS source (`packages/core/src`) | Python module | TS test ported |
 |---|---|---|
-| `db/schema.ts` | `core/schema.py` | `db.test.ts` |
-| `db/index.ts` (openDb) | `core/db.py` | `db.test.ts` |
+| `db/index.ts` (openDb + DDL) | `core/db.py` | `db.test.ts` |
 | `db/previousRun.ts` | `core/previous_run.py` | `previousRun.test.ts` |
 | `ids.ts` | `core/ids.py` | (covered incidentally) |
 | `reducer.ts` | `core/reducer.py` | `reducer.test.ts` |
@@ -186,8 +185,10 @@ Angular app consumes HTTP, not a shared package).
 
 DB layer rules:
 
-- `schema.py` carries the `CREATE TABLE` / `CREATE INDEX` statements
-  **byte-copied** from `schema.ts`, with a header comment marking it as a
+- `db.py` carries the `CREATE TABLE` / `CREATE INDEX` statements
+  **byte-copied** from the `DDL` constant in `db/index.ts` (the authoritative
+  SQL — `db/schema.ts` is a drizzle-only mirror the Python side does not
+  need), with a header comment marking it as a
   mirror that changes only in lockstep with the TS file (both frozen during
   the port anyway).
 - `db.py` reproduces `openDb` semantics: same PRAGMAs (WAL etc., copied from
