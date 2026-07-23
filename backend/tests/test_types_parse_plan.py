@@ -3,6 +3,7 @@ import copy
 from pydantic import ValidationError
 
 from runoff_api.core.types.parse_plan import (
+    ExecReport,
     ParsePlan,
     plan_pattern,
     plan_table_name,
@@ -135,6 +136,19 @@ def test_plan_table_name_multi_table():
     second["name"] = "totals"
     multi = {"version": 1, "tables": [PLAN["tables"][0], second]}
     assert plan_table_name("ar_aging", multi, "totals") == "fam_ar_aging__totals"
+
+
+# z.number() preserves int identity — ExecReport rowsKept=6 must dump back as 6, not 6.0.
+def test_exec_report_int_counts_survive_round_trip_as_int():
+    report = ExecReport.model_validate({"tables": [{
+        "name": "aging", "anchor": {"sheet": "ar_aging", "row": 2}, "problems": [], "rowsKept": 6,
+        "rowsExcluded": [], "coercionFailures": [], "periodMismatches": None, "unknownColumns": [],
+    }]})
+    dumped = report.model_dump(by_alias=True, exclude_unset=True)
+    table = dumped["tables"][0]
+    assert table["rowsKept"] == 6
+    assert isinstance(table["rowsKept"], int) and not isinstance(table["rowsKept"], bool)
+    assert isinstance(table["anchor"]["row"], int)
 
 
 # Ports "ClassifyProposal plan fields > accepts plan/planStatus/preview/report".

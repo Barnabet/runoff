@@ -77,24 +77,24 @@ class ParsePlan(CamelModelOpen):
 
 class _ExecReportRowExcluded(CamelModelOpen):
     pattern: str
-    count: float
+    count: int | float  # z.number() — preserve int vs float on round-trip
     samples: list[str]
 
 
 class _ExecReportCoercionFailure(CamelModelOpen):
     column: str
-    count: float
+    count: int | float
     samples: list[str]
 
 
 class _ExecReportPeriodMismatches(CamelModelOpen):
-    count: float
+    count: int | float
     samples: list[str]
 
 
 class _ExecReportAnchor(CamelModelOpen):
     sheet: str
-    row: float
+    row: int | float
 
 
 class _ExecReportTable(CamelModelOpen):
@@ -102,7 +102,7 @@ class _ExecReportTable(CamelModelOpen):
     anchor: _ExecReportAnchor | None
     # Byte-exact problem lines; a table with problems produces no rows.
     problems: list[str]
-    rows_kept: float
+    rows_kept: int | float
     rows_excluded: list[_ExecReportRowExcluded]
     coercion_failures: list[_ExecReportCoercionFailure]
     period_mismatches: _ExecReportPeriodMismatches | None
@@ -116,7 +116,7 @@ class ExecReport(CamelModelOpen):
 class _PlanPreviewTable(CamelModelOpen):
     name: str
     columns: list[str]
-    rows: list[list[str | float | None]]
+    rows: list[list[str | int | float | None]]
 
 
 class PlanPreview(CamelModelOpen):

@@ -25,8 +25,8 @@ class Rule(CamelModelOpen):
     text: str
     sql: str | None = None
     op: Literal["==", "<=", ">=", "<", ">"] | None = None
-    value: float | None = None
-    within_pct: float | None = None
+    value: int | float | None = None  # z.number() — preserve int vs float on round-trip
+    within_pct: int | float | None = None
 
 
 class BlueprintSection(CamelModelOpen):

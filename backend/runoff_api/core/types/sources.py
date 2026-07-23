@@ -42,7 +42,7 @@ class _NewFamily(CamelModelOpen):
 class _ClassifyTable(CamelModelOpen):
     name: str
     columns: list[str]
-    row_count: float
+    row_count: int | float  # z.number() — preserve int vs float on round-trip
 
 
 class ClassifyProposal(CamelModelOpen):
@@ -53,7 +53,7 @@ class ClassifyProposal(CamelModelOpen):
     period: str | None
     confidence: Literal["high", "medium", "low"]
     tables: list[_ClassifyTable] | None = None
-    skipped_fragments: float | None = None
+    skipped_fragments: int | float | None = None
     drift: list[str] | None = None
     plan: ParsePlan | None = None
     plan_status: Literal["stored", "proposed", "amended", "none"] | None = None

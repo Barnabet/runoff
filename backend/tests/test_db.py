@@ -45,3 +45,37 @@ def test_sqlite3_module_is_serialized():
     # Sync endpoints run in a threadpool sharing one connection (same model as
     # better-sqlite3's single handle); requires a serialized sqlite3 build.
     assert sqlite3.threadsafety == 3
+
+
+def test_enforces_one_live_file_per_periodic_slot(db):
+    # Ports packages/core/test/sourcesModel.test.ts "v1.2b tables >
+    # enforces one live file per periodic slot via the partial index".
+    db.execute("INSERT INTO projects (id, name) VALUES ('proj_1', 'P')")
+    db.execute(
+        "INSERT INTO source_families (id, project_id, key, label, kind, granularity) "
+        "VALUES ('fam_1','proj_1','trade_data','Trade data','periodic','quarter')"
+    )
+    ins = (
+        "INSERT INTO sources (id, project_id, family_id, period, name, stored_filename, mime, size, status) "
+        "VALUES (?, 'proj_1', 'fam_1', '2026-Q1', 'f.csv', 'sf', 'text/csv', 1, ?)"
+    )
+    db.execute(ins, ("src_1", "filed"))
+    try:
+        db.execute(ins, ("src_2", "filed"))
+        raise AssertionError("expected UNIQUE violation for a second filed source in the same slot")
+    except sqlite3.IntegrityError as e:
+        assert "UNIQUE" in str(e)
+    # Non-'filed' rows are outside the partial index and never collide.
+    db.execute(ins, ("src_3", "replaced"))
+
+
+def test_memories_status_and_created_at_defaults(db):
+    # Ports packages/core/test/copilotTables.test.ts "v1.2a tables > boot DDL ...":
+    # status/timestamp default columns land without being supplied.
+    db.execute(
+        "INSERT INTO memories (id, blueprint_id, body, source) "
+        "VALUES ('m1','bp1','Always use percentages','copilot')"
+    )
+    m = db.execute("SELECT status, created_at AS createdAt FROM memories WHERE id='m1'").fetchone()
+    assert m["status"] == "active"
+    assert m["createdAt"]

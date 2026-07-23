@@ -65,3 +65,11 @@ def test_accepts_sql_assert_rules_and_strips_expression():
     )
     assert not hasattr(parsed, "expression")
     assert "expression" not in parsed.model_dump()
+
+
+# z.number() preserves int identity — an int must survive validate -> model_dump as an int.
+def test_rule_value_int_survives_round_trip_as_int():
+    parsed = Rule.model_validate({"kind": "assert", "text": "t", "op": "<=", "value": 250000})
+    dumped = parsed.model_dump(by_alias=True, exclude_unset=True)
+    assert dumped["value"] == 250000
+    assert isinstance(dumped["value"], int) and not isinstance(dumped["value"], bool)
