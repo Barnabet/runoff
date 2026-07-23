@@ -19,7 +19,6 @@ from runoff_api.core.bindings import boundness_counts
 # column, optionally row-filtered: sum(src.amount where channel=search).
 _AGG_REF = re.compile(
     r"^(sum|avg|min|max|count)\((\w+)\.(\w+)(?:\s+where\s+(\w+)\s*=\s*([^)]+?))?\)$",
-    re.IGNORECASE,
 )
 
 _AGG_SQL = {"sum": "SUM", "avg": "AVG", "min": "MIN", "max": "MAX", "count": "COUNT"}

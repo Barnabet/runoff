@@ -302,3 +302,12 @@ def test_compile_throws_on_table_not_in_catalog():
 
     with pytest.raises(ValueError):
         compile_locator("sum(fam_nope.amount)", COMPILE_CATALOG)
+
+
+def test_compile_rejects_uppercase_aggregate_like_ts():
+    # AGG_REF (checks.ts:14) has no /i flag, so uppercase aggregates are not
+    # locator grammar and raise unparseable — never reaching AGG_SQL.
+    import pytest
+
+    with pytest.raises(ValueError, match=r"^unparseable expression: SUM\(fam_ar\.amount\)$"):
+        compile_locator("SUM(fam_ar.amount)", COMPILE_CATALOG)
