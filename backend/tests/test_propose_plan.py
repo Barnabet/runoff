@@ -60,6 +60,27 @@ def test_returns_a_validated_plan():
     assert p == VALID
 
 
+def test_backfills_onperiodmismatch_default_when_the_model_omits_it():
+    # zod applies .default("keep"); a reply omitting the field must still persist "keep"
+    # on every table so stored/echoed plans stay byte-equal to the TS stack.
+    plan = {
+        "version": 1,
+        "tables": [
+            {
+                "name": "aging",
+                "anchor": {"headerSignature": ["customer"], "minMatch": 1},
+                "headerRows": 1,
+                "exclude": [],
+                "columns": [{"from": "customer", "name": "customer", "type": "TEXT"}],
+            }
+        ],
+    }
+    client, _ = client_returning(json.dumps(plan))
+    p = propose_parse_plan(client=client, filename="f.xlsx", grid_sample="s")
+    assert p is not None
+    assert all(t["onPeriodMismatch"] == "keep" for t in p["tables"])
+
+
 def test_retries_once_on_invalid_output_then_null():
     client, create = client_returning('{"nope":1}', "not json")
     p = propose_parse_plan(client=client, filename="f.xlsx", grid_sample="s")

@@ -70,34 +70,29 @@ def classify_source(*, client, filename: str, content_sample: str, families: lis
         return None
 
     try:
-        obj = json.loads(raw)
-        parsed = ClassifyProposal.model_validate(obj)
+        parsed = ClassifyProposal.model_validate(json.loads(raw))
     except Exception:  # noqa: BLE001 — JSON.parse throw + safeParse failure both → None
         return None
 
     def ok() -> dict:
         return parsed.model_dump(by_alias=True, exclude_unset=True)
 
-    existing = next((f for f in families if f["key"] == obj.get("familyKey")), None)
+    existing = next((f for f in families if f["key"] == parsed.family_key), None)
     if existing:
-        if obj.get("newFamily"):
+        if parsed.new_family:
             return None
         if existing["kind"] == "constant":
-            return ok() if obj.get("period") is None else None
+            return ok() if parsed.period is None else None
         return (
             ok()
-            if obj.get("period") is not None and PERIOD_REGEX[existing["granularity"]].search(obj["period"])
+            if parsed.period is not None and PERIOD_REGEX[existing["granularity"]].search(parsed.period)
             else None
         )
-    nf = obj.get("newFamily")
-    if not nf or nf.get("key") != obj.get("familyKey"):
+    nf = parsed.new_family
+    if not nf or nf.key != parsed.family_key:
         return None
-    if nf.get("kind") == "constant":
-        return ok() if nf.get("granularity") is None and obj.get("period") is None else None
-    if nf.get("granularity") is None:
+    if nf.kind == "constant":
+        return ok() if nf.granularity is None and parsed.period is None else None
+    if nf.granularity is None:
         return None
-    return (
-        ok()
-        if obj.get("period") is not None and PERIOD_REGEX[nf["granularity"]].search(obj["period"])
-        else None
-    )
+    return ok() if parsed.period is not None and PERIOD_REGEX[nf.granularity].search(parsed.period) else None

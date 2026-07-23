@@ -112,6 +112,11 @@ def propose_parse_plan(
             return None
         try:
             plan = ParsePlan.model_validate(json.loads(raw)).model_dump(by_alias=True, exclude_unset=True)
+            # zod's ParsePlanSchema applies .default("keep") to onPeriodMismatch (its only
+            # default); exclude_unset drops it, so back-fill to keep persisted rows byte-equal
+            # to the TS stack (proposals are stored as JSON and echoed in API responses).
+            for t in plan["tables"]:
+                t.setdefault("onPeriodMismatch", "keep")
             validate_parse_plan(plan)
             return plan
         except Exception:  # noqa: BLE001 — JSON.parse throw, safeParse failure, and validateParsePlan throw all retry
