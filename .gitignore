@@ -6,3 +6,6 @@ data/
 .superpowers/
 next-env.d.ts
 !.env.example
+backend/.venv/
+backend/**/__pycache__/
+backend/.pytest_cache/
