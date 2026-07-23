@@ -1,0 +1,237 @@
+{
+  "projectId": "proj_eeb46caffe1c",
+  "catalog": [
+    {
+      "id": "fam_25a228989c66",
+      "key": "ar_aging",
+      "label": "AR aging",
+      "kind": "periodic",
+      "granularity": "quarter",
+      "queryable": true,
+      "tables": [
+        {
+          "name": "fam_ar_aging__aging",
+          "columns": [
+            {
+              "name": "customer",
+              "type": "TEXT"
+            },
+            {
+              "name": "status",
+              "type": "TEXT"
+            },
+            {
+              "name": "amount_due",
+              "type": "REAL"
+            },
+            {
+              "name": "days_outstanding",
+              "type": "INTEGER"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q2": 6
+          }
+        },
+        {
+          "name": "fam_ar_aging__monthly_totals",
+          "columns": [
+            {
+              "name": "region",
+              "type": "TEXT"
+            },
+            {
+              "name": "month",
+              "type": "TEXT"
+            },
+            {
+              "name": "amount",
+              "type": "REAL"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q2": 9
+          }
+        }
+      ],
+      "filedPeriods": [
+        "2026-Q2"
+      ]
+    },
+    {
+      "id": "fam_f16d16e9abe4",
+      "key": "ar_transactions",
+      "label": "AR transactions",
+      "kind": "periodic",
+      "granularity": "quarter",
+      "queryable": true,
+      "tables": [
+        {
+          "name": "fam_ar_transactions",
+          "columns": [
+            {
+              "name": "invoice_id",
+              "type": "TEXT"
+            },
+            {
+              "name": "customer",
+              "type": "TEXT"
+            },
+            {
+              "name": "amount",
+              "type": "INTEGER"
+            },
+            {
+              "name": "issued_date",
+              "type": "TEXT"
+            },
+            {
+              "name": "status",
+              "type": "TEXT"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q1": 10000,
+            "2026-Q2": 10000
+          }
+        }
+      ],
+      "filedPeriods": [
+        "2026-Q1",
+        "2026-Q2"
+      ]
+    },
+    {
+      "id": "fam_631702eb3f62",
+      "key": "brand_guidelines",
+      "label": "Brand guidelines",
+      "kind": "constant",
+      "granularity": null,
+      "queryable": false,
+      "tables": [],
+      "filedPeriods": []
+    },
+    {
+      "id": "fam_a082aaeb1eb5",
+      "key": "ga4_analytics",
+      "label": "GA4 analytics",
+      "kind": "periodic",
+      "granularity": "quarter",
+      "queryable": true,
+      "tables": [
+        {
+          "name": "fam_ga4_analytics",
+          "columns": [
+            {
+              "name": "channel",
+              "type": "TEXT"
+            },
+            {
+              "name": "sessions",
+              "type": "INTEGER"
+            },
+            {
+              "name": "conversions",
+              "type": "INTEGER"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q1": 10,
+            "2026-Q2": 10
+          }
+        }
+      ],
+      "filedPeriods": [
+        "2026-Q1",
+        "2026-Q2"
+      ]
+    },
+    {
+      "id": "fam_e7b8b197adb4",
+      "key": "marketing_spend",
+      "label": "Marketing spend",
+      "kind": "periodic",
+      "granularity": "quarter",
+      "queryable": true,
+      "tables": [
+        {
+          "name": "fam_marketing_spend",
+          "columns": [
+            {
+              "name": "date",
+              "type": "TEXT"
+            },
+            {
+              "name": "channel",
+              "type": "TEXT"
+            },
+            {
+              "name": "amount",
+              "type": "INTEGER"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q1": 12,
+            "2026-Q2": 12
+          }
+        }
+      ],
+      "filedPeriods": [
+        "2026-Q1",
+        "2026-Q2"
+      ]
+    },
+    {
+      "id": "fam_e451f0fcf137",
+      "key": "regional_summary",
+      "label": "Regional summary",
+      "kind": "periodic",
+      "granularity": "quarter",
+      "queryable": true,
+      "tables": [
+        {
+          "name": "fam_regional_summary__regional_summary",
+          "columns": [
+            {
+              "name": "region",
+              "type": "TEXT"
+            },
+            {
+              "name": "revenue",
+              "type": "INTEGER"
+            },
+            {
+              "name": "orders",
+              "type": "INTEGER"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q1": 3,
+            "2026-Q2": 3
+          }
+        },
+        {
+          "name": "fam_regional_summary__regional_summary_2",
+          "columns": [
+            {
+              "name": "channel",
+              "type": "TEXT"
+            },
+            {
+              "name": "share",
+              "type": "REAL"
+            }
+          ],
+          "rowCounts": {
+            "2026-Q1": 2,
+            "2026-Q2": 2
+          }
+        }
+      ],
+      "filedPeriods": [
+        "2026-Q1",
+        "2026-Q2"
+      ]
+    }
+  ]
+}
