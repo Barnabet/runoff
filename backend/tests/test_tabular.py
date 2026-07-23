@@ -114,7 +114,11 @@ def test_scans_csv_header_types_count_sample_single_table_slugged(tmp_path):
         {"name": "paid", "type": "TEXT"},
     ]
     assert scan["tables"][0]["rowCount"] == 3
-    assert scan["tables"][0]["sample"][0] == ["I-1", 100, True]
+    row0 = scan["tables"][0]["sample"][0]
+    assert row0 == ["I-1", 100, True]
+    # Pin the exact runtime types: 100 must be int (not 100.0), True bool (not 1).
+    assert isinstance(row0[1], int) and not isinstance(row0[1], bool)
+    assert isinstance(row0[2], bool)
     assert scan["skipped"] == []
 
 
@@ -219,6 +223,65 @@ def test_scan_sample_serializes_compactly_and_caps(tmp_path):
     assert "### s — 2 rows" in sample
     assert "columns: a (INTEGER), b (TEXT)" in sample
     assert "1 | x" in sample
+
+
+def test_header_row_is_dynamically_typed_like_papaparse(tmp_path):
+    # papaparse (header:false) types the header row too: node probe of
+    # Papa.parse("01,100.50,,x\n...") header row → [1, 100.5, null, "x"]. Those
+    # typed values then slugify: 1 → "t_1", 100.5 → "100_5" → digit-prefixed
+    # "t_100_5", null → "column_3", "x" → "x".
+    path = tmp_path / "h.csv"
+    path.write_text("01,100.50,,x\nfoo,bar,baz,qux\n")
+    scan = scan_tabular(str(path), "text/csv", "h.csv")
+    names = [c["name"] for c in scan["tables"][0]["columns"]]
+    assert names == ["t_1", "t_100_5", "column_3", "x"]
+
+
+def test_calendar_invalid_timestamp_falls_back_to_raw_string(tmp_path):
+    # "2026-06-31T10:00:00Z" matches papaparse's ISO_DATE regex (day [0-3]\d) but
+    # is calendar-invalid; JS new Date rolls it to 2026-07-01, Python fromisoformat
+    # raises. Port must not crash: fall back to the raw string (stays TEXT).
+    path = tmp_path / "bad_ts.csv"
+    path.write_text("d,n\n2026-06-31T10:00:00Z,1\n2026-07-02T09:00:00Z,2\n")
+    scan = scan_tabular(str(path), "text/csv", "bad_ts.csv")
+    cols = scan["tables"][0]["columns"]
+    assert cols[0]["type"] == "TEXT"
+    assert scan["tables"][0]["sample"][0][0] == "2026-06-31T10:00:00Z"
+    # the valid sibling still parses to a datetime (also TEXT), proving no crash
+    import datetime as dt
+
+    assert isinstance(scan["tables"][0]["sample"][1][0], dt.datetime)
+
+
+def test_auto_detects_semicolon_tab_and_pipe_delimiters(tmp_path):
+    # Expected values pinned against Papa.parse({dynamicTyping:true}) node probes:
+    #   "a;b;c\n1;2;3\n4;5;6\n"  → [["a","b","c"],[1,2,3],[4,5,6]]
+    #   "a\tb\n1\t2\n3\t4\n"       → [["a","b"],[1,2],[3,4]]
+    #   "a|b|c\nx|y|z\n"          → [["a","b","c"],["x","y","z"]]
+    semi = tmp_path / "semi.csv"
+    semi.write_text("a;b;c\n1;2;3\n4;5;6\n")
+    scan = scan_tabular(str(semi), "text/csv", "semi.csv")
+    assert [c["name"] for c in scan["tables"][0]["columns"]] == ["a", "b", "c"]
+    assert scan["tables"][0]["rowCount"] == 2
+    assert scan["tables"][0]["sample"][0] == [1, 2, 3]
+
+    tab = tmp_path / "tab.csv"
+    tab.write_text("a\tb\n1\t2\n3\t4\n")
+    scan = scan_tabular(str(tab), "text/csv", "tab.csv")
+    assert [c["name"] for c in scan["tables"][0]["columns"]] == ["a", "b"]
+    assert scan["tables"][0]["sample"] == [[1, 2], [3, 4]]
+
+    pipe = tmp_path / "pipe.csv"
+    pipe.write_text("a|b|c\nx|y|z\n")
+    scan = scan_tabular(str(pipe), "text/csv", "pipe.csv")
+    assert [c["name"] for c in scan["tables"][0]["columns"]] == ["a", "b", "c"]
+    assert scan["tables"][0]["sample"][0] == ["x", "y", "z"]
+
+    # comma still wins for a plain comma file
+    comma = tmp_path / "comma.csv"
+    comma.write_text("a,b\n1,2\n")
+    scan = scan_tabular(str(comma), "text/csv", "comma.csv")
+    assert [c["name"] for c in scan["tables"][0]["columns"]] == ["a", "b"]
 
 
 def test_is_tabular_accepts_csv_xlsx_rejects_pdf_txt():

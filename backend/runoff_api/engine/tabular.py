@@ -19,6 +19,8 @@ from __future__ import annotations
 
 import csv
 import datetime as _dt
+import io
+import math
 import os
 import re
 from collections.abc import Callable, Iterable
@@ -91,8 +93,6 @@ class _ColumnTyper:
 
 def _is_finite(v: Any) -> bool:
     if isinstance(v, float):
-        import math
-
         return math.isfinite(v)
     return True
 
@@ -261,16 +261,96 @@ def _parse_dynamic(value: str) -> Any:
     if _test_float(value):
         return _js_number(value)
     if _ISO_DATE_RE.match(value):
-        return _dt.datetime.fromisoformat(value)
+        try:
+            return _dt.datetime.fromisoformat(value)
+        except ValueError:
+            # Deviation: JS `new Date(...)` never throws — it rolls calendar
+            # overflow forward (2026-06-31 → 2026-07-01) or yields the Invalid
+            # Date sentinel — while Python fromisoformat is strict and raises on
+            # regex-valid-but-calendar-invalid components (month 13-19, day
+            # 32-39, hour 24-29). Neither JS outcome is representable here, so we
+            # fall back to the raw string. Both keep the column TEXT and let
+            # scan_tabular succeed; exact cell stringification diverges.
+            return value
     return None if value == "" else value
 
 
-def _read_csv_rows(path: str) -> Iterable[list[str]]:
-    """Raw CSV rows with papaparse's skipEmptyLines (non-greedy): drop only a
-    line that is a single empty field (or a wholly blank line)."""
+# --- papaparse delimiter guessing ------------------------------------------
+
+# papaparse's default delimitersToGuess (RECORD_SEP=\x1e, UNIT_SEP=\x1f), in order.
+_GUESS_DELIMS = [",", "\t", "|", ";", "\x1e", "\x1f"]
+
+
+def _parse_preview(text: str, delim: str, limit: int) -> list[list[str]]:
+    rows: list[list[str]] = []
+    for row in csv.reader(io.StringIO(text), delimiter=delim):
+        rows.append(row)
+        if len(rows) >= limit:
+            break
+    return rows
+
+
+def _is_empty_line(row: list[str]) -> bool:
+    # papaparse testEmptyLine (non-greedy). Python csv yields [] for a blank line
+    # where papaparse yields [""]; treat both as empty.
+    return len(row) == 0 or (len(row) == 1 and row[0] == "")
+
+
+def _guess_delimiter(text: str) -> str:
+    """Port of papaparse's guessDelimiter: pick the candidate with the fewest
+    field-count deltas and the highest average field count (>1.99), else comma."""
+    best_delim: str | None = None
+    best_delta: float | None = None
+    max_field_count: float | None = None
+    for delim in _GUESS_DELIMS:
+        rows = _parse_preview(text, delim, 10)
+        delta = 0.0
+        avg = 0.0
+        empty = 0
+        prev: int | None = None
+        for row in rows:
+            if _is_empty_line(row):
+                empty += 1
+                continue
+            fc = len(row)
+            avg += fc
+            if prev is None:
+                prev = fc
+                continue
+            if fc > 0:
+                delta += abs(fc - prev)
+                prev = fc
+        if len(rows) > 0:
+            denom = len(rows) - empty
+            avg = avg / denom if denom else math.nan
+        if (
+            (best_delta is None or delta <= best_delta)
+            and (max_field_count is None or avg > max_field_count)
+            and avg > 1.99
+        ):
+            best_delta = delta
+            best_delim = delim
+            max_field_count = avg
+    return best_delim or ","
+
+
+def _read_preview(path: str) -> str:
+    lines: list[str] = []
     with open(path, newline="", encoding="utf-8-sig") as fh:
-        for row in csv.reader(fh):
-            if len(row) == 0 or (len(row) == 1 and row[0] == ""):
+        for i, line in enumerate(fh):
+            lines.append(line)
+            if i >= 99:
+                break
+    return "".join(lines)
+
+
+def _read_csv_rows(path: str) -> Iterable[list[str]]:
+    """Raw CSV rows with papaparse's auto delimiter detection + skipEmptyLines
+    (non-greedy): drop only a single-empty-field / wholly-blank line."""
+    delim = _guess_delimiter(_read_preview(path))
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        for row in csv.reader(fh, delimiter=delim):
+            if _is_empty_line(row):
                 continue
             yield row
 
@@ -287,7 +367,12 @@ def _stream_csv(
     header: list[str] | None = None
     for raw in _read_csv_rows(path):
         if header is None:
-            header = _header_names(list(raw))
+            # papaparse (header:false) applies dynamicTyping to EVERY row,
+            # including the first, so headerNames receives typed values:
+            # "01" → 1 → slug "t_1"; "100.50" → 100.5 → slug "100_5". Residual
+            # gap: exotic float reprs differ (JS "0.00001" vs Python "1e-05") —
+            # negligible for header cells.
+            header = _header_names([_parse_dynamic(v) for v in raw])
             on_header(header)
             continue
         on_row([_parse_dynamic(v) for v in raw])
@@ -312,7 +397,14 @@ def _to_iso_string(dt: _dt.datetime) -> str:
 
 
 def _js_str(v: Any) -> str:
-    """String(v) for the value kinds a grid holds (JS booleans stringify lower-case)."""
+    """String(v) for the value kinds a grid holds (JS booleans stringify lower-case).
+
+    Deliberate deviation for datetimes: JS `String(Date)` is a locale string
+    (e.g. "Tue Jul 01 2026 10:00:00 GMT+0000 (...)"); we emit stable ISO instead.
+    This only surfaces on the fuzzy paths (scan_sample's classifier prompt,
+    slug/skipped text), never on warehouse bytes — XLSX date cells are already
+    ISO strings in the grid, so only rare CSV ISO-timestamp cells reach here.
+    """
     if isinstance(v, bool):
         return "true" if v else "false"
     if isinstance(v, _dt.datetime):
