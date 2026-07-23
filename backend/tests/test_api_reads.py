@@ -161,6 +161,60 @@ def test_get_project_payload(client):
     assert [m["id"] for m in body["memories"]] == ["m1"]
 
 
+# --- GET /projects/{id}/sources ---------------------------------------------
+
+
+def test_get_project_sources_404(client):
+    c, db = client
+    res = c.get("/api/v1/projects/nope/sources")
+    assert res.status_code == 404
+    assert res.json() == {"error": "project not found"}
+
+
+def test_get_project_sources_payload(client):
+    c, db = client
+    _project(db, "p1", "Proj", "2026-07-01 00:00:00")
+    # Two families, ordered by key ascending: "roster" (constant) then "sales" (periodic).
+    _family(db, "fam_sales", "p1", "sales", "Sales", "periodic", "month")
+    _family(db, "fam_roster", "p1", "roster", "Roster", "constant", None)
+    # Periodic family with two filed periods (inserted out of order to prove sorting).
+    _source(db, "s_jun", "p1", family_id="fam_sales", period="2026-06", status="filed", name="jun.csv")
+    _source(db, "s_may", "p1", family_id="fam_sales", period="2026-05", status="filed", name="may.csv")
+    # Constant family with a live null-period file.
+    _source(db, "s_live", "p1", family_id="fam_roster", period=None, status="filed", name="roster.csv")
+    # One unfiled upload carrying a proposal JSON.
+    _source(db, "s_unf", "p1", status="unfiled", name="new.csv", proposal=to_json({"plan": {"x": 1}}))
+
+    res = c.get("/api/v1/projects/p1/sources")
+    assert res.status_code == 200
+    body = res.json()
+
+    fams = body["families"]
+    # Families ordered by key ascending.
+    assert [f["key"] for f in fams] == ["roster", "sales"]
+
+    roster = fams[0]
+    assert roster["kind"] == "constant"
+    assert roster["filedPeriods"] == []
+    assert roster["filedEntries"] == []
+    assert roster["liveFile"] == {"sourceId": "s_live", "name": "roster.csv"}
+    assert roster["tables"] == []
+
+    sales = fams[1]
+    assert sales["kind"] == "periodic"
+    # filedPeriods / filedEntries ascending by period.
+    assert sales["filedPeriods"] == ["2026-05", "2026-06"]
+    assert [e["period"] for e in sales["filedEntries"]] == ["2026-05", "2026-06"]
+    assert sales["filedEntries"][0] == {"period": "2026-05", "sourceId": "s_may", "name": "may.csv"}
+    assert sales["liveFile"] is None
+    assert sales["tables"] == []
+
+    # Unfiled upload with its proposal parsed to a dict.
+    assert len(body["unfiled"]) == 1
+    assert body["unfiled"][0]["id"] == "s_unf"
+    assert body["unfiled"][0]["proposal"] == {"plan": {"x": 1}}
+
+
 # --- GET /blueprints --------------------------------------------------------
 
 

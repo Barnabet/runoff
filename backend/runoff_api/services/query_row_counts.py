@@ -26,8 +26,7 @@ def compute_query_row_counts(
             try:
                 res = run_warehouse_sql(project_id, f"SELECT COUNT(*) FROM ({qy['sql']})", latest)
                 rows = res["rows"]
-                count = rows[0][0] if rows else None
-                query_row_counts[s["key"]][qy["name"]] = count if count is not None else None
+                query_row_counts[s["key"]][qy["name"]] = rows[0][0] if rows else None
             except Exception:  # noqa: BLE001 — any compile/run error => null count
                 query_row_counts[s["key"]][qy["name"]] = None
     return query_row_counts

@@ -171,12 +171,12 @@ def get_run_payload(db: RunoffDb, id: str) -> dict | None:
             ),
             key=lambda s: s["number"],
         )
+        delivery = rev_content.get("delivery")
         masthead = {
             "title": rev_content["title"],
             "eyebrow": rev_content["eyebrow"],
             "dateline": rev_content["dateline"],
-            "delivery": rev_content.get("delivery")
-            or {"recipient": "", "autoDeliverOnClear": False},
+            "delivery": delivery if delivery is not None else {"recipient": "", "autoDeliverOnClear": False},
         }
     else:
         section_meta = []
