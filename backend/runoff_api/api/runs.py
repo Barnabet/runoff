@@ -81,7 +81,7 @@ async def post_run_input(id: str, request: Request, db: RunoffDb = Depends(get_d
 
     # Re-answering a question the worker has not yet consumed replaces the pending
     # row — a re-click is a changed (or repeated) answer, never a second one.
-    if kind == "answer" and "questionId" in payload:
+    if kind == "answer" and payload.get("questionId"):
         cur = db.execute(
             "UPDATE run_inputs SET payload = ? WHERE run_id = ? AND kind = 'answer' "
             "AND consumed_at IS NULL AND json_extract(payload, '$.questionId') = ?",

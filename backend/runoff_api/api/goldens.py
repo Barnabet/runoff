@@ -70,8 +70,16 @@ async def update_golden(id: str, request: Request, db: RunoffDb = Depends(get_db
         body = await request.json()
     except Exception:
         return err(400, "invalid JSON body")
-    period = body.get("period") if isinstance(body, dict) else None
-    if period is not None and not any(pat.search(period) for pat in PERIOD_REGEX.values()):
+    # TS destructures `{ period }` straight off the parsed body: a missing key or
+    # a non-object body yields `undefined`, which fails the regex test → 400
+    # "invalid period: undefined". A non-string value (e.g. 123) coerces in the
+    # RegExp.test and also 400s. Mirror both here.
+    if not isinstance(body, dict) or "period" not in body:
+        return err(400, "invalid period: undefined")
+    period = body["period"]
+    if period is not None and (
+        not isinstance(period, str) or not any(pat.search(period) for pat in PERIOD_REGEX.values())
+    ):
         return err(400, f"invalid period: {period}")
     row = db.execute("SELECT kind FROM goldens WHERE id = ?", (id,)).fetchone()
     if row is None:

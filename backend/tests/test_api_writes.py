@@ -414,6 +414,69 @@ def test_patch_golden_invalid_period(client):
     assert res.json() == {"error": "invalid period: not-a-period"}
 
 
+def test_patch_golden_non_string_period(client):
+    c, db = client
+    _blueprint(db, "bp1", "p1")
+    db.execute("INSERT INTO goldens (id, blueprint_id, kind) VALUES ('g1', 'bp1', 'run')")
+    # TS RegExp.test coerces 123 → "123", which matches no period regex.
+    res = c.patch("/api/v1/goldens/g1", json={"period": 123})
+    assert res.status_code == 400
+    assert res.json() == {"error": "invalid period: 123"}
+
+
+def test_patch_golden_missing_period_key(client):
+    c, db = client
+    _blueprint(db, "bp1", "p1")
+    db.execute("INSERT INTO goldens (id, blueprint_id, kind) VALUES ('g1', 'bp1', 'run')")
+    # TS destructures undefined → RegExp.test("undefined") → 400.
+    res = c.patch("/api/v1/goldens/g1", json={})
+    assert res.status_code == 400
+    assert res.json() == {"error": "invalid period: undefined"}
+
+
+def test_patch_golden_non_dict_body(client):
+    c, db = client
+    _blueprint(db, "bp1", "p1")
+    db.execute("INSERT INTO goldens (id, blueprint_id, kind) VALUES ('g1', 'bp1', 'run')")
+    res = c.patch("/api/v1/goldens/g1", json=[1, 2, 3])
+    assert res.status_code == 400
+    assert res.json() == {"error": "invalid period: undefined"}
+
+
+def test_patch_golden_null_period_clears_and_reverifies(client):
+    c, db = client
+    _blueprint(db, "bp1", "p1")
+    inv = {
+        "version": 1,
+        "items": [
+            {
+                "id": "s1_b0_s0",
+                "kind": "value",
+                "anchor": {"sectionKey": "s1", "blockIndex": 0, "spanIndex": 0},
+                "raw": "$1",
+                "parsed": 1,
+                "reason": None,
+                "binding": {"familyId": "fam1", "sql": "SELECT 1", "verifiedValue": 1, "status": "bound"},
+            }
+        ],
+    }
+    doc = {
+        "title": "T",
+        "sections": [{"key": "s1", "blocks": [{"type": "paragraph", "spans": [{"text": "$1"}]}]}],
+    }
+    db.execute(
+        "INSERT INTO goldens (id, blueprint_id, kind, period, document, bindings) "
+        "VALUES ('g1','bp1','exemplar','2026-05',?,?)",
+        (to_json(doc), to_json(inv)),
+    )
+    res = c.patch("/api/v1/goldens/g1", json={"period": None})
+    assert res.status_code == 200
+    row = db.execute("SELECT period, bindings FROM goldens WHERE id='g1'").fetchone()
+    assert row["period"] is None  # cleared
+    verified = json.loads(row["bindings"])
+    assert verified["items"][0]["binding"]["status"] == "error"  # re-verified
+
+
 def test_patch_golden_404(client):
     c, db = client
     res = c.patch("/api/v1/goldens/nope", json={"period": None})
@@ -444,27 +507,58 @@ def test_patch_golden_run_kind_rebuilds(client):
     db.execute(
         "INSERT INTO goldens (id, blueprint_id, kind, run_id) VALUES ('g1', 'bp1', 'run', 'r1')"
     )
+    # Bindings start empty; run/section dispatch must go through rebuild.
+    assert db.execute("SELECT bindings FROM goldens WHERE id='g1'").fetchone()["bindings"] is None
     res = c.patch("/api/v1/goldens/g1", json={"period": "2026-06"})
     assert res.status_code == 200
     body = res.json()
     assert body["golden"]["id"] == "g1"
     assert body["golden"]["period"] == "2026-06"
     assert db.execute("SELECT period FROM goldens WHERE id='g1'").fetchone()["period"] == "2026-06"
+    # rebuild_run_golden_inventory ran: the seeded citation became one inventory item.
+    # (verify_stored_inventory would have no-op'd on the empty stored inventory.)
+    bindings = db.execute("SELECT bindings FROM goldens WHERE id='g1'").fetchone()["bindings"]
+    assert bindings is not None
+    inv = json.loads(bindings)
+    assert len(inv["items"]) == 1
 
 
 def test_patch_golden_exemplar_verifies(client):
     c, db = client
     _blueprint(db, "bp1", "p1")
-    # Exemplar with a stored inventory + document so verify has something to re-derive.
-    inv = {"version": 1, "items": []}
-    doc = {"title": "T", "sections": [{"key": "s1", "blocks": []}]}
+    # Exemplar with a stored inventory whose one item is stamped 'bound', plus a
+    # document. verify re-executes every binding from scratch; with no warehouse
+    # the SQL errors, so the stamp must flip 'bound' → 'error'. A swapped dispatch
+    # (rebuild) would instead derive an empty inventory from the citation-less doc.
+    inv = {
+        "version": 1,
+        "items": [
+            {
+                "id": "s1_b0_s0",
+                "kind": "value",
+                "anchor": {"sectionKey": "s1", "blockIndex": 0, "spanIndex": 0},
+                "raw": "$1",
+                "parsed": 1,
+                "reason": None,
+                "binding": {"familyId": "fam1", "sql": "SELECT 1", "verifiedValue": 1, "status": "bound"},
+            }
+        ],
+    }
+    doc = {
+        "title": "T",
+        "sections": [{"key": "s1", "blocks": [{"type": "paragraph", "spans": [{"text": "$1"}]}]}],
+    }
     db.execute(
-        "INSERT INTO goldens (id, blueprint_id, kind, document, bindings) VALUES ('g1','bp1','exemplar',?,?)",
+        "INSERT INTO goldens (id, blueprint_id, kind, document, bindings) "
+        "VALUES ('g1','bp1','exemplar',?,?)",
         (to_json(doc), to_json(inv)),
     )
     res = c.patch("/api/v1/goldens/g1", json={"period": None})
     assert res.status_code == 200
     assert res.json()["golden"]["id"] == "g1"
+    verified = json.loads(db.execute("SELECT bindings FROM goldens WHERE id='g1'").fetchone()["bindings"])
+    assert len(verified["items"]) == 1
+    assert verified["items"][0]["binding"]["status"] == "error"
 
 
 # --- DELETE /goldens/{id} ---------------------------------------------------
@@ -707,5 +801,17 @@ def test_post_input_answer_new_when_consumed(client):
     # Mark the pending answer consumed, so a re-answer inserts a fresh row.
     db.execute("UPDATE run_inputs SET consumed_at = '2026-07-01' WHERE run_id='r1'")
     c.post("/api/v1/runs/r1/inputs", json={"kind": "answer", "questionId": "q1", "text": "b"})
+    rows = db.execute("SELECT payload FROM run_inputs WHERE run_id='r1' AND kind='answer'").fetchall()
+    assert len(rows) == 2
+
+
+def test_post_input_answer_empty_question_id_inserts(client):
+    c, db = client
+    _blueprint(db, "bp1", "p1")
+    _run(db, "r1", "bp1")
+    # An empty-string questionId is falsy (TS `payload.questionId`), so the
+    # replacement branch is skipped and each answer INSERTs a fresh row.
+    c.post("/api/v1/runs/r1/inputs", json={"kind": "answer", "questionId": "", "text": "a"})
+    c.post("/api/v1/runs/r1/inputs", json={"kind": "answer", "questionId": "", "text": "b"})
     rows = db.execute("SELECT payload FROM run_inputs WHERE run_id='r1' AND kind='answer'").fetchall()
     assert len(rows) == 2
