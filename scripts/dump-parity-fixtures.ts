@@ -11,7 +11,7 @@
  *
  * Run: pnpm backend:fixtures
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import {
   openDb,
@@ -28,8 +28,35 @@ import {
 const dbPath = process.env.RUNOFF_DB ?? "data/runoff.db";
 const FIX_DIR = "backend/tests/fixtures";
 
+// Count of fixtures whose dump refused to write (null/empty payload). Any skip
+// makes the whole dump exit non-zero — a reseed regenerates them all or nothing.
+let skipped = 0;
+
+/** A payload is "empty" if it carries no fixture data: null/undefined, or an
+ *  empty array/object/string. Such a payload must never overwrite a good file. */
+function isEmptyPayload(value: unknown): boolean {
+  if (value == null) return true;
+  if (typeof value === "string") return value.length === 0;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === "object") return Object.keys(value as object).length === 0;
+  return false;
+}
+
 function writeFixture(name: string, value: unknown): void {
-  writeFileSync(join(FIX_DIR, name), JSON.stringify(value, null, 2) + "\n");
+  const path = join(FIX_DIR, name);
+  if (isEmptyPayload(value)) {
+    // The referenced run id likely vanished after a reseed. Never let a null
+    // dump clobber a good fixture; keep the existing copy and fail loudly.
+    const existing = existsSync(path) ? readFileSync(path, "utf8").trim() : "";
+    if (existing.length > 0) {
+      console.warn(`SKIP ${name}: resolved payload is null/empty — keeping the existing non-empty fixture (reseed to regenerate)`);
+    } else {
+      console.warn(`SKIP ${name}: resolved payload is null/empty and no good fixture exists to keep`);
+    }
+    skipped++;
+    return;
+  }
+  writeFileSync(path, JSON.stringify(value, null, 2) + "\n");
   console.log(`wrote ${name}`);
 }
 
@@ -131,3 +158,7 @@ function main(): void {
 }
 
 main();
+if (skipped > 0) {
+  console.error(`${skipped} fixture(s) skipped — not all parity fixtures regenerated; reseed the DB and re-run`);
+  process.exit(1);
+}
