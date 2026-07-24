@@ -26,6 +26,7 @@ from typing import Any
 import mammoth
 import pypdf
 
+from .parse_plan import js_string
 from .tabular import _to_iso_string
 
 MAX_DOCUMENT_CHARS = 8_000
@@ -155,19 +156,9 @@ def _serialize_source(source: dict) -> str:
 
 # --- exceljs cell coercion -------------------------------------------------
 # Kept for tabular parity: warehouse cell values coerce through cell_value.
-
-
-def _js_string(v: Any) -> str:
-    """String(v) for the primitive kinds cell coercion reaches (JS repr)."""
-    if v is True:
-        return "true"
-    if v is False:
-        return "false"
-    if v is None:
-        return "null"
-    if isinstance(v, float) and v.is_integer():
-        return str(int(v))
-    return str(v)
+# JS String() semantics come from the shared engine.parse_plan.js_string (the
+# None/datetime arms it adds over the old private copy are unreachable here —
+# cell_text/cell_value guard both before ever calling it).
 
 
 def cell_text(value: Any) -> str:
@@ -184,9 +175,9 @@ def cell_text(value: Any) -> str:
             return "".join((t.get("text") or "") for t in rich)
         if "result" in value:
             result = value.get("result")
-            return "" if result is None else _js_string(result)
-        return _js_string(value)
-    return _js_string(value)
+            return "" if result is None else js_string(result)
+        return js_string(value)
+    return js_string(value)
 
 
 def cell_value(value: Any) -> str | int | float:
@@ -205,4 +196,4 @@ def cell_value(value: Any) -> str | int | float:
         if isinstance(result, (int, float)) and not isinstance(result, bool):
             return result
         return cell_text(value)
-    return _js_string(value)
+    return js_string(value)

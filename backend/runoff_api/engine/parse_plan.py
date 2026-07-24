@@ -30,7 +30,7 @@ from ..core.types.parse_plan import plan_pattern
 from .tabular import _to_iso_string, csv_grid, slugify, xlsx_grids
 
 
-def _js_string(v: Any) -> str:
+def js_string(v: Any) -> str:
     """String(v) for the value kinds a grid holds — JS number/bool/Date semantics.
 
     Integral floats collapse to their int form (JS has one Number type, so
@@ -51,13 +51,13 @@ def _js_string(v: Any) -> str:
 def norm_cell(v: Any) -> str:
     if v is None:
         return ""
-    return re.sub(r"\s+", " ", _js_string(v).strip().lower())
+    return re.sub(r"\s+", " ", js_string(v).strip().lower())
 
 
 def raw_cell(v: Any) -> str:
     if v is None:
         return ""
-    return _js_string(v).strip()
+    return js_string(v).strip()
 
 
 def load_grids(path: str, mime: str, name: str) -> list[dict]:

@@ -13,9 +13,9 @@ NOT persisted in the proposal JSON).
 """
 
 from runoff_api.engine.parse_plan import (
-    _js_string,
     execute_parse_plan,
     fit_parse_plan,
+    js_string,
     load_grids,
 )
 from runoff_api.engine.propose_plan import build_grid_sample, is_degenerate, propose_parse_plan
@@ -38,7 +38,7 @@ def build_preview(tables: list[dict]) -> dict:
                     [
                         v
                         if v is None or (isinstance(v, (int, float)) and not isinstance(v, bool))
-                        else _js_string(v)
+                        else js_string(v)
                         for v in r
                     ]
                     for r in t["rows"][:PREVIEW_ROWS]
