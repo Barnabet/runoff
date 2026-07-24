@@ -13,6 +13,7 @@
     "eval:golden": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalGolden.ts",
     "eval:scaffold": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalScaffold.ts",
     "backend:dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run uvicorn runoff_api.main:app --port 8400",
+    "backend:worker": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run python -m runoff_api.worker",
     "backend:test": "uv --directory backend run pytest -q",
     "backend:lint": "uv --directory backend run ruff check .",
     "backend:fixtures": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/dump-parity-fixtures.ts",
