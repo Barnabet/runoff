@@ -49,6 +49,10 @@ R3_GOLDENS_ROUTES = {
     ("POST", "/api/v1/blueprints/{id}/goldens/{goldenId}/bind"),
 }
 
+R3_COPILOT_ROUTES = {
+    ("POST", "/api/v1/blueprints/{id}/copilot"),
+}
+
 R1_ROUTES = R1_READ_ROUTES | R1_WRITE_ROUTES
 
 
@@ -76,7 +80,9 @@ def _collect_routes(app):
     return routes
 
 
-REQUIRED_ROUTES = R1_ROUTES | R2_SOURCES_ROUTES | R2_EVENTS_ROUTES | R3_GOLDENS_ROUTES
+REQUIRED_ROUTES = (
+    R1_ROUTES | R2_SOURCES_ROUTES | R2_EVENTS_ROUTES | R3_GOLDENS_ROUTES | R3_COPILOT_ROUTES
+)
 
 
 def test_route_manifest():

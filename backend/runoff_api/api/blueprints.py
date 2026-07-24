@@ -1,6 +1,10 @@
 import json
+import queue
+import threading
+import types
 
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from runoff_api.core.db import RunoffDb
@@ -8,7 +12,11 @@ from runoff_api.core.ids import new_id
 from runoff_api.core.jsonutil import to_json
 from runoff_api.core.types.blueprint import BlueprintContent
 from runoff_api.deps import err, get_db
-from runoff_api.services.queries import list_blueprints_with_runs
+from runoff_api.engine.copilot import copilot_turn
+from runoff_api.engine.llm import make_llm_client
+from runoff_api.services.golden_binding import boundness_line, render_golden_for_prompt
+from runoff_api.services.goldens import list_goldens, resolve_golden, scaffold_digest_for
+from runoff_api.services.queries import build_copilot_context, list_blueprints_with_runs
 from runoff_api.services.query_row_counts import compute_query_row_counts
 from runoff_api.services.run_options import get_run_options
 from runoff_api.services.source_manager import list_project_sources
@@ -104,6 +112,140 @@ def get_blueprint_copilot(id: str, db: RunoffDb = Depends(get_db)):
         m["actions"] = json.loads(r["actions"]) if r["actions"] else []
         messages.append(m)
     return {"messages": messages}
+
+
+@router.post("/blueprints/{id}/copilot")
+async def post_blueprint_copilot(id: str, request: Request, db: RunoffDb = Depends(get_db)):
+    """One builder-copilot turn, streamed as SSE (docs/api/v1.md §2.13 + §3.2).
+
+    Guards → thread/memory load → user-row insert → golden/scaffold cache
+    pre-resolve → context, all on the app connection. The turn itself runs on a
+    daemon thread whose ``io.emit`` both enqueues each CopilotEvent and mirrors
+    TS's accumulation (text_delta → streamed text; edit/memory_saved → actions);
+    it persists the terminal row, enqueues the terminal event, then a ``None``
+    sentinel. A sync generator drains the queue into ``data: <json>\\n\\n`` frames.
+
+    DB/thread note: the connection is app-scoped (``request.app.state.db``, opened
+    check_same_thread=False) and outlives the response, exactly like the runs
+    events SSE generator — so the worker thread and context callbacks reuse it
+    rather than opening a second connection.
+    """
+    try:
+        body = await request.json()
+    except Exception:
+        return err(400, "invalid JSON body")
+    if not isinstance(body, dict):
+        body = {}
+
+    message = body["message"].strip() if isinstance(body.get("message"), str) else ""
+    if not message:
+        return err(400, "message is required")
+
+    try:
+        parsed = BlueprintContent.model_validate(body.get("draft"))
+    except ValidationError:
+        return err(400, "invalid draft")
+    draft = parsed.model_dump(by_alias=True)
+
+    selected_key = body["selectedKey"] if isinstance(body.get("selectedKey"), str) else None
+
+    # Thread + memories load BEFORE inserting the new user row, so the engine
+    # sees the prior conversation without the just-posted message.
+    thread = [
+        {"role": r["role"], "body": r["body"]}
+        for r in db.execute(
+            "SELECT role, body FROM copilot_messages WHERE blueprint_id = ? AND status = 'ok' ORDER BY rowid",
+            (id,),
+        ).fetchall()
+    ]
+    memories = [
+        {"id": r["id"], "body": r["body"], "scope": r["scope"]}
+        for r in db.execute(
+            """SELECT id, body, scope FROM memories
+               WHERE (blueprint_id = ?
+                      OR (scope='project'
+                          AND project_id = (SELECT project_id FROM blueprints WHERE id = ?)))
+                 AND status = 'active'
+               ORDER BY rowid""",
+            (id, id),
+        ).fetchall()
+    ]
+
+    db.execute(
+        "INSERT INTO copilot_messages (id, blueprint_id, role, body) VALUES (?, ?, 'user', ?)",
+        (new_id("cmsg"), id, message),
+    )
+
+    # Pre-resolve golden texts + scaffold digests so the engine context stays
+    # synchronous. Unresolvable goldens are skipped.
+    golden_cache: dict[str, dict] = {}
+    scaffold_cache: dict[str, str] = {}
+    for g in list_goldens(db, id):
+        resolved = resolve_golden(db, g["id"])
+        if resolved is None:
+            continue
+        golden_cache[g["id"]] = {
+            "description": f"{resolved['label']} — {boundness_line(resolved['inventory'])}",
+            "text": render_golden_for_prompt(resolved),
+        }
+        scaffold_cache[g["id"]] = scaffold_digest_for(resolved)
+    context = build_copilot_context(db, id, golden_cache, scaffold_cache)
+
+    q: queue.Queue = queue.Queue()
+    msg_id = new_id("cmsg")
+
+    def run_turn() -> None:
+        streamed_text = ""
+        streamed_actions: list[dict] = []
+
+        def emit(e: dict) -> None:
+            nonlocal streamed_text
+            if e["type"] == "text_delta":
+                streamed_text += e["text"]
+            elif e["type"] == "edit":
+                streamed_actions.append({"kind": "edit", "op": e["op"]})
+            elif e["type"] == "memory_saved":
+                streamed_actions.append({"kind": "memory", "memoryId": e["memoryId"], "body": e["body"]})
+            q.put(e)
+
+        io = types.SimpleNamespace(emit=emit)
+        try:
+            result = copilot_turn(
+                client=make_llm_client(),
+                draft=draft,
+                selected_key=selected_key,
+                message=message,
+                thread=thread,
+                memories=memories,
+                ctx=context,
+                io=io,
+            )
+            db.execute(
+                "INSERT INTO copilot_messages (id, blueprint_id, role, body, actions) "
+                "VALUES (?, ?, 'assistant', ?, ?)",
+                (msg_id, id, result["reply"], to_json(result["actions"])),
+            )
+            q.put({"type": "done", "messageId": msg_id})
+        except Exception as exc:  # noqa: BLE001 — surfaced as the terminal error event
+            db.execute(
+                "INSERT INTO copilot_messages (id, blueprint_id, role, body, actions, status) "
+                "VALUES (?, ?, 'assistant', ?, ?, 'failed')",
+                (msg_id, id, streamed_text, to_json(streamed_actions)),
+            )
+            q.put({"type": "error", "message": str(exc)})
+        finally:
+            q.put(None)
+
+    def generate():
+        while (e := q.get()) is not None:
+            yield f"data: {to_json(e)}\n\n"
+
+    threading.Thread(target=run_turn, daemon=True).start()
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
 
 
 # --- writes -----------------------------------------------------------------
