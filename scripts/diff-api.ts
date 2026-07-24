@@ -6,6 +6,15 @@
  * key-sorts, and diffs. Prints one line per pair (OK / DIFF) and exits 1 on any
  * divergence. Write endpoints and SSE (/runs/:id/events) are out of scope (R1).
  *
+ * Source coverage (R2): the per-project `GET /projects/:id/sources` (and the
+ * `/projects/:id` payload) pairs diff the full source-manager state — families,
+ * filed entries, unfiled rows + their LLM classify proposals, and the
+ * warehouse-backed `tables[].rowCount`. Run this harness AFTER a live ingestion
+ * smoke (upload → classify → confirm) and every post-ingestion source row is
+ * re-enumerated from the DB, so the seeded project's mutated source state is
+ * diffed TS↔PY on the next run. The intro line reports the source count so that
+ * coverage is visible.
+ *
  * Both stacks must be up: `pnpm dev` (web :3000 + worker) and `pnpm backend:dev`.
  * Run: pnpm backend:diff
  */
@@ -138,13 +147,22 @@ async function main(): Promise<void> {
     (r) => r.id,
   );
   const runs = (db.sqlite.prepare("SELECT id FROM runs ORDER BY id").all() as { id: string }[]).map((r) => r.id);
+  // Post-ingestion source coverage: count source rows per project so the intro
+  // line makes the diffed source state visible (the rows themselves surface
+  // through each project's `/sources` pair below).
+  const sourceRows = db.sqlite
+    .prepare("SELECT project_id AS projectId FROM sources")
+    .all() as { projectId: string }[];
+  const sourcesByProject = new Map<string, number>();
+  for (const s of sourceRows) sourcesByProject.set(s.projectId, (sourcesByProject.get(s.projectId) ?? 0) + 1);
   db.sqlite.close();
 
   const pairs: { label: string; suffix: string }[] = [];
   pairs.push({ label: "GET /projects", suffix: "/projects" });
   for (const p of projects) {
+    const n = sourcesByProject.get(p) ?? 0;
     pairs.push({ label: `GET /projects/${p}`, suffix: `/projects/${p}` });
-    pairs.push({ label: `GET /projects/${p}/sources`, suffix: `/projects/${p}/sources` });
+    pairs.push({ label: `GET /projects/${p}/sources (${n} source${n === 1 ? "" : "s"})`, suffix: `/projects/${p}/sources` });
     pairs.push({ label: `GET /blueprints?projectId=${p}`, suffix: `/blueprints?projectId=${p}` });
   }
   for (const b of blueprints) {
@@ -158,7 +176,10 @@ async function main(): Promise<void> {
     pairs.push({ label: `GET /runs/${r}`, suffix: `/runs/${r}` });
   }
 
-  console.log(`Diffing ${pairs.length} route pairs  (TS=${TS_BASE}  PY=${PY_BASE})\n`);
+  console.log(
+    `Diffing ${pairs.length} route pairs across ${projects.length} project(s), ` +
+      `${sourceRows.length} source(s)  (TS=${TS_BASE}  PY=${PY_BASE})\n`,
+  );
   let anyDiff = false;
   for (const { label, suffix } of pairs) {
     const ok = await comparePair(label, suffix);

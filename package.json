@@ -2,7 +2,8 @@
   "name": "runoff",
   "private": true,
   "scripts": {
-    "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses concurrently -n web,worker \"pnpm --filter web dev\" \"pnpm --filter worker dev\"",
+    "dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses concurrently -n web,worker \"pnpm --filter web dev\" \"uv --directory backend run python -m runoff_api.worker\"",
+    "worker:ts": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses pnpm --filter worker dev",
     "test": "vitest run --passWithNoTests",
     "seed": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/seed.ts",
     "eval": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/eval.ts",
@@ -14,6 +15,8 @@
     "eval:scaffold": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/evalScaffold.ts",
     "backend:dev": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run uvicorn runoff_api.main:app --port 8400",
     "backend:worker": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run python -m runoff_api.worker",
+    "backend:eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; uv --directory backend run python evals/eval_classify.py",
+    "backend:eval:parse": "set -a; [ -f .env ] && . ./.env; set +a; uv --directory backend run python evals/eval_parse.py",
     "backend:test": "uv --directory backend run pytest -q",
     "backend:lint": "uv --directory backend run ruff check .",
     "backend:fixtures": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/dump-parity-fixtures.ts",
