@@ -316,14 +316,6 @@ def test_post_revision_bumps_rev(client):
 # --- POST /blueprints/{id}/goldens ------------------------------------------
 
 
-def test_post_golden_multipart_501(client):
-    c, db = client
-    _blueprint(db, "bp1", "p1")
-    res = c.post("/api/v1/blueprints/bp1/goldens", files={"file": ("x.pdf", b"data", "application/pdf")})
-    assert res.status_code == 501
-    assert res.json() == {"error": "exemplar upload not yet implemented in this backend (R3)"}
-
-
 def test_post_golden_invalid_kind(client):
     c, db = client
     _blueprint(db, "bp1", "p1")
