@@ -1,8 +1,8 @@
-"""Ports packages/engine/test/goldenBinding.test.ts (the four ported functions'
+"""Ports packages/engine/test/goldenBinding.test.ts (the five ported functions'
 cases) and the compileLocator cases from packages/engine/test/checks.test.ts.
 
-Skipped (exercise unported code): renderGoldenForPrompt; checks.test.ts's
-evaluateAssert / auditCitations / countCitations suites.
+Skipped (exercise unported code): checks.test.ts's evaluateAssert /
+auditCitations / countCitations suites.
 """
 
 from runoff_api.services.golden_binding import (
@@ -10,6 +10,7 @@ from runoff_api.services.golden_binding import (
     compile_locator,
     inventory_from_citations,
     parse_span_number,
+    render_golden_for_prompt,
     verify_inventory,
 )
 
@@ -311,3 +312,154 @@ def test_compile_rejects_uppercase_aggregate_like_ts():
 
     with pytest.raises(ValueError, match=r"^unparseable expression: SUM\(fam_ar\.amount\)$"):
         compile_locator("SUM(fam_ar.amount)", COMPILE_CATALOG)
+
+
+# ── renderGoldenForPrompt (goldenBinding.ts) ────────────────────────────────
+# Ports the goldenBinding.test.ts case R1 skipped, plus Python tests pinning the
+# source branches that case does not touch (these strings are copilot prompt text).
+
+
+def test_render_golden_for_prompt_annotations_boundness_and_inert():
+    """Direct twin of goldenBinding.test.ts:128."""
+    doc = {
+        "title": "AR",
+        "eyebrow": "",
+        "dateline": "",
+        "sections": [
+            {
+                "key": "s",
+                "heading": "Summary",
+                "blocks": [{"type": "paragraph", "spans": [{"text": "Total "}, {"text": "$4.2M"}]}],
+            }
+        ],
+    }
+    bound = render_golden_for_prompt({
+        "label": "ar review",
+        "note": None,
+        "period": "2026-Q1",
+        "document": doc,
+        "unifyError": None,
+        "inventory": {
+            "version": 1,
+            "items": [{
+                "id": "total",
+                "kind": "value",
+                "anchor": {"sectionKey": "s", "blockIndex": 0, "spanIndex": 1},
+                "raw": "$4.2M",
+                "parsed": 4200000,
+                "reason": None,
+                "binding": {
+                    "familyId": "fam_ar",
+                    "sql": "SELECT SUM(amount) FROM fam_ar_transactions WHERE _period = :period",
+                    "verifiedValue": 4215332,
+                    "status": "bound",
+                },
+            }],
+        },
+    })
+    assert "## Summary" in bound
+    assert (
+        "«$4.2M ← fam_ar: SELECT SUM(amount) FROM fam_ar_transactions WHERE _period = :period»"
+        in bound
+    )
+    assert "boundness: 1/1 bound, 0 mismatch, 0 unbound" in bound
+
+    inert = render_golden_for_prompt({
+        "label": "raw",
+        "note": None,
+        "period": None,
+        "document": None,
+        "inventory": None,
+        "unifyError": "unify failed: boom",
+    })
+    assert inert == 'golden "raw" is not unified (unify failed: boom)'
+
+
+def test_render_golden_inert_defaults_to_no_document():
+    """No document + no unifyError → the DISTINCT "no document" inert string
+    (scaffoldDigestFor uses "not yet processed"; goldenBinding.ts:131 uses this)."""
+    out = render_golden_for_prompt({
+        "label": "raw",
+        "note": None,
+        "period": None,
+        "document": None,
+        "inventory": None,
+        "unifyError": None,
+    })
+    assert out == 'golden "raw" is not unified (no document)'
+
+
+def test_render_golden_annotation_branches():
+    """Pins the annotate() branches the ported case skips: mismatch tag via
+    String(verifiedValue), error-status left raw, SQL >120 chars truncated with …,
+    spanIndex 0 still keyed (not "t"), note/period lines, table header + rows."""
+    long_sql = "SELECT " + "a" * 130  # length 137 > 120
+    doc = {
+        "title": "Report",
+        "eyebrow": "",
+        "dateline": "",
+        "sections": [
+            {
+                "key": "s",
+                "heading": "Sec",
+                "blocks": [
+                    {"type": "paragraph", "spans": [{"text": "M"}, {"text": "E"}, {"text": "L"}]},
+                    {
+                        "type": "table",
+                        "columns": ["status", "total"],
+                        "rows": [{"cells": [[{"text": "open"}], [{"text": "$1M"}]]}],
+                    },
+                ],
+            }
+        ],
+    }
+    inventory = {
+        "version": 1,
+        "items": [
+            {
+                "id": "m", "kind": "value",
+                "anchor": {"sectionKey": "s", "blockIndex": 0, "spanIndex": 0},
+                "raw": "M", "parsed": None, "reason": "value mismatch",
+                "binding": {"familyId": "fam", "sql": "Q1", "verifiedValue": 3981102, "status": "mismatch"},
+            },
+            {
+                "id": "e", "kind": "value",
+                "anchor": {"sectionKey": "s", "blockIndex": 0, "spanIndex": 1},
+                "raw": "E", "parsed": None, "reason": "sql error",
+                "binding": {"familyId": "fam", "sql": "Q2", "verifiedValue": None, "status": "error"},
+            },
+            {
+                "id": "l", "kind": "value",
+                "anchor": {"sectionKey": "s", "blockIndex": 0, "spanIndex": 2},
+                "raw": "L", "parsed": None, "reason": None,
+                "binding": {"familyId": "fam", "sql": long_sql, "verifiedValue": 1, "status": "bound"},
+            },
+            {
+                "id": "t", "kind": "table",
+                "anchor": {"sectionKey": "s", "blockIndex": 1, "spanIndex": None},
+                "raw": "table", "parsed": None, "reason": None,
+                "binding": {"familyId": "fam", "sql": "TQ", "verifiedValue": 1, "status": "bound"},
+            },
+        ],
+    }
+    out = render_golden_for_prompt({
+        "label": "g", "note": "a note", "period": "2026-Q1",
+        "document": doc, "inventory": inventory, "unifyError": None,
+    })
+    lines = out.split("\n")
+    assert lines[0] == "# Report"
+    assert "note: a note" in lines
+    assert "period: 2026-Q1" in lines
+    assert "## Sec" in lines
+    # One paragraph line: spanIndex 0 mismatch annotated + tag, error span kept raw,
+    # long-sql span truncated at 120 + … — all joined with "".
+    expected_para = (
+        "«M ← fam: Q1» [MISMATCH: data says 3981102]"
+        + "E"
+        + "«L ← fam: " + long_sql[:120] + "…»"
+    )
+    assert expected_para in lines
+    # Table header annotated; row cells joined with " | ".
+    assert "«[table] status | total ← fam: TQ»" in lines
+    assert "open | $1M" in lines
+    assert lines[-1] == "boundness: 2/4 bound, 1 mismatch, 1 unbound"

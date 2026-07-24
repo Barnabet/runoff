@@ -8,27 +8,9 @@ then renders the digest text an agent lifts SQL from verbatim.
 Everything flows as plain dicts with camelCase keys (the TS runtime shape).
 """
 
-from runoff_api.services.golden_binding import _num_str, boundness_line
+from runoff_api.services.golden_binding import _js_string, boundness_line
 
 PROSE_CAP = 1500
-
-
-def _js_string(v: object) -> str:
-    """Mirror TS `String(verifiedValue)` for the number | string | null cases.
-
-    Numbers delegate to the R1 `_num_str` helper so integers print without a
-    decimal (e.g. 61000, not 61000.0); the null / bool / str branches are the
-    rest of JS `String()` semantics the R1 helper does not cover.
-    """
-    if v is None:
-        return "null"
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if isinstance(v, int):
-        return str(v)
-    if isinstance(v, float):
-        return _num_str(v)
-    return str(v)
 
 
 def serialize_prose(blocks: list[dict]) -> str:

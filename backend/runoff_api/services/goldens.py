@@ -1,14 +1,16 @@
-"""Port of apps/web/lib/goldens.ts (all except scaffoldDigestFor, which is R3).
+"""Port of apps/web/lib/goldens.ts.
 
-Golden row access + the single resolve accessor (spec §8). A corrupt stored
-document degrades to document=None (inert to agents); corrupt/schema-drifted
-bindings degrade to inventory=None. Never raises.
+Golden row access + summaries + the single resolve accessor + scaffold-digest
+accessor (spec §8). A corrupt stored document degrades to document=None (inert to
+agents); corrupt/schema-drifted bindings degrade to inventory=None. Never raises.
 """
 
 import json
 
 from runoff_api.core.bindings import parse_bindings
 from runoff_api.core.db import RunoffDb
+from runoff_api.engine.scaffold_golden import build_scaffold_digest, render_scaffold_digest
+from runoff_api.services.golden_binding import boundness_line
 
 SELECT = (
     "SELECT id, blueprint_id AS blueprintId, kind, run_id AS runId, section_key AS sectionKey, "
@@ -33,6 +35,19 @@ def golden_label(g: dict) -> str:
         return g["name"] if g["name"] is not None else "exemplar"
     section = f" §{g['sectionKey']}" if g["kind"] == "section" else ""
     return f"run {g['runId']}{section}"
+
+
+def list_golden_summaries(db: RunoffDb, blueprint_id: str) -> list[dict]:
+    """One `{id, kind, label, note}` per golden; label = "<golden_label> — <boundness_line>"."""
+    return [
+        {
+            "id": g["id"],
+            "kind": g["kind"],
+            "label": f'{golden_label(g)} — {boundness_line(parse_bindings(g["bindings"]))}',
+            "note": g["note"],
+        }
+        for g in list_goldens(db, blueprint_id)
+    ]
 
 
 def resolve_golden(db: RunoffDb, golden_id: str) -> dict | None:
@@ -73,3 +88,24 @@ def resolve_golden(db: RunoffDb, golden_id: str) -> dict | None:
         "inventory": inventory,
         "unifyError": g["unifyError"],
     }
+
+
+def scaffold_digest_for(resolved: dict) -> str:
+    """Scaffold digest (or inert explanation) for one resolved golden — the single
+    construction the copilot route and tests share.
+
+    The not-unified default is "not yet processed", DISTINCT from
+    render_golden_for_prompt's "no document".
+    """
+    if not resolved["document"]:
+        reason = resolved["unifyError"] if resolved["unifyError"] is not None else "not yet processed"
+        return f'golden "{resolved["label"]}" is not unified ({reason})'
+    if not resolved["inventory"]:
+        return f'golden "{resolved["label"]}" has no bindings — run Bind to data first'
+    return render_scaffold_digest(build_scaffold_digest({
+        "id": resolved["id"],
+        "label": resolved["label"],
+        "period": resolved["period"],
+        "document": resolved["document"],
+        "inventory": resolved["inventory"],
+    }))

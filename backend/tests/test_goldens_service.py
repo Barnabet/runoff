@@ -7,7 +7,14 @@ import sqlite3
 from runoff_api.core.bindings import parse_bindings
 from runoff_api.core.jsonutil import to_json
 from runoff_api.services.golden_pipeline import rebuild_run_golden_inventory, verify_stored_inventory
-from runoff_api.services.goldens import get_golden_row, golden_label, list_goldens, resolve_golden
+from runoff_api.services.goldens import (
+    get_golden_row,
+    golden_label,
+    list_golden_summaries,
+    list_goldens,
+    resolve_golden,
+    scaffold_digest_for,
+)
 
 DOC = {
     "title": "AR Review",
@@ -135,6 +142,103 @@ def test_resolve_valid_bindings_produce_inventory(db):
     insert_golden(db, id="g1", kind="run", run_id="r1", bindings=to_json(inventory))
     r = resolve_golden(db, "g1")
     assert len(r["inventory"]["items"]) == 1
+
+
+# ── list_golden_summaries ────────────────────────────────────────────────────
+# No non-UI TS case covers listGoldenSummaries directly (goldensApi.test.ts exercises
+# the route + resolveGolden; goldenCards.ui.test.tsx is UI-rendering, skipped). These
+# pin the goldens.ts:25-32 source: label = "<golden_label> — <boundness_line>".
+
+BOUND_INV = {
+    "version": 1,
+    "items": [{
+        "id": "total", "kind": "value",
+        "anchor": {"sectionKey": "summary", "blockIndex": 0, "spanIndex": 0},
+        "raw": "300", "parsed": 300, "reason": None,
+        "binding": {"familyId": "f", "sql": "Q", "verifiedValue": 300, "status": "bound"},
+    }],
+}
+
+
+def test_list_golden_summaries_shape_and_label_compose(db):
+    insert_golden(db, id="g1", kind="exemplar", name="AR exemplar", note="hi")
+    insert_golden(db, id="g2", kind="exemplar", name="Other")
+    out = list_golden_summaries(db, "b1")
+    # newest-first ordering inherited from list_goldens; bindings null → "not yet bound".
+    assert out[0] == {"id": "g2", "kind": "exemplar", "label": "Other — not yet bound", "note": None}
+    assert out[1] == {"id": "g1", "kind": "exemplar", "label": "AR exemplar — not yet bound", "note": "hi"}
+
+
+def test_list_golden_summaries_label_reflects_boundness(db):
+    insert_golden(db, id="g1", kind="exemplar", name="X", bindings=to_json(BOUND_INV))
+    out = list_golden_summaries(db, "b1")
+    assert out[0]["label"] == "X — 1/1 bound, 0 mismatch, 0 unbound"
+
+
+def test_list_golden_summaries_label_uses_run_form(db):
+    insert_golden(db, id="g1", kind="section", run_id="r9", section_key="summary")
+    out = list_golden_summaries(db, "b1")
+    assert out[0]["label"] == "run r9 §summary — not yet bound"
+
+
+# ── scaffold_digest_for ──────────────────────────────────────────────────────
+# No non-UI TS case covers scaffoldDigestFor directly (same test files as above).
+# These pin the goldens.ts:84-91 source, including the two DISTINCT inert strings.
+
+SCAFFOLD_DOC = {
+    "title": "AR Review",
+    "eyebrow": "",
+    "dateline": "",
+    "sections": [{
+        "key": "summary", "heading": "Summary",
+        "blocks": [{"type": "paragraph", "spans": [{"text": "Total 300"}]}],
+    }],
+}
+
+
+def resolved(**over):
+    base = {
+        "id": "g1", "kind": "exemplar", "label": "g",
+        "note": None, "period": "2026-Q1",
+        "document": None, "inventory": None, "unifyError": None,
+    }
+    base.update(over)
+    return base
+
+
+def test_scaffold_digest_for_not_unified_defaults_to_not_yet_processed():
+    # DISTINCT from renderGoldenForPrompt's "no document" default.
+    out = scaffold_digest_for(resolved(label="raw", document=None, unifyError=None))
+    assert out == 'golden "raw" is not unified (not yet processed)'
+
+
+def test_scaffold_digest_for_not_unified_uses_unify_error():
+    out = scaffold_digest_for(resolved(label="raw", document=None, unifyError="unify failed: boom"))
+    assert out == 'golden "raw" is not unified (unify failed: boom)'
+
+
+def test_scaffold_digest_for_document_without_bindings():
+    out = scaffold_digest_for(resolved(label="g", document=SCAFFOLD_DOC, inventory=None))
+    assert out == 'golden "g" has no bindings — run Bind to data first'
+
+
+def test_scaffold_digest_for_renders_digest():
+    inventory = {
+        "version": 1,
+        "items": [{
+            "id": "total", "kind": "value",
+            "anchor": {"sectionKey": "summary", "blockIndex": 0, "spanIndex": 0},
+            "raw": "300", "parsed": 300, "reason": None,
+            "binding": {
+                "familyId": "f", "sql": "SELECT SUM(amount) FROM fam",
+                "verifiedValue": 300, "status": "bound",
+            },
+        }],
+    }
+    out = scaffold_digest_for(resolved(label="g", document=SCAFFOLD_DOC, inventory=inventory))
+    assert out.startswith('SCAFFOLD DIGEST — golden "g" (period 2026-Q1, 1/1 bound, 0 mismatch, 0 unbound)')
+    assert "## section: summary — Summary" in out
+    assert "total: SELECT SUM(amount) FROM fam  [verified]" in out
 
 
 # ── golden_pipeline (rebuild / verify against a real warehouse) ──────────────

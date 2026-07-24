@@ -47,6 +47,25 @@ def _num_str(n: float) -> str:
     return repr(n)
 
 
+def _js_string(v: object) -> str:
+    """Mirror TS `String(v)` for the number | string | null values that flow through
+    a verifiedValue. Numbers delegate to `_num_str` so integers print without a decimal
+    (61000, not 61000.0); the null / bool / str branches complete JS `String()` semantics.
+
+    Lives here beside `_num_str` so both scaffold_golden (Task 2) and renderGoldenForPrompt
+    share one source without a services↔engine import cycle.
+    """
+    if v is None:
+        return "null"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    if isinstance(v, float):
+        return _num_str(v)
+    return str(v)
+
+
 def _filter_clause(col: str, raw_value: str) -> str:
     """Old pack semantics: case-insensitive string compare, plus numeric equality for numbers."""
     v = raw_value.strip()
@@ -280,3 +299,61 @@ def inventory_from_citations(document: dict, catalog: list[dict], queries_for) -
                 else:
                     items.append({**base, "binding": None, "reason": "no query covers this table"})
     return {"version": 1, "items": items[:60]}
+
+
+# ── renderGoldenForPrompt (goldenBinding.ts) ────────────────────────────────
+
+
+def render_golden_for_prompt(g: dict) -> str:
+    """The one renderer every agent consumer uses (spec §8).
+
+    Input keys: label, note, period, document, inventory, unifyError.
+    Inert (document None) returns `golden "<label>" is not unified (<unifyError ?? "no document">)`
+    — note the "no document" default is DISTINCT from scaffold_digest_for's "not yet processed".
+    """
+    if not g["document"]:
+        reason = g["unifyError"] if g["unifyError"] is not None else "no document"
+        return f'golden "{g["label"]}" is not unified ({reason})'
+    by_anchor: dict[str, dict] = {}
+    for it in (g["inventory"]["items"] if g["inventory"] else []):
+        a = it["anchor"]
+        # spanIndex 0 is a valid index — only null collapses to "t".
+        span = a["spanIndex"] if a["spanIndex"] is not None else "t"
+        by_anchor[f"{a['sectionKey']}|{a['blockIndex']}|{span}"] = it
+
+    def annotate(raw: str, it: dict | None) -> str:
+        binding = it["binding"] if it else None
+        if not binding or binding["status"] == "error":
+            return raw
+        sql = binding["sql"]
+        if len(sql) > 120:
+            sql = f"{sql[:120]}…"
+        tag = (
+            f' [MISMATCH: data says {_js_string(binding["verifiedValue"])}]'
+            if binding["status"] == "mismatch"
+            else ""
+        )
+        return f'«{raw} ← {binding["familyId"]}: {sql}»{tag}'
+
+    lines: list[str] = [f'# {g["document"]["title"]}']
+    if g["note"]:
+        lines.append(f'note: {g["note"]}')
+    if g["period"]:
+        lines.append(f'period: {g["period"]}')
+    for s in g["document"]["sections"]:
+        lines.append(f'## {s["heading"]}')
+        for bi, b in enumerate(s["blocks"]):
+            if b["type"] == "paragraph":
+                lines.append(
+                    "".join(
+                        annotate(sp["text"], by_anchor.get(f"{s['key']}|{bi}|{si}"))
+                        for si, sp in enumerate(b["spans"])
+                    )
+                )
+            else:
+                it = by_anchor.get(f"{s['key']}|{bi}|t")
+                lines.append(annotate(f'[table] {" | ".join(b["columns"])}', it))
+                for r in b["rows"]:
+                    lines.append(" | ".join("".join(sp["text"] for sp in c) for c in r["cells"]))
+    lines.append(f"boundness: {boundness_line(g['inventory'])}")
+    return "\n".join(lines)
