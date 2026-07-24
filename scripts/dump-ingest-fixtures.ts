@@ -16,7 +16,7 @@
  *
  * Run: pnpm backend:ingest-fixtures
  */
-import { writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openDb } from "@runoff/core";
@@ -26,6 +26,10 @@ import { loadGrids, executeParsePlan } from "@runoff/engine";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_SRC = join(HERE, "fixtures");
 const OUT_DIR = "backend/tests/fixtures/ingest";
+
+// Count of fixtures whose dump refused to write (no ingested rows). Any skip
+// makes the whole dump exit non-zero — an edit regenerates them all or nothing.
+let skipped = 0;
 
 /** Recursively sort object keys; arrays keep their order (mirrors diff-api.ts). */
 function sortKeys(v: unknown): unknown {
@@ -200,7 +204,8 @@ async function ingest(c: IngestCase): Promise<{ tables: DumpedTable[] }> {
   const { tables, report } = executeParsePlan(grids, c.plan, c.periodic ? c.period : null, c.granularity);
   const firstProblem = report.tables.flatMap((t) => t.problems)[0];
   if (firstProblem) throw new Error(`${c.file}: ${firstProblem}`);
-  if (report.tables.every((t) => t.rowsKept === 0)) throw new Error(`${c.file}: plan produced no rows`);
+  // A zero-row dump is NOT thrown here: main()'s writeFixture guard refuses to
+  // overwrite an existing non-empty fixture with it (mirrors dump-parity-fixtures.ts).
 
   const db = openDb(":memory:");
   db.sqlite.prepare("ATTACH DATABASE ':memory:' AS wh").run();
@@ -228,18 +233,49 @@ async function ingest(c: IngestCase): Promise<{ tables: DumpedTable[] }> {
   return { tables: dumped };
 }
 
+/** A dumped payload is "empty" if it carries no ingested rows. Such a payload
+ *  must never overwrite a good fixture — a broken plan or an edited source file
+ *  would otherwise silently wipe the recorded rows the Python parity test
+ *  compares against (mirrors the refuse-to-overwrite guard in
+ *  dump-parity-fixtures.ts). */
+function isEmptyPayload(payload: { tables: DumpedTable[] }): boolean {
+  return payload.tables.every((t) => t.rows.length === 0);
+}
+
+function writeFixture(name: string, payload: { tables: DumpedTable[] }): void {
+  const path = join(OUT_DIR, name);
+  if (isEmptyPayload(payload)) {
+    const existing = existsSync(path) ? readFileSync(path, "utf8").trim() : "";
+    if (existing.length > 0) {
+      console.warn(`SKIP ${name}: dump produced no rows — keeping the existing non-empty fixture (fix the plan/source and re-run)`);
+    } else {
+      console.warn(`SKIP ${name}: dump produced no rows and no good fixture exists to keep`);
+    }
+    skipped++;
+    return;
+  }
+  writeFileSync(path, JSON.stringify(sortKeys(payload), null, 2) + "\n");
+  const rowN = payload.tables.reduce((n, t) => n + t.rows.length, 0);
+  console.log(`wrote ${name} — ${payload.tables.length} table(s), ${rowN} row(s)`);
+}
+
 async function main(): Promise<void> {
   mkdirSync(OUT_DIR, { recursive: true });
   for (const c of CASES) {
     const payload = await ingest(c);
     const base = c.file.replace(/\.[^.]+$/, "");
-    writeFileSync(join(OUT_DIR, `${base}.json`), JSON.stringify(sortKeys(payload), null, 2) + "\n");
-    const rowN = payload.tables.reduce((n, t) => n + t.rows.length, 0);
-    console.log(`wrote ${base}.json — ${payload.tables.length} table(s), ${rowN} row(s)`);
+    writeFixture(`${base}.json`, payload);
   }
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    if (skipped > 0) {
+      console.error(`${skipped} fixture(s) skipped — not all ingest fixtures regenerated; fix the plan/source and re-run`);
+      process.exit(1);
+    }
+  })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
