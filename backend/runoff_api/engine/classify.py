@@ -77,6 +77,9 @@ def classify_source(*, client, filename: str, content_sample: str, families: lis
     def ok() -> dict:
         return parsed.model_dump(by_alias=True, exclude_unset=True)
 
+    # fullmatch, not search: JS non-multiline `$` rejects a trailing "\n" but
+    # Python's `$` accepts it, so `.search` would let "2026-Q1\n" gate a proposal
+    # that the TS `PERIOD_REGEX[...].test(...)` would reject.
     existing = next((f for f in families if f["key"] == parsed.family_key), None)
     if existing:
         if parsed.new_family:
@@ -85,7 +88,7 @@ def classify_source(*, client, filename: str, content_sample: str, families: lis
             return ok() if parsed.period is None else None
         return (
             ok()
-            if parsed.period is not None and PERIOD_REGEX[existing["granularity"]].search(parsed.period)
+            if parsed.period is not None and PERIOD_REGEX[existing["granularity"]].fullmatch(parsed.period)
             else None
         )
     nf = parsed.new_family
@@ -95,4 +98,8 @@ def classify_source(*, client, filename: str, content_sample: str, families: lis
         return ok() if nf.granularity is None and parsed.period is None else None
     if nf.granularity is None:
         return None
-    return ok() if parsed.period is not None and PERIOD_REGEX[nf.granularity].search(parsed.period) else None
+    return (
+        ok()
+        if parsed.period is not None and PERIOD_REGEX[nf.granularity].fullmatch(parsed.period)
+        else None
+    )

@@ -4,6 +4,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import pytest
 from fake_client import make_fake_client
 
 from runoff_api.core.db import RunoffDb, open_db
@@ -232,6 +233,44 @@ def test_inserts_a_matching_flags_row_when_a_flag_raised_event_is_emitted():
 
     ev = db.execute("SELECT type FROM run_events WHERE run_id = ?", (run_id,)).fetchall()
     assert any(e["type"] == "flag_raised" for e in ev)
+
+
+def test_emit_reraises_original_error_when_the_txn_was_already_rolled_back():
+    """A SQLite auto-rollback (e.g. SQLITE_FULL) ends the transaction before the
+    except runs; the `in_transaction` guard must skip the explicit ROLLBACK so the
+    original error propagates instead of "no transaction is active" masking it."""
+    conn = temp_db()
+    run_id = new_id("run")
+    conn.execute(
+        "INSERT INTO runs (id, blueprint_id, blueprint_rev, status) VALUES (?, 'bp_x', 1, 'running')",
+        (run_id,),
+    )
+
+    class Boom(Exception):
+        pass
+
+    class FlakyDb:
+        """Forwards to a real connection but, on the run_events insert, simulates
+        SQLite auto-rolling back the txn and then failing the statement."""
+
+        def __init__(self, c):
+            self._c = c
+
+        def execute(self, sql, *args):
+            if sql.startswith("INSERT INTO run_events"):
+                self._c.execute("ROLLBACK")  # txn is now gone
+                raise Boom("disk full")
+            return self._c.execute(sql, *args)
+
+        @property
+        def in_transaction(self):
+            return self._c.in_transaction
+
+    io = make_engine_io(FlakyDb(conn), run_id)
+    # Without the guard the except would ROLLBACK a dead txn, raising
+    # OperationalError and masking Boom. The guard lets Boom surface.
+    with pytest.raises(Boom):
+        io.emit({"type": "paused"})
 
 
 # --- claim_queued_run -----------------------------------------------------

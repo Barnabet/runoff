@@ -91,7 +91,13 @@ def make_engine_io(db: RunoffDb, run_id: str):
                 )
             db.execute("COMMIT")
         except Exception:
-            db.execute("ROLLBACK")
+            # Guard on in_transaction: SQLite may have already auto-rolled back
+            # (e.g. SQLITE_FULL), and an explicit ROLLBACK then raises "no
+            # transaction is active", masking the original error. Mirrors
+            # better-sqlite3's .transaction() wrapper, which rolls back only when
+            # inTransaction.
+            if db.in_transaction:
+                db.execute("ROLLBACK")
             raise
 
     def poll_inputs() -> list[dict]:

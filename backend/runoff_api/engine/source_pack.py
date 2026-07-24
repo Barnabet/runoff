@@ -9,11 +9,12 @@ Runtime shapes are plain dicts with camelCase keys (TS async -> sync here):
   SourcePack    {"sources": [PackedSource, ...]}
   EngineFile    {"id", "name", "mime", "path"}   (exact field set from the TS interface)
 
-Sanctioned near-parity divergence (spec §6): extract_file_text's PDF branch uses
-pypdf, whose text may differ from TS pdf-parse output. DOCX extraction is
-likewise a near-parity path (no mammoth in Python) — both are fuzzy document
-text that feeds prompts, never byte-exact warehouse data. cell_text / cell_value
-stay byte-exact ports (they coerce warehouse cell values that feed prompts).
+Sanctioned near-parity divergence (spec §6): only extract_file_text's PDF branch
+is a near-parity path — it uses pypdf, whose text may differ from TS pdf-parse
+output. DOCX uses the same mammoth library on both stacks, so it is byte-parity,
+not a divergence. Both are fuzzy document text that feeds prompts, never
+byte-exact warehouse data. cell_text / cell_value stay byte-exact ports (they
+coerce warehouse cell values that feed prompts).
 """
 
 from __future__ import annotations

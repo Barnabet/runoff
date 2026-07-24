@@ -305,7 +305,13 @@ def file_source(db: RunoffDb, args: dict) -> dict:
                     read_tabular(file_path, src["mime"], src["name"], on_table)
                 db.execute("COMMIT")
             except Exception as err:  # noqa: BLE001 — mirrors the TS catch-all
-                db.execute("ROLLBACK")
+                # Guard on in_transaction: on a SQLite auto-rollback (e.g.
+                # SQLITE_FULL) no txn remains, so an unconditional ROLLBACK would
+                # raise "no transaction is active" and ESCAPE this handler — turning
+                # the contractual `ingest failed` 500 into a framework 500. Mirrors
+                # better-sqlite3's inTransaction guard.
+                if db.in_transaction:
+                    db.execute("ROLLBACK")
                 return {"error": f"ingest failed: {err}", "status": 500}
         finally:
             if tabular:
