@@ -24,9 +24,16 @@ import type {
   ExecReport,
   ParsePlan,
 } from "@runoff/core";
-import { draftSection, classifySource, proposeParsePlan, distillRun } from "@runoff/engine";
 import type { ScopedMemory } from "@runoff/engine";
 import { makeFakeClient, type FakeTurn } from "../packages/engine/test/fakeClient.js";
+
+// Pin the engine model BEFORE @runoff/engine is evaluated, so a dev-shell
+// RUNOFF_MODEL leak can't skew the recorded request bodies. prompts.ts reads
+// `process.env.RUNOFF_MODEL ?? "gpt-5.6-sol"` at import time, so the engine is
+// pulled in via a dynamic import() inside main() — after this assignment runs —
+// rather than a hoisted static import (see backend/tests/test_prompt_fixtures.py
+// for the matching Python-side pin).
+process.env.RUNOFF_MODEL = "gpt-5.6-sol";
 
 const FIX_DIR = "backend/tests/fixtures/prompts";
 
@@ -224,6 +231,10 @@ const VALID_PLAN_JSON =
   '"headerRows":1,"exclude":[],"columns":[{"from":"a","name":"a","type":"TEXT"}]}]}';
 
 async function main(): Promise<void> {
+  // Dynamic import: evaluates @runoff/engine (and prompts.ts's MODEL) only now,
+  // after the RUNOFF_MODEL pin above has taken effect.
+  const { draftSection, classifySource, proposeParsePlan, distillRun } = await import("@runoff/engine");
+
   mkdirSync(FIX_DIR, { recursive: true });
 
   // --- draft.json: first draft + retry variant ---

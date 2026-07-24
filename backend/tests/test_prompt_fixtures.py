@@ -12,14 +12,30 @@ proposal + amend/replan variant), distill.
 """
 
 import difflib
+import importlib
 import json
+import os
 from pathlib import Path
 
-from runoff_api.engine.classify import classify_source
-from runoff_api.engine.distill import distill_run
-from runoff_api.engine.draft import draft_section
-from runoff_api.engine.propose_plan import propose_parse_plan
-from tests.fake_client import make_fake_client
+# Pin the engine model BEFORE the harness reads it, so a dev-shell RUNOFF_MODEL
+# leak can't skew the recorded request bodies (mirrors scripts/dump-prompt-
+# fixtures.ts). prompts.py binds MODEL = os.environ.get("RUNOFF_MODEL", ...) at
+# import time and draft/classify/distill/propose_plan copy it via
+# `from prompts import MODEL`; create(model=MODEL) reads that module global at
+# call time. An earlier-collected test may already have imported these under a
+# leaked value, so force the env AND overwrite the captured MODEL on every module
+# that holds one. (We overwrite the attribute rather than importlib.reload the
+# modules — reloading draft would mint a fresh RefusalError class that run.py no
+# longer catches.)
+os.environ["RUNOFF_MODEL"] = "gpt-5.6-sol"
+for _name in ("prompts", "classify", "distill", "draft", "propose_plan"):
+    importlib.import_module(f"runoff_api.engine.{_name}").MODEL = "gpt-5.6-sol"
+
+from runoff_api.engine.classify import classify_source  # noqa: E402 — after the RUNOFF_MODEL pin
+from runoff_api.engine.distill import distill_run  # noqa: E402
+from runoff_api.engine.draft import draft_section  # noqa: E402
+from runoff_api.engine.propose_plan import propose_parse_plan  # noqa: E402
+from tests.fake_client import make_fake_client  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures" / "prompts"
 
