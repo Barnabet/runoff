@@ -8,7 +8,8 @@ Fixtures are produced by ``scripts/dump-prompt-fixtures.ts``
 byte-for-byte from that script — DO NOT edit one side without the other.
 
 Covers: draft (first draft + retry-feedback variant), classify, propose (initial
-proposal + amend/replan variant), distill.
+proposal + amend/replan variant), distill, copilot (first create() of a
+copilotTurn), bind (initial + rebind variants), unify (head/tail-capped exemplar).
 """
 
 import difflib
@@ -31,10 +32,15 @@ os.environ["RUNOFF_MODEL"] = "gpt-5.6-sol"
 for _name in ("prompts", "classify", "distill", "draft", "propose_plan"):
     importlib.import_module(f"runoff_api.engine.{_name}").MODEL = "gpt-5.6-sol"
 
+from runoff_api.engine.bind_golden import bind_golden  # noqa: E402
 from runoff_api.engine.classify import classify_source  # noqa: E402 — after the RUNOFF_MODEL pin
+from runoff_api.engine.copilot import copilot_turn  # noqa: E402
 from runoff_api.engine.distill import distill_run  # noqa: E402
 from runoff_api.engine.draft import draft_section  # noqa: E402
 from runoff_api.engine.propose_plan import propose_parse_plan  # noqa: E402
+from runoff_api.engine.unify_golden import unify_golden_report  # noqa: E402
+from runoff_api.services.golden_binding import boundness_line, render_golden_for_prompt  # noqa: E402
+from runoff_api.services.goldens import scaffold_digest_for  # noqa: E402
 from tests.fake_client import make_fake_client  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures" / "prompts"
@@ -275,3 +281,253 @@ def test_distill_prompt_payload():
         interactions=DISTILL_INTERACTIONS, existing=DISTILL_EXISTING,
     )
     _assert_params("distill", cap)
+
+
+# ===========================================================================
+# copilot / bind / unify canned inputs — transcribed byte-for-byte from
+# scripts/dump-prompt-fixtures.ts (insertion order matters where a dict is
+# embedded via JSON.stringify / to_json).
+# ===========================================================================
+
+COPILOT_DRAFT = {
+    "title": "Monthly Marketing Report",
+    "clientName": "Meridian Retail",
+    "eyebrow": "Marketing Performance",
+    "dateline": "June 2026",
+    "delivery": {"recipient": "ops@meridian.example", "autoDeliverOnClear": False},
+    "globalRules": ["Cite every figure.", "Use GBP for all amounts."],
+    "sections": [
+        {
+            "key": "summary",
+            "number": 1,
+            "heading": "Executive Summary",
+            "mode": "fixed",
+            "instruction": "Summarize the month in two sentences.",
+            "fixedText": "Marketing delivered steady growth in June.",
+            "familyIds": [],
+            "queries": [],
+            "rules": [],
+        },
+        {
+            "key": "spend",
+            "number": 2,
+            "heading": "Spend Breakdown",
+            "mode": "auto",
+            "instruction": "Break spend down by channel.",
+            "familyIds": ["fam_spend"],
+            "queries": [{"name": "total_spend", "sql": "SELECT sum(amount) FROM fam_spend WHERE _period = :period"}],  # noqa: E501
+            "rules": [{"kind": "style", "text": "Lead with the total."}],
+        },
+    ],
+}
+COPILOT_SELECTED_KEY = "spend"
+COPILOT_MESSAGE = "Bake a query that totals spend for the month."
+COPILOT_THREAD = [
+    {"role": "user", "body": "Can you tighten the summary?"},
+    {"role": "assistant", "body": "Sure — I made it more concise."},
+]
+COPILOT_MEMORIES = [
+    {"id": "mem_pr1", "body": "Meridian reports in GBP.", "scope": "project"},
+    {"id": "mem_bp1", "body": "Keep the executive summary to two sentences.", "scope": "blueprint"},
+]
+COPILOT_CATALOG = [
+    {
+        "id": "fam_spend", "key": "spend", "label": "Ad spend", "kind": "periodic", "granularity": "month",
+        "queryable": True,
+        "tables": [{"name": "fam_spend", "columns": [{"name": "channel", "type": "TEXT"}, {"name": "amount", "type": "REAL"}], "rowCounts": {"2026-05": 3, "2026-06": 4}}],  # noqa: E501
+        "filedPeriods": ["2026-05", "2026-06"],
+    },
+    {
+        "id": "fam_brand", "key": "brand", "label": "Brand guidelines", "kind": "constant", "granularity": None,  # noqa: E501
+        "queryable": False, "tables": [], "filedPeriods": [],
+    },
+]
+COPILOT_FAMILIES = [
+    {"id": "fam_spend", "key": "spend", "label": "Ad spend", "kind": "periodic", "granularity": "month", "filedPeriods": ["2026-06"], "hasLiveFile": False, "bound": True},  # noqa: E501
+    {"id": "fam_brand", "key": "brand", "label": "Brand guidelines", "kind": "constant", "granularity": None, "filedPeriods": [], "hasLiveFile": False, "bound": False},  # noqa: E501
+]
+COPILOT_RESOLVED_GOLDEN = {
+    "id": "gold_q2",
+    "kind": "run",
+    "label": "run run_42",
+    "note": "Strong Q2 exemplar",
+    "period": "2026-Q2",
+    "document": {
+        "title": "Quarterly Revenue Report",
+        "eyebrow": "",
+        "dateline": "",
+        "sections": [
+            {
+                "key": "revenue",
+                "heading": "Revenue",
+                "blocks": [
+                    {"type": "paragraph", "spans": [{"text": "Revenue reached "}, {"text": "$4.2M"}, {"text": " this quarter."}]},  # noqa: E501
+                    {
+                        "type": "table",
+                        "columns": ["channel", "amount"],
+                        "rows": [
+                            {"cells": [[{"text": "search"}], [{"text": "2.5M"}]]},
+                            {"cells": [[{"text": "social"}], [{"text": "1.7M"}]]},
+                        ],
+                    },
+                ],
+            }
+        ],
+    },
+    "inventory": {
+        "version": 1,
+        "items": [
+            {
+                "id": "revenue_total", "kind": "value", "anchor": {"sectionKey": "revenue", "blockIndex": 0, "spanIndex": 1},  # noqa: E501
+                "raw": "$4.2M", "parsed": 4200000,
+                "binding": {"familyId": "fam_rev", "sql": "SELECT sum(amount) FROM fam_rev WHERE _period = :period", "verifiedValue": 4200000, "status": "bound"},  # noqa: E501
+                "reason": None,
+            },
+            {
+                "id": "revenue_table", "kind": "table", "anchor": {"sectionKey": "revenue", "blockIndex": 1, "spanIndex": None},  # noqa: E501
+                "raw": "table: channel, amount", "parsed": None,
+                "binding": {"familyId": "fam_rev", "sql": "SELECT channel, amount FROM fam_rev WHERE _period = :period", "verifiedValue": 3, "status": "mismatch"},  # noqa: E501
+                "reason": "row count 3 ≠ 2",
+            },
+        ],
+    },
+    "unifyError": None,
+}
+
+
+class _CopilotIo:
+    def emit(self, e): ...
+
+
+BIND_TABLE_ROWS = [
+    {"cells": [[{"text": f"channel_{i + 1}"}], [{"text": str((i + 1) * 1000)}]]}
+    for i in range(15)
+]
+BIND_DOCUMENT = {
+    "title": "Q2 Revenue Report",
+    "eyebrow": "",
+    "dateline": "",
+    "sections": [
+        {
+            "key": "overview",
+            "heading": "Overview",
+            "blocks": [
+                {
+                    "type": "paragraph",
+                    "spans": [
+                        {"text": "Revenue climbed sharply this quarter, driven primarily by paid search and a resurgent social channel that together accounted for the overwhelming majority of net new bookings across every region we serve and every product line we track."},  # noqa: E501
+                        {"text": 'The CFO called it "solid" — up 12% ✓ over last year.'},
+                    ],
+                },
+                {"type": "table", "columns": ["channel", "amount"], "rows": BIND_TABLE_ROWS},
+            ],
+        }
+    ],
+}
+BIND_CATALOG = [
+    {
+        "id": "fam_rev", "key": "revenue", "label": "Revenue", "kind": "periodic", "granularity": "quarter",
+        "queryable": True,
+        "tables": [{"name": "fam_rev", "columns": [{"name": "channel", "type": "TEXT"}, {"name": "amount", "type": "REAL"}], "rowCounts": {"2026-Q1": 10, "2026-Q2": 15}}],  # noqa: E501
+        "filedPeriods": ["2026-Q1", "2026-Q2"],
+    }
+]
+BIND_PERIOD = "2026-Q2"
+BIND_SIBLINGS = [
+    {
+        "period": "2026-Q1",
+        "inventory": {
+            "version": 1,
+            "items": [
+                {
+                    "id": "rev_total", "kind": "value", "anchor": {"sectionKey": "overview", "blockIndex": 0, "spanIndex": 0},  # noqa: E501
+                    "raw": "$3.8M", "parsed": 3800000,
+                    "binding": {"familyId": "fam_rev", "sql": "SELECT sum(amount) FROM fam_rev WHERE _period = :period", "verifiedValue": 3800000, "status": "bound"},  # noqa: E501
+                    "reason": None,
+                },
+                {
+                    "id": "rev_growth", "kind": "value", "anchor": {"sectionKey": "overview", "blockIndex": 0, "spanIndex": 1},  # noqa: E501
+                    "raw": "12%", "parsed": 0.12, "binding": None, "reason": "styling number",
+                },
+            ],
+        },
+    }
+]
+BIND_PRIOR = {
+    "version": 1,
+    "items": [
+        {
+            "id": "rev_total", "kind": "value", "anchor": {"sectionKey": "overview", "blockIndex": 0, "spanIndex": 0},  # noqa: E501
+            "raw": "$4.2M", "parsed": 4200000,
+            "binding": {"familyId": "fam_rev", "sql": "SELECT sum(amount) FROM fam_rev WHERE _period = :period"}, "reason": None,  # noqa: E501
+        },
+        {
+            "id": "rev_table", "kind": "table", "anchor": {"sectionKey": "overview", "blockIndex": 2, "spanIndex": None},  # noqa: E501
+            "raw": "table: channel, amount", "parsed": None, "binding": None, "reason": "no query covers this table",  # noqa: E501
+        },
+    ],
+}
+BIND_FEEDBACK = "The revenue total should exclude refunds; rebind rev_total accordingly."
+
+UNIFY_FILENAME = "q2_report.txt"
+UNIFY_PARAGRAPH = "Revenue grew steadily across every paid channel this quarter, and the team reported strong performance. "  # noqa: E501
+UNIFY_TEXT = UNIFY_PARAGRAPH * 300
+UNIFY_DOC_JSON = (
+    '{"document":{"title":"Q2 Report","eyebrow":"","dateline":"","sections":[{"key":"overview",'
+    '"heading":"Overview","blocks":[{"type":"paragraph","spans":[{"text":"Revenue grew."}]}]}]},'
+    '"period":"2026-Q2"}'
+)
+
+
+def test_copilot_prompt_payload():
+    # Build the golden + scaffold caches through the REAL renderers (mirrors the
+    # copilot route). Not part of the captured payload — a construction-time smoke
+    # test that both stacks run the annotation + digest paths without diverging.
+    g = COPILOT_RESOLVED_GOLDEN
+    golden_cache = {
+        g["id"]: {
+            "description": f'{g["label"]} — {boundness_line(g["inventory"])}',
+            "text": render_golden_for_prompt(g),
+        }
+    }
+    scaffold_cache = {g["id"]: scaffold_digest_for(g)}
+    ctx = {
+        "families": COPILOT_FAMILIES,
+        "defaultFiles": [],
+        "periodFiles": [],
+        "catalog": COPILOT_CATALOG,
+        "runSql": lambda sql: (_ for _ in ()).throw(Exception("no data ingested yet")),
+        "listRuns": lambda: [],
+        "getRunSection": lambda run_id, key: None,
+        "listGoldens": lambda: [],
+        "getGolden": lambda i: golden_cache.get(i),
+        "scaffoldDigest": lambda i: scaffold_cache.get(i, "golden not found"),
+        "saveMemory": lambda body, scope: "mem_1",
+    }
+    base, cap = _recording([[{"text": "I baked a total-spend query for the Spend section."}]])
+    copilot_turn(
+        client=base, draft=COPILOT_DRAFT, selected_key=COPILOT_SELECTED_KEY, message=COPILOT_MESSAGE,
+        thread=COPILOT_THREAD, memories=COPILOT_MEMORIES, ctx=ctx, io=_CopilotIo(),
+    )
+    _assert_params("copilot", cap)
+
+
+def test_bind_prompt_payload():
+    base, cap_initial = _recording([[{"text": "ok"}]])
+    bind_golden(
+        client=base, catalog=BIND_CATALOG, run_sql=lambda s: "",
+        document=BIND_DOCUMENT, period=BIND_PERIOD, siblings=BIND_SIBLINGS,
+    )
+    base, cap_rebind = _recording([[{"text": "ok"}]])
+    bind_golden(
+        client=base, catalog=BIND_CATALOG, run_sql=lambda s: "",
+        document=BIND_DOCUMENT, period=BIND_PERIOD, siblings=BIND_SIBLINGS,
+        prior_inventory=BIND_PRIOR, feedback=BIND_FEEDBACK,
+    )
+    _assert_params("bind", {"initial": cap_initial[0], "rebind": cap_rebind[0]})
+
+
+def test_unify_prompt_payload():
+    base, cap = _recording([[{"text": UNIFY_DOC_JSON}]])
+    unify_golden_report(client=base, filename=UNIFY_FILENAME, text=UNIFY_TEXT)
+    _assert_params("unify", cap)

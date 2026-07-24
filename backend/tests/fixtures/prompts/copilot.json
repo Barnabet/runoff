@@ -1,0 +1,632 @@
+[
+  {
+    "max_completion_tokens": 8000,
+    "messages": [
+      {
+        "content": "You are the builder copilot for a Runoff blueprint — a template that generates a recurring, fact-checked business report. You edit the blueprint itself (instructions, rules, structure), never the report output. Use your tools to inspect the bound data, past runs, and golden examples before guessing; apply edits directly with the edit tools (the user sees each edit and can revert it); keep instructions concrete and grounded in the actual source columns. Figures in generated reports are audited against warehouse-table locators like agg(tableName.column) resolved over the fam_* tables — prefer assert rules and instructions that reference real columns. Bake per-section data queries with update_section_queries — the run executes them (with :period bound to the run's period) and drafts from their results, so keep them small and purposeful. Assert rules are scalar SQL: { sql, op, value } where sql returns one number (use :period for periodic tables). Test any SQL with run_sql first; run_sql binds :period to the latest filed period. Data is organized into families (one file per period, or constant reference files); query_sources shows what periods exist. To scaffold blueprint sections from a golden example, call get_golden_scaffold and build from its digest: add_section per digest section (distill the golden's tone from the prose into the instruction — never paste the prose verbatim), lift [verified] and [verified-mismatch] queries verbatim (same names) via the section's queries, add complementary queries where the narration needs more, and relay the digest's warnings to the user. Prefer one section per edit so the user can steer between them. When the user states a durable preference, save it with save_memory. Reply concisely in plain prose; never dump raw JSON at the user.\nThe user currently has section \"spend\" selected in the editor.\n\nData catalog (tables you can query with run_sql):\nspend — \"Ad spend\" (periodic, month; filed: 2026-05, 2026-06)\n  fam_spend(channel TEXT, amount REAL) — 7 rows (2026-05: 3, 2026-06: 4)\nbrand — \"Brand guidelines\" (constant) — document, not queryable\n\nCurrent draft (JSON):\n{\"title\":\"Monthly Marketing Report\",\"clientName\":\"Meridian Retail\",\"eyebrow\":\"Marketing Performance\",\"dateline\":\"June 2026\",\"delivery\":{\"recipient\":\"ops@meridian.example\",\"autoDeliverOnClear\":false},\"globalRules\":[\"Cite every figure.\",\"Use GBP for all amounts.\"],\"sections\":[{\"key\":\"summary\",\"number\":1,\"heading\":\"Executive Summary\",\"mode\":\"fixed\",\"instruction\":\"Summarize the month in two sentences.\",\"fixedText\":\"Marketing delivered steady growth in June.\",\"familyIds\":[],\"queries\":[],\"rules\":[]},{\"key\":\"spend\",\"number\":2,\"heading\":\"Spend Breakdown\",\"mode\":\"auto\",\"instruction\":\"Break spend down by channel.\",\"familyIds\":[\"fam_spend\"],\"queries\":[{\"name\":\"total_spend\",\"sql\":\"SELECT sum(amount) FROM fam_spend WHERE _period = :period\"}],\"rules\":[{\"kind\":\"style\",\"text\":\"Lead with the total.\"}]}]}\n\nStanding guidance for this project (applies to every document in this project — follow unless blueprint guidance or a section instruction contradicts it):\n- Meridian reports in GBP.\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n- Keep the executive summary to two sentences.",
+        "role": "system"
+      },
+      {
+        "content": "Can you tighten the summary?",
+        "role": "user"
+      },
+      {
+        "content": "Sure — I made it more concise.",
+        "role": "assistant"
+      },
+      {
+        "content": "Bake a query that totals spend for the month.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "stream": true,
+    "tools": [
+      {
+        "function": {
+          "description": "Patch fields of one existing section of the blueprint draft. Only include fields you are changing.",
+          "name": "edit_section",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "patch": {
+                "additionalProperties": false,
+                "properties": {
+                  "familyIds": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  },
+                  "fixedText": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "heading": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "instruction": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "mode": {
+                    "enum": [
+                      "fixed",
+                      "auto",
+                      "review",
+                      null
+                    ],
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "rules": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "assert",
+                            "style",
+                            "judgment"
+                          ],
+                          "type": "string"
+                        },
+                        "op": {
+                          "enum": [
+                            "==",
+                            "<=",
+                            ">=",
+                            "<",
+                            ">",
+                            null
+                          ],
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sql": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "withinPct": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "text",
+                        "sql",
+                        "op",
+                        "value",
+                        "withinPct"
+                      ],
+                      "type": "object"
+                    },
+                    "type": [
+                      "array",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "heading",
+                  "mode",
+                  "instruction",
+                  "fixedText",
+                  "familyIds",
+                  "rules"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "key",
+              "patch"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Insert a new section after the section named by afterKey (null appends at the end). Numbers are reassigned automatically.",
+          "name": "add_section",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "afterKey": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "section": {
+                "additionalProperties": false,
+                "properties": {
+                  "familyIds": {
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
+                  "fixedText": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "heading": {
+                    "type": "string"
+                  },
+                  "instruction": {
+                    "type": "string"
+                  },
+                  "key": {
+                    "type": "string"
+                  },
+                  "mode": {
+                    "enum": [
+                      "fixed",
+                      "auto",
+                      "review"
+                    ],
+                    "type": "string"
+                  },
+                  "queries": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "sql": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "sql",
+                        "description"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "rules": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "assert",
+                            "style",
+                            "judgment"
+                          ],
+                          "type": "string"
+                        },
+                        "op": {
+                          "enum": [
+                            "==",
+                            "<=",
+                            ">=",
+                            "<",
+                            ">",
+                            null
+                          ],
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "sql": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "text": {
+                          "type": "string"
+                        },
+                        "value": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        },
+                        "withinPct": {
+                          "type": [
+                            "number",
+                            "null"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "kind",
+                        "text",
+                        "sql",
+                        "op",
+                        "value",
+                        "withinPct"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "key",
+                  "heading",
+                  "mode",
+                  "instruction",
+                  "fixedText",
+                  "familyIds",
+                  "queries",
+                  "rules"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "afterKey",
+              "section"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Remove one section from the draft.",
+          "name": "remove_section",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "key"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Patch the report masthead. Only include fields you are changing.",
+          "name": "update_masthead",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "patch": {
+                "additionalProperties": false,
+                "properties": {
+                  "clientName": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "dateline": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "eyebrow": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "title": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "title",
+                  "clientName",
+                  "eyebrow",
+                  "dateline"
+                ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "patch"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Replace the blueprint's global rules list.",
+          "name": "update_global_rules",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "rules": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "rules"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Replace one section's baked data queries (name + read-only SELECT). The drafting model sees each query's result verbatim at run time; parameterize periodic tables with :period. Baked queries replace the default 40-row preview for the tables they mention.",
+          "name": "update_section_queries",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "queries": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "description": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "sql": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "name",
+                    "sql",
+                    "description"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "sectionKey": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sectionKey",
+              "queries"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Inspect the data families in this project. Without familyId: the family tree — one line per family with its kind, granularity, and filed periods. With familyId: columns and first rows of that family's latest file (or its constant reference file). With familyId and period: that specific period's file.",
+          "name": "query_sources",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "familyId": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "period": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            },
+            "required": [
+              "familyId",
+              "period"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Run one read-only SQL SELECT against this project's ingested data (SQLite). Table and column names are in the data catalog; periodic tables have a _period column (e.g. WHERE _period = '2026-Q1'). Results are capped at 200 rows. You may reference :period — it binds to the project's latest filed period.",
+          "name": "run_sql",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "sql": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sql"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List this blueprint's most recent runs with their stats.",
+          "name": "list_runs",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch one section of a past run: its text plus that section's check failures, retries, steers, answers, and flags.",
+          "name": "get_run_section",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "runId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "runId",
+              "key"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "List this blueprint's golden examples (starred runs/sections and uploaded exemplars).",
+          "name": "list_goldens",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {},
+            "required": [],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch one golden example's full text.",
+          "name": "get_golden",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Fetch a bound golden example's scaffold digest: per-section prose (tone source), verified data queries lifted from its bindings (lift these verbatim into section queries), and warnings for unverified figures. Use when asked to scaffold blueprint sections from a golden.",
+          "name": "get_golden_scaffold",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "goldenId": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "goldenId"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Save one durable, generalized preference. scope \"blueprint\" = about this document; scope \"project\" = about the client or its data, true for every document in the project.",
+          "name": "save_memory",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "body": {
+                "type": "string"
+              },
+              "scope": {
+                "enum": [
+                  "blueprint",
+                  "project"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "body",
+              "scope"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      }
+    ]
+  }
+]

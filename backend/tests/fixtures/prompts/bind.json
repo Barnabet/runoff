@@ -1,0 +1,128 @@
+{
+  "initial": {
+    "max_completion_tokens": 6000,
+    "messages": [
+      {
+        "content": "You inventory a golden report's data-driven content and bind it to warehouse data.\nInventory EVERY narration-driving value (figures, counts, amounts, percentages, data-derived dates — not styling numbers) and EVERY table.\nFor each item propose {familyId, sql} that reproduces it, or binding: null with a reason.\nUse :period in SQL for periodic tables so bindings transfer across periods. Probe with run_sql BEFORE submitting.\nItem shape: {id (snake_case, stable), kind: \"value\"|\"table\", anchor: {sectionKey, blockIndex, spanIndex|null}, raw, parsed, binding, reason}.\nAnchors come from the bracketed coordinates in the document below: [b0.s1] → blockIndex 0, spanIndex 1; [b1] table → blockIndex 1, spanIndex null.\n\nData catalog:\nrevenue — \"Revenue\" (periodic, quarter; filed: 2026-Q1, 2026-Q2)\n  fam_rev(channel TEXT, amount REAL) — 25 rows (2026-Q1: 10, 2026-Q2: 15)\n\nGolden period: 2026-Q2\n\nDocument:\ntitle: Q2 Revenue Report\n## section: overview — Overview\n[b0.s0] \"Revenue climbed sharply this quarter, driven primarily by paid search and a resurgent social channel that together accounted for the overwhelming majority of ne\"\n[b0.s1] \"The CFO called it \\\"solid\\\" — up 12% ✓ over last year.\"\n[b1] table (2 cols × 15 rows): channel | amount\n  channel_1 | 1000\n  channel_2 | 2000\n  channel_3 | 3000\n  channel_4 | 4000\n  channel_5 | 5000\n  channel_6 | 6000\n  channel_7 | 7000\n  channel_8 | 8000\n  channel_9 | 9000\n  channel_10 | 10000\n  channel_11 | 11000\n  channel_12 | 12000\n  … 3 more rows\n\nThese are verified binding patterns from other periods of the same report family. Try these first: the same logical value binds with the same SQL at a different :period. Reuse their item ids for matching items.\nperiod 2026-Q1:\n  rev_total: \"$3.8M\" ← fam_rev: SELECT sum(amount) FROM fam_rev WHERE _period = :period",
+        "role": "system"
+      },
+      {
+        "content": "Build and submit the binding inventory.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "tools": [
+      {
+        "function": {
+          "description": "Run one read-only SQL SELECT against the project's warehouse. :period binds to THIS GOLDEN's period. Results capped at 200 rows.",
+          "name": "run_sql",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "sql": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sql"
+            ],
+            "type": "object"
+          },
+          "strict": false
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Submit the final binding inventory. Calling this with a valid inventory ends the task.",
+          "name": "submit_inventory",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "version": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "version",
+              "items"
+            ],
+            "type": "object"
+          },
+          "strict": false
+        },
+        "type": "function"
+      }
+    ]
+  },
+  "rebind": {
+    "max_completion_tokens": 6000,
+    "messages": [
+      {
+        "content": "You inventory a golden report's data-driven content and bind it to warehouse data.\nInventory EVERY narration-driving value (figures, counts, amounts, percentages, data-derived dates — not styling numbers) and EVERY table.\nFor each item propose {familyId, sql} that reproduces it, or binding: null with a reason.\nUse :period in SQL for periodic tables so bindings transfer across periods. Probe with run_sql BEFORE submitting.\nItem shape: {id (snake_case, stable), kind: \"value\"|\"table\", anchor: {sectionKey, blockIndex, spanIndex|null}, raw, parsed, binding, reason}.\nAnchors come from the bracketed coordinates in the document below: [b0.s1] → blockIndex 0, spanIndex 1; [b1] table → blockIndex 1, spanIndex null.\n\nData catalog:\nrevenue — \"Revenue\" (periodic, quarter; filed: 2026-Q1, 2026-Q2)\n  fam_rev(channel TEXT, amount REAL) — 25 rows (2026-Q1: 10, 2026-Q2: 15)\n\nGolden period: 2026-Q2\n\nDocument:\ntitle: Q2 Revenue Report\n## section: overview — Overview\n[b0.s0] \"Revenue climbed sharply this quarter, driven primarily by paid search and a resurgent social channel that together accounted for the overwhelming majority of ne\"\n[b0.s1] \"The CFO called it \\\"solid\\\" — up 12% ✓ over last year.\"\n[b1] table (2 cols × 15 rows): channel | amount\n  channel_1 | 1000\n  channel_2 | 2000\n  channel_3 | 3000\n  channel_4 | 4000\n  channel_5 | 5000\n  channel_6 | 6000\n  channel_7 | 7000\n  channel_8 | 8000\n  channel_9 | 9000\n  channel_10 | 10000\n  channel_11 | 11000\n  channel_12 | 12000\n  … 3 more rows\n\nThese are verified binding patterns from other periods of the same report family. Try these first: the same logical value binds with the same SQL at a different :period. Reuse their item ids for matching items.\nperiod 2026-Q1:\n  rev_total: \"$3.8M\" ← fam_rev: SELECT sum(amount) FROM fam_rev WHERE _period = :period\n\nPrior inventory (amend, do not restart — keep existing item ids and bound SQL for items the feedback does not dispute):\n{\"version\":1,\"items\":[{\"id\":\"rev_total\",\"kind\":\"value\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":0,\"spanIndex\":0},\"raw\":\"$4.2M\",\"parsed\":4200000,\"binding\":{\"familyId\":\"fam_rev\",\"sql\":\"SELECT sum(amount) FROM fam_rev WHERE _period = :period\"},\"reason\":null},{\"id\":\"rev_table\",\"kind\":\"table\",\"anchor\":{\"sectionKey\":\"overview\",\"blockIndex\":2,\"spanIndex\":null},\"raw\":\"table: channel, amount\",\"parsed\":null,\"binding\":null,\"reason\":\"no query covers this table\"}]}\n\nUser feedback: The revenue total should exclude refunds; rebind rev_total accordingly.",
+        "role": "system"
+      },
+      {
+        "content": "Build and submit the binding inventory.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "tools": [
+      {
+        "function": {
+          "description": "Run one read-only SQL SELECT against the project's warehouse. :period binds to THIS GOLDEN's period. Results capped at 200 rows.",
+          "name": "run_sql",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "sql": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "sql"
+            ],
+            "type": "object"
+          },
+          "strict": false
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Submit the final binding inventory. Calling this with a valid inventory ends the task.",
+          "name": "submit_inventory",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "items": {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "version": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "version",
+              "items"
+            ],
+            "type": "object"
+          },
+          "strict": false
+        },
+        "type": "function"
+      }
+    ]
+  }
+}

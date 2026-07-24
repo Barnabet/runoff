@@ -230,10 +230,215 @@ const VALID_PLAN_JSON =
   '{"version":1,"tables":[{"name":"t","anchor":{"headerSignature":["a"],"minMatch":1},' +
   '"headerRows":1,"exclude":[],"columns":[{"from":"a","name":"a","type":"TEXT"}]}]}';
 
+// ---------------------------------------------------------------------------
+// copilot: a 2-section draft (one section WITH fixedText, one WITHOUT — absent-
+// key handling is load-bearing), selectedKey, a 2-message thread, memories of
+// both scopes, a small catalog, and 2 families. The goldenCache/scaffoldCache
+// are built from the canned resolved golden below via the REAL render functions,
+// exercising the annotation + digest paths cross-stack.
+// ---------------------------------------------------------------------------
+const COPILOT_DRAFT: BlueprintContent = {
+  title: "Monthly Marketing Report",
+  clientName: "Meridian Retail",
+  eyebrow: "Marketing Performance",
+  dateline: "June 2026",
+  delivery: { recipient: "ops@meridian.example", autoDeliverOnClear: false },
+  globalRules: ["Cite every figure.", "Use GBP for all amounts."],
+  sections: [
+    {
+      key: "summary",
+      number: 1,
+      heading: "Executive Summary",
+      mode: "fixed",
+      instruction: "Summarize the month in two sentences.",
+      fixedText: "Marketing delivered steady growth in June.",
+      familyIds: [],
+      queries: [],
+      rules: [],
+    },
+    {
+      key: "spend",
+      number: 2,
+      heading: "Spend Breakdown",
+      mode: "auto",
+      instruction: "Break spend down by channel.",
+      familyIds: ["fam_spend"],
+      queries: [{ name: "total_spend", sql: "SELECT sum(amount) FROM fam_spend WHERE _period = :period" }],
+      rules: [{ kind: "style", text: "Lead with the total." }],
+    },
+  ],
+};
+const COPILOT_SELECTED_KEY = "spend";
+const COPILOT_MESSAGE = "Bake a query that totals spend for the month.";
+const COPILOT_THREAD = [
+  { role: "user" as const, body: "Can you tighten the summary?" },
+  { role: "assistant" as const, body: "Sure — I made it more concise." },
+];
+const COPILOT_MEMORIES: ScopedMemory[] = [
+  { id: "mem_pr1", body: "Meridian reports in GBP.", scope: "project" },
+  { id: "mem_bp1", body: "Keep the executive summary to two sentences.", scope: "blueprint" },
+];
+const COPILOT_CATALOG = [
+  {
+    id: "fam_spend", key: "spend", label: "Ad spend", kind: "periodic" as const, granularity: "month" as const,
+    queryable: true,
+    tables: [{ name: "fam_spend", columns: [{ name: "channel", type: "TEXT" }, { name: "amount", type: "REAL" }], rowCounts: { "2026-05": 3, "2026-06": 4 } }],
+    filedPeriods: ["2026-05", "2026-06"],
+  },
+  {
+    id: "fam_brand", key: "brand", label: "Brand guidelines", kind: "constant" as const, granularity: null,
+    queryable: false, tables: [], filedPeriods: [],
+  },
+];
+const COPILOT_FAMILIES = [
+  { id: "fam_spend", key: "spend", label: "Ad spend", kind: "periodic" as const, granularity: "month" as const, filedPeriods: ["2026-06"], hasLiveFile: false, bound: true },
+  { id: "fam_brand", key: "brand", label: "Brand guidelines", kind: "constant" as const, granularity: null, filedPeriods: [], hasLiveFile: false, bound: false },
+];
+// A canned resolved golden with a bound value item AND a mismatch table item.
+const COPILOT_RESOLVED_GOLDEN = {
+  id: "gold_q2",
+  kind: "run" as const,
+  label: "run run_42",
+  note: "Strong Q2 exemplar",
+  period: "2026-Q2",
+  document: {
+    title: "Quarterly Revenue Report",
+    eyebrow: "",
+    dateline: "",
+    sections: [
+      {
+        key: "revenue",
+        heading: "Revenue",
+        blocks: [
+          { type: "paragraph" as const, spans: [{ text: "Revenue reached " }, { text: "$4.2M" }, { text: " this quarter." }] },
+          {
+            type: "table" as const,
+            columns: ["channel", "amount"],
+            rows: [
+              { cells: [[{ text: "search" }], [{ text: "2.5M" }]] },
+              { cells: [[{ text: "social" }], [{ text: "1.7M" }]] },
+            ],
+          },
+        ],
+      },
+    ],
+  },
+  inventory: {
+    version: 1 as const,
+    items: [
+      {
+        id: "revenue_total", kind: "value" as const, anchor: { sectionKey: "revenue", blockIndex: 0, spanIndex: 1 },
+        raw: "$4.2M", parsed: 4200000,
+        binding: { familyId: "fam_rev", sql: "SELECT sum(amount) FROM fam_rev WHERE _period = :period", verifiedValue: 4200000, status: "bound" as const },
+        reason: null,
+      },
+      {
+        id: "revenue_table", kind: "table" as const, anchor: { sectionKey: "revenue", blockIndex: 1, spanIndex: null },
+        raw: "table: channel, amount", parsed: null,
+        binding: { familyId: "fam_rev", sql: "SELECT channel, amount FROM fam_rev WHERE _period = :period", verifiedValue: 3, status: "mismatch" as const },
+        reason: "row count 3 ≠ 2",
+      },
+    ],
+  },
+  unifyError: null,
+};
+const COPILOT_IO = { emit() {} };
+
+// ---------------------------------------------------------------------------
+// bind: a canned RunDocument (a paragraph with one >160-char span and one span
+// with quotes/unicode, plus a 15-row table so the >12-row cap fires), catalog,
+// period, and one sibling carrying a bound item. Two variants: `initial` (no
+// prior/feedback) and `rebind` (priorInventory + feedback).
+// ---------------------------------------------------------------------------
+const BIND_TABLE_ROWS = Array.from({ length: 15 }, (_, i) => ({
+  cells: [[{ text: `channel_${i + 1}` }], [{ text: `${(i + 1) * 1000}` }]],
+}));
+const BIND_DOCUMENT = {
+  title: "Q2 Revenue Report",
+  eyebrow: "",
+  dateline: "",
+  sections: [
+    {
+      key: "overview",
+      heading: "Overview",
+      blocks: [
+        {
+          type: "paragraph" as const,
+          spans: [
+            { text: "Revenue climbed sharply this quarter, driven primarily by paid search and a resurgent social channel that together accounted for the overwhelming majority of net new bookings across every region we serve and every product line we track." },
+            { text: "The CFO called it \"solid\" — up 12% ✓ over last year." },
+          ],
+        },
+        { type: "table" as const, columns: ["channel", "amount"], rows: BIND_TABLE_ROWS },
+      ],
+    },
+  ],
+};
+const BIND_CATALOG = [
+  {
+    id: "fam_rev", key: "revenue", label: "Revenue", kind: "periodic" as const, granularity: "quarter" as const,
+    queryable: true,
+    tables: [{ name: "fam_rev", columns: [{ name: "channel", type: "TEXT" }, { name: "amount", type: "REAL" }], rowCounts: { "2026-Q1": 10, "2026-Q2": 15 } }],
+    filedPeriods: ["2026-Q1", "2026-Q2"],
+  },
+];
+const BIND_PERIOD = "2026-Q2";
+const BIND_SIBLINGS = [
+  {
+    period: "2026-Q1",
+    inventory: {
+      version: 1 as const,
+      items: [
+        {
+          id: "rev_total", kind: "value" as const, anchor: { sectionKey: "overview", blockIndex: 0, spanIndex: 0 },
+          raw: "$3.8M", parsed: 3800000,
+          binding: { familyId: "fam_rev", sql: "SELECT sum(amount) FROM fam_rev WHERE _period = :period", verifiedValue: 3800000, status: "bound" as const },
+          reason: null,
+        },
+        {
+          id: "rev_growth", kind: "value" as const, anchor: { sectionKey: "overview", blockIndex: 0, spanIndex: 1 },
+          raw: "12%", parsed: 0.12, binding: null, reason: "styling number",
+        },
+      ],
+    },
+  },
+];
+const BIND_PRIOR = {
+  version: 1,
+  items: [
+    {
+      id: "rev_total", kind: "value", anchor: { sectionKey: "overview", blockIndex: 0, spanIndex: 0 },
+      raw: "$4.2M", parsed: 4200000,
+      binding: { familyId: "fam_rev", sql: "SELECT sum(amount) FROM fam_rev WHERE _period = :period" }, reason: null,
+    },
+    {
+      id: "rev_table", kind: "table", anchor: { sectionKey: "overview", blockIndex: 2, spanIndex: null },
+      raw: "table: channel, amount", parsed: null, binding: null, reason: "no query covers this table",
+    },
+  ],
+};
+const BIND_FEEDBACK = "The revenue total should exclude refunds; rebind rev_total accordingly.";
+
+// ---------------------------------------------------------------------------
+// unify: a filename + a deterministic > 24 000-char text (a base paragraph
+// repeated) so the head/tail cap in capExemplarText is captured.
+// ---------------------------------------------------------------------------
+const UNIFY_FILENAME = "q2_report.txt";
+const UNIFY_PARAGRAPH =
+  "Revenue grew steadily across every paid channel this quarter, and the team reported strong performance. ";
+const UNIFY_TEXT = UNIFY_PARAGRAPH.repeat(300);
+const UNIFY_DOC_JSON =
+  '{"document":{"title":"Q2 Report","eyebrow":"","dateline":"","sections":[{"key":"overview",' +
+  '"heading":"Overview","blocks":[{"type":"paragraph","spans":[{"text":"Revenue grew."}]}]}]},' +
+  '"period":"2026-Q2"}';
+
 async function main(): Promise<void> {
   // Dynamic import: evaluates @runoff/engine (and prompts.ts's MODEL) only now,
   // after the RUNOFF_MODEL pin above has taken effect.
-  const { draftSection, classifySource, proposeParsePlan, distillRun } = await import("@runoff/engine");
+  const { draftSection, classifySource, proposeParsePlan, distillRun, copilotTurn, bindGolden, unifyGoldenReport, renderGoldenForPrompt, boundnessLine } = await import("@runoff/engine");
+  // scaffoldDigestFor lives in the web app (not the engine); dynamic-import it
+  // AFTER the RUNOFF_MODEL pin, since it pulls in @runoff/engine transitively.
+  const { scaffoldDigestFor } = await import("../apps/web/lib/goldens.js");
 
   mkdirSync(FIX_DIR, { recursive: true });
 
@@ -322,6 +527,69 @@ async function main(): Promise<void> {
       existing: DISTILL_EXISTING,
     });
     writeFixture("distill.json", rec.params);
+  }
+
+  // --- copilot.json: first create() of a copilotTurn (no-tool-call finish) ---
+  {
+    // Build the golden + scaffold caches through the REAL renderers, mirroring the
+    // copilot route. Not part of the captured payload — a construction-time smoke
+    // test that both stacks run the annotation + digest paths without diverging.
+    const g = COPILOT_RESOLVED_GOLDEN;
+    const goldenCache = new Map<string, { description: string; text: string }>();
+    const scaffoldCache = new Map<string, string>();
+    goldenCache.set(g.id, {
+      description: `${g.label} — ${boundnessLine(g.inventory as any)}`,
+      text: renderGoldenForPrompt(g as any),
+    });
+    scaffoldCache.set(g.id, scaffoldDigestFor(g as any));
+    const ctx: any = {
+      families: COPILOT_FAMILIES,
+      defaultFiles: [],
+      periodFiles: [],
+      catalog: COPILOT_CATALOG,
+      runSql: () => { throw new Error("no data ingested yet"); },
+      listRuns: () => [],
+      getRunSection: () => null,
+      listGoldens: () => [],
+      getGolden: (id: string) => goldenCache.get(id) ?? null,
+      scaffoldDigest: (id: string) => scaffoldCache.get(id) ?? "golden not found",
+      saveMemory: () => "mem_1",
+    };
+    const rec = recording([[{ text: "I baked a total-spend query for the Spend section." }]]);
+    await copilotTurn({
+      client: rec.client,
+      draft: COPILOT_DRAFT,
+      selectedKey: COPILOT_SELECTED_KEY,
+      message: COPILOT_MESSAGE,
+      thread: COPILOT_THREAD,
+      memories: COPILOT_MEMORIES,
+      ctx,
+      io: COPILOT_IO,
+    });
+    writeFixture("copilot.json", rec.params);
+  }
+
+  // --- bind.json: two variants (initial / rebind), first create() of each ---
+  {
+    const initial = recording([[{ text: "ok" }]]);
+    await bindGolden({
+      client: initial.client, catalog: BIND_CATALOG as any, runSql: () => "",
+      document: BIND_DOCUMENT as any, period: BIND_PERIOD, siblings: BIND_SIBLINGS as any,
+    });
+    const rebind = recording([[{ text: "ok" }]]);
+    await bindGolden({
+      client: rebind.client, catalog: BIND_CATALOG as any, runSql: () => "",
+      document: BIND_DOCUMENT as any, period: BIND_PERIOD, siblings: BIND_SIBLINGS as any,
+      priorInventory: BIND_PRIOR as any, feedback: BIND_FEEDBACK,
+    });
+    writeFixture("bind.json", { initial: initial.params[0], rebind: rebind.params[0] });
+  }
+
+  // --- unify.json: first create() with the head/tail-capped exemplar text ---
+  {
+    const rec = recording([[{ text: UNIFY_DOC_JSON }]]);
+    await unifyGoldenReport({ client: rec.client, filename: UNIFY_FILENAME, text: UNIFY_TEXT });
+    writeFixture("unify.json", rec.params);
   }
 }
 
