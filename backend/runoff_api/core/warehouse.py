@@ -314,5 +314,7 @@ def insert_rows(
     placeholders = ", ".join("?" for _ in cols)
     sql = f'INSERT INTO wh.{_q(table)} ({", ".join(cols)}) VALUES ({placeholders})'
     for row in rows:
-        vals = [_coerce(row[i]) for i in range(len(columns))]
+        # TS coerce(row[i]) maps a JS out-of-bounds `undefined` to NULL; a ragged
+        # row shorter than `columns` must pad with None, not raise IndexError.
+        vals = [_coerce(row[i]) if i < len(row) else None for i in range(len(columns))]
         conn.execute(sql, ([*vals, period] if period is not None else vals))

@@ -15,7 +15,6 @@ RUNOFF_WAREHOUSE_DIR via monkeypatched env, mirroring the TS freshDb() + env set
 """
 
 import threading
-import time
 
 import pytest
 
@@ -88,11 +87,13 @@ def _seed_project(db, env):
 
 def test_with_ingest_lock_serializes_behind_an_in_flight_ingest():
     order: list[str] = []
-    gate = threading.Event()
+    started = threading.Event()  # slow ingest holds the lock
+    release = threading.Event()  # let the slow ingest finish
 
     def slow():
         order.append("ingest-start")
-        gate.wait()
+        started.set()
+        release.wait()
         order.append("ingest-end")
 
     def other():
@@ -100,12 +101,12 @@ def test_with_ingest_lock_serializes_behind_an_in_flight_ingest():
 
     t1 = threading.Thread(target=lambda: with_ingest_lock(slow))
     t1.start()
-    time.sleep(0.05)  # let the slow ingest acquire the lock and start
+    started.wait()  # handshake: t1 has acquired the lock and started
     t2 = threading.Thread(target=lambda: with_ingest_lock(other))
     t2.start()
-    time.sleep(0.05)
+    # t1 still holds the lock (release not set), so t2 cannot have run — no sleep race.
     assert order == ["ingest-start"]  # second job queued, not started
-    gate.set()
+    release.set()
     t1.join()
     t2.join()
     assert order == ["ingest-start", "ingest-end", "delete"]
@@ -301,6 +302,30 @@ def test_csv_empty_cells_land_as_sql_null(wh_db, env):
         period="2026-Q1",
     )
     assert out["rows"][0] == [2, 3]
+
+
+def test_ragged_csv_rows_pad_missing_cells_with_null(wh_db, env):
+    # A row shorter than the header: TS coerce(row[i]) maps the out-of-bounds
+    # undefined to NULL; insert_rows must pad rather than raise IndexError.
+    _write(env, "ragged.csv", "a,b,c\n1,2,3\n4,5\n")
+    _add_source(wh_db, "ragged", "ragged.csv", "ragged.csv")
+    res = file_source(
+        wh_db,
+        {
+            "projectId": PROJECT,
+            "sourceId": "ragged",
+            "newFamily": {
+                "key": "ragged",
+                "label": "Ragged",
+                "kind": "periodic",
+                "granularity": "quarter",
+            },
+            "period": "2026-Q1",
+        },
+    )
+    assert res == {"ok": True}
+    out = run_warehouse_sql(PROJECT, "SELECT a, b, c FROM fam_ragged ORDER BY a")
+    assert out["rows"] == [[1, 2, 3], [4, 5, None]]
 
 
 def test_refiling_a_period_swaps_only_that_periods_rows(wh_db, env):

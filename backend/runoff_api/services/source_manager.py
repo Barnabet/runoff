@@ -164,7 +164,11 @@ def file_source(db: RunoffDb, args: dict) -> dict:
         if kind == "constant":
             if period is not None:
                 return {"error": "constant families take no period", "status": 400}
-        elif period is None or not PERIOD_REGEX[granularity].search(period):
+        # fullmatch, not search: JS non-multiline `$` rejects a trailing "\n" but
+        # Python's `$` accepts it, so `.search` would let "2026-Q1\n" gate a write to
+        # sources.period. (core/types/sources.py format_period keeps `.search` on the
+        # same patterns — pre-existing R1 read-side display, left untouched.)
+        elif period is None or not PERIOD_REGEX[granularity].fullmatch(period):
             return {"error": "invalid period for granularity", "status": 400}
 
         # --- scan/load + attach before any write --------------------------------
