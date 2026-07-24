@@ -9,8 +9,12 @@ import json
 import os
 
 from runoff_api.core.db import RunoffDb
+from runoff_api.core.ids import new_id
 from runoff_api.core.previous_run import previous_completed_document
+from runoff_api.core.types.document import blocks_to_plain_text
+from runoff_api.core.warehouse import format_sql_result, run_warehouse_sql
 from runoff_api.core.warehouse_catalog import build_warehouse_catalog
+from runoff_api.services.goldens import list_golden_summaries
 from runoff_api.services.source_manager import list_project_sources
 
 
@@ -216,14 +220,20 @@ def build_copilot_context(
     db: RunoffDb, blueprint_id: str, golden_cache: dict, scaffold_cache: dict
 ) -> dict:
     """Server-side data access for one copilot turn: the project family tree, the
-    bound families' default/per-period files, and the warehouse catalog.
+    bound families' default/per-period files, the warehouse catalog, and the seven
+    method callbacks (runSql, listRuns, getRunSection, listGoldens, getGolden,
+    scaffoldDigest, saveMemory).
 
-    Parity port of apps/web/lib/queries.ts buildCopilotContext. The TS builder
-    also closes over method callbacks (runSql, listRuns, getRunSection,
-    listGoldens, getGolden, scaffoldDigest, saveMemory) to satisfy the
-    CopilotContext interface; those are wired at the route/engine layer in the
-    Python port (Task 11), so this function returns only the serialisable data
-    fields plus the two pre-resolved caches passed through by the caller.
+    Parity port of apps/web/lib/queries.ts buildCopilotContext — the returned dict
+    carries both the serialisable data fields and the callables, which close over
+    (db, blueprint_id, project_id, golden_cache, scaffold_cache). db.py opens the
+    connection with check_same_thread=False, so these closures are safe to call
+    from the copilot worker thread later. The dict also keeps `goldenCache` /
+    `scaffoldCache` (harmless extra keys beyond the TS interface) so Python
+    consumers can reach the caches directly.
+
+    Caps: 30 active memories, 500-char bodies. `golden_cache` is pre-resolved by
+    the caller (exemplar parsing is async; the engine context is synchronous).
     """
     files_dir = os.environ.get("RUNOFF_FILES_DIR", "data/files")
 
@@ -333,6 +343,132 @@ def build_copilot_context(
                 }
             )
 
+    def run_sql(sql: str) -> str:
+        latest = db.execute(
+            "SELECT MAX(period) AS p FROM sources WHERE project_id = ? AND status='filed' "
+            "AND period IS NOT NULL",
+            (project_id,),
+        ).fetchone()["p"]
+        return format_sql_result(run_warehouse_sql(project_id, sql, period=latest))
+
+    def list_runs() -> list[dict]:
+        rows = db.execute(
+            "SELECT r.id, r.created_at AS createdAt, r.status, r.stats, r.blueprint_rev AS rev, "
+            "(SELECT COUNT(*) FROM flags f WHERE f.run_id = r.id) AS flagCount "
+            "FROM runs r WHERE r.blueprint_id = ? ORDER BY r.created_at DESC, r.id DESC LIMIT 10",
+            (blueprint_id,),
+        ).fetchall()
+        out: list[dict] = []
+        for r in rows:
+            item = dict(r)
+            item["stats"] = json.loads(r["stats"]) if r["stats"] else None
+            out.append(item)
+        return out
+
+    def get_run_section(run_id: str, key: str) -> dict | None:
+        run = db.execute(
+            "SELECT blueprint_id AS blueprintId, document FROM runs WHERE id = ?", (run_id,)
+        ).fetchone()
+        if run is None or run["blueprintId"] != blueprint_id or not run["document"]:
+            return None
+        doc = json.loads(run["document"])
+        section = next((s for s in doc["sections"] if s["key"] == key), None)
+        if section is None:
+            return None
+
+        detail: dict = {
+            "text": blocks_to_plain_text(section["blocks"]),
+            "checkFailures": [],
+            "retryReasons": [],
+            "steers": [],
+            "answers": [],
+            "flags": [],
+        }
+        events = db.execute(
+            "SELECT type, payload FROM run_events WHERE run_id = ? AND type IN "
+            "('check_failed','retry_started','steer_received','question_raised','question_answered') "
+            "ORDER BY seq",
+            (run_id,),
+        ).fetchall()
+        # `question_answered` carries only {questionId, answer}; the question text
+        # and its owning section live in the preceding `question_raised` event, so
+        # map ids -> {question, sectionKey} first.
+        raised: dict = {}
+        for e in events:
+            if e["type"] != "question_raised":
+                continue
+            p = json.loads(e["payload"])
+            if isinstance(p.get("questionId"), str) and isinstance(p.get("question"), str):
+                raised[p["questionId"]] = {
+                    "question": p["question"],
+                    "sectionKey": p["sectionKey"] if isinstance(p.get("sectionKey"), str) else None,
+                }
+        for e in events:
+            p = json.loads(e["payload"])
+            if p.get("sectionKey") and p["sectionKey"] != key:
+                continue
+            if e["type"] == "check_failed":
+                detail["checkFailures"].append(str(p.get("detail", "")))
+            if e["type"] == "retry_started":
+                detail["retryReasons"].append(str(p.get("reason", "")))
+            if e["type"] == "steer_received":
+                detail["steers"].append(str(p.get("text", "")))
+            if e["type"] == "question_answered":
+                info = raised.get(p.get("questionId"))
+                # Scope the answer to the section its question was raised in; if the
+                # raised event is missing or had no sectionKey, keep it everywhere.
+                if info and info["sectionKey"] and info["sectionKey"] != key:
+                    continue
+                detail["answers"].append(
+                    {
+                        "question": (info["question"] if info else str(p.get("questionId", ""))),
+                        "answer": str(p.get("answer", "")),
+                    }
+                )
+        flags = db.execute(
+            "SELECT question, status, resolution FROM flags WHERE run_id = ? AND section_key = ?",
+            (run_id, key),
+        ).fetchall()
+        detail["flags"] = [
+            {"question": f["question"], "status": f["status"], "resolution": f["resolution"]}
+            for f in flags
+        ]
+        return detail
+
+    def list_goldens_cb() -> list[dict]:
+        return list_golden_summaries(db, blueprint_id)
+
+    def get_golden(golden_id: str) -> dict | None:
+        return golden_cache.get(golden_id)
+
+    def scaffold_digest(golden_id: str) -> str:
+        return scaffold_cache.get(golden_id, f"golden not found: {golden_id}")
+
+    def save_memory(body: str, scope: str) -> str:
+        mem_id = new_id("mem")
+        # Cap 30 active per scope; project keys on project_id, blueprint on blueprint_id.
+        clause = (
+            "scope='project' AND project_id = ?"
+            if scope == "project"
+            else "scope='blueprint' AND blueprint_id = ?"
+        )
+        val = project_id if scope == "project" else blueprint_id
+        n = db.execute(
+            f"SELECT COUNT(*) AS n FROM memories WHERE {clause} AND status='active'", (val,)
+        ).fetchone()["n"]
+        if n >= 30:
+            db.execute(
+                f"UPDATE memories SET status='disabled' WHERE id = "
+                f"(SELECT id FROM memories WHERE {clause} AND status='active' ORDER BY rowid LIMIT 1)",
+                (val,),
+            )
+        db.execute(
+            "INSERT INTO memories (id, scope, project_id, blueprint_id, body, source, origin_id) "
+            "VALUES (?, ?, ?, ?, ?, 'copilot', NULL)",
+            (mem_id, scope, project_id, blueprint_id if scope == "blueprint" else None, body[:500]),
+        )
+        return mem_id
+
     return {
         "families": families,
         "defaultFiles": default_files,
@@ -340,4 +476,11 @@ def build_copilot_context(
         "catalog": build_warehouse_catalog(db, project_id),
         "goldenCache": golden_cache,
         "scaffoldCache": scaffold_cache,
+        "runSql": run_sql,
+        "listRuns": list_runs,
+        "getRunSection": get_run_section,
+        "listGoldens": list_goldens_cb,
+        "getGolden": get_golden,
+        "scaffoldDigest": scaffold_digest,
+        "saveMemory": save_memory,
     }
