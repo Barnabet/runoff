@@ -123,6 +123,15 @@ def test_upload_400_expected_multipart_form_data(app_db):
     assert res.json() == {"error": "expected multipart form data"}
 
 
+def test_upload_400_expected_multipart_for_json_body(app_db):
+    client, db = app_db
+    # A JSON content-type is not a form body — TS `req.formData()` throws here.
+    res = client.post("/api/v1/projects/proj_1/sources", json={"files": []})
+    assert res.status_code == 400
+    assert res.json() == {"error": "expected multipart form data"}
+    assert db.execute("SELECT COUNT(*) AS n FROM sources").fetchone()["n"] == 0
+
+
 def test_upload_400_files_are_required(app_db):
     client, db = app_db
     # A well-formed request with no `files` part.
@@ -326,6 +335,18 @@ def test_confirm_rejects_invalid_period_mismatch(app_db):
     res = client.post(
         "/api/v1/projects/proj_1/sources/confirm",
         json={"sourceId": "whatever", "periodMismatch": "foo"},
+    )
+    assert res.status_code == 400
+    assert res.json() == {"error": 'periodMismatch must be "keep" or "exclude"'}
+
+
+def test_confirm_rejects_explicit_null_period_mismatch(app_db):
+    client, _ = app_db
+    # An explicit JSON `null` is present (not absent) → 400, matching TS's
+    # `body.periodMismatch !== undefined` presence check.
+    res = client.post(
+        "/api/v1/projects/proj_1/sources/confirm",
+        json={"sourceId": "whatever", "periodMismatch": None},
     )
     assert res.status_code == 400
     assert res.json() == {"error": 'periodMismatch must be "keep" or "exclude"'}

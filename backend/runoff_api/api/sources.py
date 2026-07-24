@@ -79,9 +79,18 @@ async def upload_sources(id: str, request: Request, db: RunoffDb = Depends(get_d
     if project is None:
         return err(404, "project not found")
 
+    # TS `req.formData()` throws on a JSON content-type; Starlette's form() instead
+    # returns an empty form, so guard on the content-type first (urlencoded is a
+    # valid form body in both stacks), then still catch a malformed multipart body.
+    content_type = request.headers.get("content-type") or ""
+    if not (
+        "multipart/form-data" in content_type
+        or "application/x-www-form-urlencoded" in content_type
+    ):
+        return err(400, "expected multipart form data")
     try:
         form = await request.form()
-    except Exception:  # noqa: BLE001 — mirrors the TS `catch` on formData()
+    except Exception:  # noqa: BLE001 — malformed multipart body (mirrors the TS `catch`)
         return err(400, "expected multipart form data")
 
     files = [f for f in form.getlist("files") if hasattr(f, "filename") and hasattr(f, "read")]
@@ -374,8 +383,9 @@ async def confirm_source(id: str, request: Request, db: RunoffDb = Depends(get_d
     if not isinstance(body.get("sourceId"), str):
         return err(400, "sourceId is required")
     # Guard the period-mismatch override: only "keep"/"exclude" may reach the plan.
+    # Gate on presence (TS `!== undefined`), so an explicit JSON `null` still 400s.
     period_mismatch = body.get("periodMismatch")
-    if period_mismatch is not None and period_mismatch != "keep" and period_mismatch != "exclude":
+    if "periodMismatch" in body and period_mismatch != "keep" and period_mismatch != "exclude":
         return err(400, 'periodMismatch must be "keep" or "exclude"')
 
     result = file_source(

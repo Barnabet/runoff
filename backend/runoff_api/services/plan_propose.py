@@ -12,7 +12,12 @@ Runtime shapes are plain dicts with camelCase keys. A ``PlanOutcome`` is either
 NOT persisted in the proposal JSON).
 """
 
-from runoff_api.engine.parse_plan import execute_parse_plan, fit_parse_plan, load_grids
+from runoff_api.engine.parse_plan import (
+    _js_string,
+    execute_parse_plan,
+    fit_parse_plan,
+    load_grids,
+)
 from runoff_api.engine.propose_plan import build_grid_sample, is_degenerate, propose_parse_plan
 from runoff_api.engine.tabular import scan_sample
 
@@ -21,8 +26,9 @@ PREVIEW_ROWS = 8
 
 def build_preview(tables: list[dict]) -> dict:
     """Preview shape for the confirm UI: <=8 rows per table, numbers/null kept,
-    everything else stringified (mirrors the TS `typeof v === "number"` guard —
-    booleans stringify, since JS `typeof true === "boolean"`)."""
+    everything else via the engine's JS-parity String() (mirrors the TS
+    `typeof v === "number"` guard — booleans stringify to "true"/"false", since JS
+    `typeof true === "boolean"`)."""
     return {
         "tables": [
             {
@@ -32,7 +38,7 @@ def build_preview(tables: list[dict]) -> dict:
                     [
                         v
                         if v is None or (isinstance(v, (int, float)) and not isinstance(v, bool))
-                        else str(v)
+                        else _js_string(v)
                         for v in r
                     ]
                     for r in t["rows"][:PREVIEW_ROWS]
