@@ -280,8 +280,12 @@ def _q(v: Any) -> Any:
 
 
 def activity_label(name: str, args: Any, families: list[dict]) -> str:
-    """Human-readable label for a tool call — verbatim port of activityLabel."""
-    args = args or {}
+    """Human-readable label for a tool call — verbatim port of activityLabel.
+
+    Valid-JSON non-dict args (e.g. `[1]` or `"x"`) degrade like TS property access
+    on a non-object — every lookup misses, so labels fall back to "?" instead of
+    crashing the turn."""
+    args = args if isinstance(args, dict) else {}
     if name == "edit_section":
         return f"editing §{_q(args.get('key'))}"
     if name == "add_section":

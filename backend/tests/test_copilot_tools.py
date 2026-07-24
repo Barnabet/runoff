@@ -562,6 +562,17 @@ def test_activity_label_all_branches():
     assert activity_label("mystery", {}, []) == "mystery"
 
 
+def test_activity_label_valid_json_non_dict_args_degrade():
+    """json.loads can yield a non-dict from valid arguments JSON (`[1]`, `"x"`, `5`).
+    TS property access on a non-object misses → "?" labels; the label must not crash
+    the turn (the turn calls activity_label OUTSIDE its execute_tool try)."""
+    for weird in ([1], "x", 5, True):
+        assert activity_label("edit_section", weird, []) == "editing §?"
+        assert activity_label("add_section", weird, []) == 'adding section "?"'
+        assert activity_label("query_sources", weird, FAMILIES) == "listing data families"
+        assert activity_label("save_memory", weird, []) == "saving a memory"
+
+
 # --- copilot_system_prompt -------------------------------------------------
 
 def test_system_prompt_embeds_draft_and_conditionals():
