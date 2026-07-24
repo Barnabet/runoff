@@ -1,14 +1,16 @@
 """Port of apps/web/lib/queries.ts — listProjects, getProjectPayload,
-listBlueprintsWithRuns, getRunPayload (NOT buildCopilotContext, which is R3).
+listBlueprintsWithRuns, getRunPayload, buildCopilotContext.
 
 Server-only db reads shared by the API routes and the server-rendered pages so
 the joins live in exactly one place.
 """
 
 import json
+import os
 
 from runoff_api.core.db import RunoffDb
 from runoff_api.core.previous_run import previous_completed_document
+from runoff_api.core.warehouse_catalog import build_warehouse_catalog
 from runoff_api.services.source_manager import list_project_sources
 
 
@@ -207,4 +209,135 @@ def get_run_payload(db: RunoffDb, id: str) -> dict | None:
         "content": masthead,
         "previous": previous,
         "memories": [dict(m) for m in memories],
+    }
+
+
+def build_copilot_context(
+    db: RunoffDb, blueprint_id: str, golden_cache: dict, scaffold_cache: dict
+) -> dict:
+    """Server-side data access for one copilot turn: the project family tree, the
+    bound families' default/per-period files, and the warehouse catalog.
+
+    Parity port of apps/web/lib/queries.ts buildCopilotContext. The TS builder
+    also closes over method callbacks (runSql, listRuns, getRunSection,
+    listGoldens, getGolden, scaffoldDigest, saveMemory) to satisfy the
+    CopilotContext interface; those are wired at the route/engine layer in the
+    Python port (Task 11), so this function returns only the serialisable data
+    fields plus the two pre-resolved caches passed through by the caller.
+    """
+    files_dir = os.environ.get("RUNOFF_FILES_DIR", "data/files")
+
+    # The full project taxonomy: every family (bound or not) with its filed
+    # periods / live-file status. `bound` marks the ones on this blueprint.
+    project_row = db.execute(
+        "SELECT project_id AS projectId FROM blueprints WHERE id = ?", (blueprint_id,)
+    ).fetchone()
+    project_id = project_row["projectId"] if project_row is not None else ""
+    bound_set = {
+        r["familyId"]
+        for r in db.execute(
+            "SELECT family_id AS familyId FROM blueprint_families WHERE blueprint_id = ?",
+            (blueprint_id,),
+        ).fetchall()
+    }
+    fam_rows = db.execute(
+        "SELECT id, key, label, kind, granularity FROM source_families WHERE project_id = ? ORDER BY key",
+        (project_id,),
+    ).fetchall()
+    families: list[dict] = []
+    for f in fam_rows:
+        if f["kind"] == "constant":
+            filed_periods: list[str] = []
+        else:
+            filed_periods = [
+                r["period"]
+                for r in db.execute(
+                    "SELECT period FROM sources WHERE family_id = ? AND status='filed' "
+                    "AND period IS NOT NULL ORDER BY period",
+                    (f["id"],),
+                ).fetchall()
+            ]
+        has_live_file = (
+            db.execute(
+                "SELECT 1 FROM sources WHERE family_id = ? AND status='filed' AND period IS NULL LIMIT 1",
+                (f["id"],),
+            ).fetchone()
+            is not None
+            if f["kind"] == "constant"
+            else False
+        )
+        families.append(
+            {
+                "id": f["id"],
+                "key": f["key"],
+                "label": f["label"],
+                "kind": f["kind"],
+                "granularity": f["granularity"],
+                "filedPeriods": filed_periods,
+                "hasLiveFile": has_live_file,
+                "bound": f["id"] in bound_set,
+            }
+        )
+
+    # defaultFiles: each bound family resolved to its live file — constants take
+    # their null-slot file, periodics the latest filed period (lexicographic MAX);
+    # mirrors resolveRunSources without a run period. EngineFile.id is the FAMILY id.
+    default_files: list[dict] = []
+    for f in families:
+        if not f["bound"]:
+            continue
+        if f["kind"] == "constant":
+            row = db.execute(
+                "SELECT mime, stored_filename AS storedFilename FROM sources "
+                "WHERE family_id = ? AND status='filed' AND period IS NULL",
+                (f["id"],),
+            ).fetchone()
+        else:
+            row = db.execute(
+                "SELECT mime, stored_filename AS storedFilename FROM sources "
+                "WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period DESC LIMIT 1",
+                (f["id"],),
+            ).fetchone()
+        if row is None:
+            continue
+        default_files.append(
+            {
+                "id": f["id"],
+                "name": f["label"],
+                "mime": row["mime"],
+                "path": os.path.join(files_dir, row["storedFilename"]),
+            }
+        )
+
+    # periodFiles: every filed periodic row of the bound families, so the copilot
+    # can inspect any historical period via query_sources {familyId, period}.
+    period_files: list[dict] = []
+    for f in families:
+        if not f["bound"] or f["kind"] != "periodic":
+            continue
+        for row in db.execute(
+            "SELECT period, mime, stored_filename AS storedFilename FROM sources "
+            "WHERE family_id = ? AND status='filed' AND period IS NOT NULL ORDER BY period",
+            (f["id"],),
+        ).fetchall():
+            period_files.append(
+                {
+                    "familyId": f["id"],
+                    "period": row["period"],
+                    "file": {
+                        "id": f["id"],
+                        "name": f["label"],
+                        "mime": row["mime"],
+                        "path": os.path.join(files_dir, row["storedFilename"]),
+                    },
+                }
+            )
+
+    return {
+        "families": families,
+        "defaultFiles": default_files,
+        "periodFiles": period_files,
+        "catalog": build_warehouse_catalog(db, project_id),
+        "goldenCache": golden_cache,
+        "scaffoldCache": scaffold_cache,
     }
