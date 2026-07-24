@@ -1,0 +1,150 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "customer",
+          "type": "TEXT"
+        },
+        {
+          "name": "status",
+          "type": "TEXT"
+        },
+        {
+          "name": "amount_due",
+          "type": "REAL"
+        },
+        {
+          "name": "days_outstanding",
+          "type": "INTEGER"
+        },
+        {
+          "name": "_period",
+          "type": "TEXT"
+        }
+      ],
+      "name": "fam_ar_aging__ar_aging",
+      "rows": [
+        [
+          "Acme Corp",
+          "open",
+          12400.5,
+          31,
+          "2026-Q2"
+        ],
+        [
+          "Beta Industries",
+          "open",
+          8250,
+          62,
+          "2026-Q2"
+        ],
+        [
+          "Gamma LLC",
+          "paid",
+          15000,
+          12,
+          "2026-Q2"
+        ],
+        [
+          "Delta Retail",
+          "open",
+          4100.25,
+          95,
+          "2026-Q2"
+        ],
+        [
+          "Epsilon & Co",
+          "disputed",
+          18749.25,
+          47,
+          "2026-Q2"
+        ],
+        [
+          "Zeta Group",
+          "open",
+          2500,
+          8,
+          "2026-Q2"
+        ]
+      ]
+    },
+    {
+      "columns": [
+        {
+          "name": "region",
+          "type": "TEXT"
+        },
+        {
+          "name": "month",
+          "type": "TEXT"
+        },
+        {
+          "name": "amount",
+          "type": "REAL"
+        },
+        {
+          "name": "_period",
+          "type": "TEXT"
+        }
+      ],
+      "name": "fam_ar_aging__monthly_totals",
+      "rows": [
+        [
+          "EMEA",
+          "Apr 2026",
+          7200,
+          "2026-Q2"
+        ],
+        [
+          "EMEA",
+          "May 2026",
+          8100,
+          "2026-Q2"
+        ],
+        [
+          "EMEA",
+          "Jun 2026",
+          6950,
+          "2026-Q2"
+        ],
+        [
+          "AMER",
+          "Apr 2026",
+          11400,
+          "2026-Q2"
+        ],
+        [
+          "AMER",
+          "May 2026",
+          10050,
+          "2026-Q2"
+        ],
+        [
+          "AMER",
+          "Jun 2026",
+          12300,
+          "2026-Q2"
+        ],
+        [
+          "APAC",
+          "Apr 2026",
+          3000,
+          "2026-Q2"
+        ],
+        [
+          "APAC",
+          "May 2026",
+          2000,
+          "2026-Q2"
+        ],
+        [
+          "APAC",
+          "Jun 2026",
+          0,
+          "2026-Q2"
+        ]
+      ]
+    }
+  ]
+}

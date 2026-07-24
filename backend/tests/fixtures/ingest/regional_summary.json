@@ -1,0 +1,61 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "region",
+          "type": "TEXT"
+        },
+        {
+          "name": "revenue",
+          "type": "INTEGER"
+        },
+        {
+          "name": "orders",
+          "type": "INTEGER"
+        }
+      ],
+      "name": "fam_regional_summary__regional",
+      "rows": [
+        [
+          "EMEA",
+          412000,
+          1830
+        ],
+        [
+          "AMER",
+          655000,
+          2410
+        ],
+        [
+          "APAC",
+          238000,
+          990
+        ]
+      ]
+    },
+    {
+      "columns": [
+        {
+          "name": "channel",
+          "type": "TEXT"
+        },
+        {
+          "name": "share",
+          "type": "REAL"
+        }
+      ],
+      "name": "fam_regional_summary__channels",
+      "rows": [
+        [
+          "online",
+          0.62
+        ],
+        [
+          "retail",
+          0.38
+        ]
+      ]
+    }
+  ]
+}

@@ -1,0 +1,73 @@
+{
+  "tables": [
+    {
+      "columns": [
+        {
+          "name": "channel",
+          "type": "TEXT"
+        },
+        {
+          "name": "sessions",
+          "type": "INTEGER"
+        },
+        {
+          "name": "conversions",
+          "type": "INTEGER"
+        }
+      ],
+      "name": "fam_ga4_analytics",
+      "rows": [
+        [
+          "paid_search",
+          48200,
+          1240
+        ],
+        [
+          "paid_social",
+          31500,
+          720
+        ],
+        [
+          "display",
+          22800,
+          410
+        ],
+        [
+          "email",
+          15600,
+          980
+        ],
+        [
+          "organic_search",
+          54300,
+          1510
+        ],
+        [
+          "direct",
+          28900,
+          860
+        ],
+        [
+          "referral",
+          9400,
+          210
+        ],
+        [
+          "organic_social",
+          12300,
+          340
+        ],
+        [
+          "affiliates",
+          7600,
+          190
+        ],
+        [
+          "video",
+          5100,
+          120
+        ]
+      ]
+    }
+  ]
+}
