@@ -1,4 +1,8 @@
+import time
+from collections.abc import Iterator
+
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import StreamingResponse
 
 from runoff_api.core.db import RunoffDb
 from runoff_api.core.ids import new_id
@@ -11,6 +15,11 @@ router = APIRouter()
 
 INPUT_KINDS = {"pause", "resume", "steer", "answer"}
 
+# Tail-loop timing (docs/api/v1.md §3.1). Module-level so tests can monkeypatch.
+EVENTS_POLL_SECONDS = 0.2
+EVENTS_HEARTBEAT_EVERY = 75
+TERMINAL_EVENTS = ("run_completed", "run_failed")
+
 
 @router.get("/runs/{id}")
 def get_run(id: str, db: RunoffDb = Depends(get_db)):
@@ -18,6 +27,51 @@ def get_run(id: str, db: RunoffDb = Depends(get_db)):
     if payload is None:
         return err(404, "run not found")
     return payload
+
+
+def run_event_stream(db: RunoffDb, id: str) -> Iterator[str]:
+    """Sync generator backing the run-events SSE endpoint (docs/api/v1.md §3.1).
+
+    Replays the backlog (`seq > last`, from `last = 0`) as raw-payload frames,
+    then polls the same app DB every EVENTS_POLL_SECONDS for newer rows. A loop
+    counter increments every iteration and emits a `: ping\\n\\n` heartbeat on
+    every EVENTS_HEARTBEAT_EVERY-th one. The loop breaks after a batch containing
+    a terminal event; an unknown run id never breaks and heartbeats forever until
+    the client disconnects (GeneratorExit).
+    """
+    last = 0
+    beat = 0
+    try:
+        while True:
+            rows = db.execute(
+                "SELECT seq, type, payload FROM run_events "
+                "WHERE run_id = ? AND seq > ? ORDER BY seq",
+                (id, last),
+            ).fetchall()
+            terminal = False
+            for row in rows:
+                last = row["seq"]
+                yield f"data: {row['payload']}\n\n"
+                if row["type"] in TERMINAL_EVENTS:
+                    terminal = True
+            if terminal:
+                break
+            beat += 1
+            if beat % EVENTS_HEARTBEAT_EVERY == 0:
+                yield ": ping\n\n"
+            time.sleep(EVENTS_POLL_SECONDS)
+    except GeneratorExit:
+        # Client disconnected mid-stream — stop tailing silently.
+        return
+
+
+@router.get("/runs/{id}/events")
+def get_run_events(id: str, db: RunoffDb = Depends(get_db)) -> StreamingResponse:
+    return StreamingResponse(
+        run_event_stream(db, id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
 
 
 @router.post("/runs")

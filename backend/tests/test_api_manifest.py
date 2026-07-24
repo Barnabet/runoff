@@ -40,6 +40,10 @@ R2_SOURCES_ROUTES = {
     ("POST", "/api/v1/projects/{id}/sources/{sourceId}/replan"),
 }
 
+R2_EVENTS_ROUTES = {
+    ("GET", "/api/v1/runs/{id}/events"),
+}
+
 R1_ROUTES = R1_READ_ROUTES | R1_WRITE_ROUTES
 
 
@@ -67,7 +71,7 @@ def _collect_routes(app):
     return routes
 
 
-REQUIRED_ROUTES = R1_ROUTES | R2_SOURCES_ROUTES
+REQUIRED_ROUTES = R1_ROUTES | R2_SOURCES_ROUTES | R2_EVENTS_ROUTES
 
 
 def test_route_manifest():
