@@ -31,6 +31,15 @@ R1_WRITE_ROUTES = {
     ("POST", "/api/v1/runs/{id}/inputs"),
 }
 
+R2_SOURCES_ROUTES = {
+    ("POST", "/api/v1/projects/{id}/sources"),
+    ("PATCH", "/api/v1/projects/{id}/sources/{sourceId}"),
+    ("DELETE", "/api/v1/projects/{id}/sources/{sourceId}"),
+    ("POST", "/api/v1/projects/{id}/sources/classify"),
+    ("POST", "/api/v1/projects/{id}/sources/confirm"),
+    ("POST", "/api/v1/projects/{id}/sources/{sourceId}/replan"),
+}
+
 R1_ROUTES = R1_READ_ROUTES | R1_WRITE_ROUTES
 
 
@@ -58,6 +67,9 @@ def _collect_routes(app):
     return routes
 
 
+REQUIRED_ROUTES = R1_ROUTES | R2_SOURCES_ROUTES
+
+
 def test_route_manifest():
     app = create_app(db_path=":memory:")
-    assert _collect_routes(app) == R1_ROUTES
+    assert _collect_routes(app) == REQUIRED_ROUTES

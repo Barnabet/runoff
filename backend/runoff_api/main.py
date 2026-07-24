@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from runoff_api.api import blueprints, flags, goldens, memories, projects, runs
+from runoff_api.api import blueprints, flags, goldens, memories, projects, runs, sources
 from runoff_api.core.db import open_db
 from runoff_api.deps import default_db_path
 
@@ -15,6 +15,7 @@ def create_app(db_path: str | None = None) -> FastAPI:
         runs.router,
         memories.router,
         flags.router,
+        sources.router,
     ):
         app.include_router(router, prefix="/api/v1")
     return app
