@@ -17,6 +17,8 @@
     "backend:worker": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run python -m runoff_api.worker",
     "backend:eval:classify": "set -a; [ -f .env ] && . ./.env; set +a; uv --directory backend run python evals/eval_classify.py",
     "backend:eval:parse": "set -a; [ -f .env ] && . ./.env; set +a; uv --directory backend run python evals/eval_parse.py",
+    "backend:eval:copilot": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run python evals/eval_copilot.py",
+    "backend:eval:golden": "set -a; [ -f .env ] && . ./.env; set +a; RUNOFF_DB=$PWD/data/runoff.db RUNOFF_FILES_DIR=$PWD/data/files RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run python evals/eval_golden.py",
     "backend:test": "uv --directory backend run pytest -q",
     "backend:lint": "uv --directory backend run ruff check .",
     "backend:fixtures": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/dump-parity-fixtures.ts",
