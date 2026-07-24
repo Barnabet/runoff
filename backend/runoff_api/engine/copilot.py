@@ -26,6 +26,8 @@ the period pack is keyed ``{familyId}:{period}`` (the turn builds it that way).
 
 from __future__ import annotations
 
+import copy
+import json
 import re
 from typing import Any
 
@@ -34,8 +36,8 @@ from pydantic import ValidationError
 from ..core.jsonutil import to_json
 from ..core.types.blueprint import BlueprintContent
 from .catalog_format import serialize_catalog
-from .prompts import guidance_blocks
-from .source_pack import pack_for_prompt
+from .prompts import MODEL, guidance_blocks
+from .source_pack import build_source_pack, pack_for_prompt
 
 MAX_ITERATIONS = 12
 # Must stay >= core's SQL serialization cap (formatSqlResult, 10_000 chars) plus
@@ -641,6 +643,175 @@ def execute_tool(name: str, args: dict, state: dict) -> dict:
     return {"draft": draft, "result": f"Tool error: unknown tool {name}"}
 
 
+def copilot_turn(
+    *,
+    client: Any,
+    draft: dict,
+    selected_key: str | None,
+    message: str,
+    thread: list[dict],
+    memories: list[dict],
+    ctx: dict,
+    io: Any,
+) -> dict:
+    """Statement-for-statement port of copilotTurn (packages/engine/src/copilot.ts).
+
+    Drives the streaming tool loop: builds the two source packs and the message
+    list, then iterates rounds of ``client.chat.completions.create(stream=True)``.
+    Content deltas accumulate + emit ``text_delta``; tool-call fragments assemble
+    by index; a round finishing with ``tool_calls`` executes each call (emitting
+    ``tool_activity`` + appending an action first), feeds the capped result back,
+    and loops. After ``MAX_ITERATIONS`` tool rounds a single wrap-up nudge fires;
+    a post-nudge tool round hard-stops without executing. Returns
+    ``{"reply", "actions", "draft"}``. Terminal ``done``/``error`` events are the
+    route's job, not the engine's.
+    """
+    draft = copy.deepcopy(draft)
+    actions: list[dict] = []
+    # Two packs: the DEFAULT resolution (latest period / constant live file, keyed
+    # by family id) drives query_sources; the PERIOD pack (keyed
+    # `${familyId}:${period}`) backs period-addressed inspection.
+    default_pack = build_source_pack(ctx["defaultFiles"])
+    period_pack = build_source_pack(
+        [{**p["file"], "id": f"{p['familyId']}:{p['period']}"} for p in ctx["periodFiles"]]
+    )
+
+    messages: list[dict] = [
+        {"role": "system", "content": copilot_system_prompt(draft, selected_key, memories, ctx["catalog"])},
+        *[{"role": t["role"], "content": t["body"]} for t in thread],
+        {"role": "user", "content": message},
+    ]
+
+    reply = ""
+    nudged = False
+    it = 0
+    while True:
+        stream = client.chat.completions.create(
+            model=MODEL,
+            stream=True,
+            messages=messages,
+            tools=TOOLS,
+            max_completion_tokens=8000,
+        )
+
+        turn_text = ""
+        finish_reason: str | None = None
+        tool_calls: dict[int, dict] = {}
+
+        for chunk in stream:
+            choices = getattr(chunk, "choices", None)
+            choice = choices[0] if choices else None
+            if not choice:
+                continue
+            delta = getattr(choice, "delta", None) or {}
+            content = getattr(delta, "content", None)
+            if isinstance(content, str) and content:
+                turn_text += content
+                io.emit({"type": "text_delta", "text": content})
+            tcs = getattr(delta, "tool_calls", None)
+            if isinstance(tcs, list):
+                for tc in tcs:
+                    idx = getattr(tc, "index", None)
+                    if idx is None:
+                        idx = 0
+                    acc = tool_calls.get(idx)
+                    if acc is None:
+                        acc = {"id": "", "name": "", "arguments": ""}
+                        tool_calls[idx] = acc
+                    if getattr(tc, "id", None):
+                        acc["id"] = tc.id
+                    fn_obj = getattr(tc, "function", None)
+                    if fn_obj is not None:
+                        if getattr(fn_obj, "name", None):
+                            acc["name"] = fn_obj.name
+                        if getattr(fn_obj, "arguments", None):
+                            acc["arguments"] += fn_obj.arguments
+            fr = getattr(choice, "finish_reason", None)
+            if fr:
+                finish_reason = fr
+
+        reply = turn_text
+        if finish_reason != "tool_calls":
+            break
+
+        # Already nudged once and the model is still calling tools — hard stop.
+        # Don't execute the tools or make another API call; return what we have.
+        if nudged:
+            break
+
+        ordered = [tool_calls[k] for k in sorted(tool_calls)]
+
+        # Cap: after MAX_ITERATIONS tool-executing rounds, refuse the calls and
+        # demand a final answer. The nudge is sent at most once.
+        if it >= MAX_ITERATIONS:
+            nudged = True
+            messages.append({
+                "role": "assistant",
+                "content": turn_text or None,
+                "tool_calls": [
+                    {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"]}}  # noqa: E501
+                    for c in ordered if c["name"]
+                ],
+            })
+            for call in [c for c in ordered if c["name"]]:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call["id"],
+                    "content": "Tool budget for this turn is exhausted. Summarize what you have and finish your reply now.",  # noqa: E501
+                })
+            it += 1
+            continue
+
+        messages.append({
+            "role": "assistant",
+            "content": turn_text or None,
+            "tool_calls": [
+                {"id": c["id"], "type": "function", "function": {"name": c["name"], "arguments": c["arguments"]}}  # noqa: E501
+                for c in ordered if c["name"]
+            ],
+        })
+        for call in ordered:
+            if not call["name"]:
+                continue
+            try:
+                parsed = json.loads(call["arguments"] or "{}")
+            except Exception:  # noqa: BLE001
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call["id"],
+                    "content": "Invalid tool arguments — ignored.",
+                })
+                continue
+            io.emit({"type": "tool_activity", "label": activity_label(call["name"], parsed, ctx["families"])})
+            actions.append({
+                "kind": "tool",
+                "tool": call["name"],
+                "label": activity_label(call["name"], parsed, ctx["families"]),
+            })
+            try:
+                out = execute_tool(
+                    call["name"],
+                    parsed,
+                    {
+                        "draft": draft,
+                        "default_pack": default_pack,
+                        "period_pack": period_pack,
+                        "ctx": ctx,
+                        "io": io,
+                        "actions": actions,
+                    },
+                )
+                draft = out["draft"]
+                result = out["result"]
+            except Exception as err:  # noqa: BLE001
+                result = f"Tool error: {err}"
+            cap = 20_000 if call["name"] == "get_golden_scaffold" else MAX_TOOL_RESULT_CHARS
+            messages.append({"role": "tool", "tool_call_id": call["id"], "content": result[:cap]})
+        it += 1
+
+    return {"reply": reply, "actions": actions, "draft": draft}
+
+
 __all__ = [
     "MAX_ITERATIONS",
     "MAX_TOOL_RESULT_CHARS",
@@ -651,4 +822,5 @@ __all__ = [
     "renumber",
     "family_line",
     "execute_tool",
+    "copilot_turn",
 ]
