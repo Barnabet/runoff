@@ -152,6 +152,27 @@ def test_edit_section_rejects_unbound_family_ids():
     assert out["draft"]["sections"][1]["familyIds"] == ["src_data"]
 
 
+def test_edit_section_before_dict_drops_absent_keys():
+    # The exec fixture has no fixedText; patching it must NOT put "fixedText": null
+    # into the op's before-dict — TS assigns undefined, which JSON.stringify drops,
+    # and the editOps revert's z.string().optional() rejects an explicit null.
+    state, events, _ = make_state(make_ctx())
+    execute_tool("edit_section", {"key": "exec", "patch": {"fixedText": "Boilerplate."}}, state)
+    op = next(e["op"] for e in events if e["type"] == "edit")
+    assert "fixedText" not in op["before"]
+    assert op["after"] == {"fixedText": "Boilerplate."}
+
+
+def test_edit_section_before_dict_round_trips_present_key():
+    # A section that DOES carry fixedText keeps it in the before-dict.
+    draft = copy.deepcopy(CONTENT)
+    draft["sections"][0]["fixedText"] = "Old boilerplate."
+    state, events, _ = make_state(make_ctx(), draft=draft)
+    execute_tool("edit_section", {"key": "exec", "patch": {"fixedText": "New boilerplate."}}, state)
+    op = next(e["op"] for e in events if e["type"] == "edit")
+    assert op["before"] == {"fixedText": "Old boilerplate."}
+
+
 def test_edit_section_missing_key():
     state, _, _ = make_state(make_ctx())
     out = execute_tool("edit_section", {"key": "nope", "patch": {"instruction": "x"}}, state)

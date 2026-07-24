@@ -406,7 +406,11 @@ def execute_tool(name: str, args: dict, state: dict) -> dict:
             err = reject_unbound(patch["familyIds"])
             if err:
                 return {"draft": draft, "result": err}
-        before = {k: section.get(k) for k in patch}
+        # Match TS `before[k] = section[k]`: when the section lacks an optional key
+        # (only fixedText), TS assigns undefined, which JSON.stringify drops — so the
+        # key must be ABSENT here too (an explicit null breaks the editOps revert,
+        # whose z.string().optional() rejects null).
+        before = {k: section[k] for k in patch if k in section}
         candidate = {
             **draft,
             "sections": [
