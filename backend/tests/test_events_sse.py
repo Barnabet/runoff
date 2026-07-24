@@ -54,34 +54,58 @@ def _add_run(db, run_id="run_1"):
     )
 
 
-def _read_bytes(client, url, timeout=2.0):
-    """Read a self-terminating stream fully; return (headers, raw bytes)."""
-    with client.stream("GET", url) as r:
-        headers = dict(r.headers)
-        timer = threading.Timer(timeout, r.close)
-        timer.start()
+def _join_or_fail(fn, timeout, message):
+    """Run `fn` (a blocking stream read) on a daemon reader thread and join it
+    with a timeout. A hung read fails the test loudly instead of blocking the
+    suite forever — the daemon thread is abandoned and dies with the process,
+    which is safe here because closing a generator from another thread while it
+    is executing is not (it raises "generator already executing")."""
+    box: dict = {}
+
+    def worker():
         try:
-            data = b"".join(r.iter_raw())
-        except Exception:
-            data = b""
-        finally:
-            timer.cancel()
-    return headers, data
+            box["result"] = fn()
+        except BaseException as exc:  # noqa: BLE001 — re-raised on the main thread below
+            box["error"] = exc
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    t.join(timeout)
+    if t.is_alive():
+        pytest.fail(message)
+    if "error" in box:
+        raise box["error"]
+    return box["result"]
+
+
+def _read_bytes(client, url, timeout=2.0):
+    """Read a self-terminating stream fully; return (headers, raw bytes). A read
+    that never terminates fails the test on timeout rather than hanging."""
+
+    def read():
+        with client.stream("GET", url) as r:
+            return dict(r.headers), b"".join(r.iter_raw())
+
+    return _join_or_fail(
+        read, timeout, f"SSE stream {url} did not terminate within {timeout}s"
+    )
 
 
 def _take_frames(db, run_id, want, timeout=2.0):
-    """Pull `want` frames from the sync generator, then close it. A watchdog
-    thread closes the generator if `next()` ever blocks, so a broken loop fails
-    the test instead of hanging."""
-    gen = runs_route.run_event_stream(db, run_id)
-    timer = threading.Timer(timeout, gen.close)
-    timer.start()
-    try:
-        frames = list(itertools.islice(gen, want))
-    finally:
-        timer.cancel()
-        gen.close()
-    return frames
+    """Pull `want` frames from the sync generator, then close it — on a reader
+    thread joined with a timeout so a broken (never-yielding) loop fails the test
+    instead of hanging the suite."""
+
+    def pull():
+        gen = runs_route.run_event_stream(db, run_id)
+        try:
+            return list(itertools.islice(gen, want))
+        finally:
+            gen.close()
+
+    return _join_or_fail(
+        pull, timeout, f"run_event_stream did not yield {want} frames within {timeout}s"
+    )
 
 
 def _payloads(data: bytes) -> list[dict]:
@@ -153,6 +177,37 @@ def test_idle_run_emits_heartbeat(app_db, monkeypatch):
     # Backlog replays first, then heartbeats keep the (never-terminating) stream alive.
     assert frames[0] == f"data: {json.dumps(started)}\n\n"
     assert ": ping\n\n" in frames[1:]
+
+
+def test_heartbeat_lands_on_every_nth_idle_iteration_no_off_by_one(app_db, monkeypatch):
+    _, db = app_db
+    monkeypatch.setattr(runs_route, "EVENTS_HEARTBEAT_EVERY", 2)
+    # Count idle poll iterations by recording each loop sleep (made instant).
+    sleeps: list = []
+    monkeypatch.setattr(runs_route.time, "sleep", lambda s: sleeps.append(s))
+
+    def pull_pairs():
+        gen = runs_route.run_event_stream(db, "idle")  # unknown id -> pure idle loop
+        out = []
+        try:
+            for _ in range(2):
+                # Snapshot the iteration count at the instant each heartbeat is yielded.
+                out.append((next(gen), len(sleeps)))
+        finally:
+            gen.close()
+        return out
+
+    (frame1, n1), (frame2, n2) = _join_or_fail(
+        pull_pairs, 2.0, "idle heartbeat loop did not yield within 2s"
+    )
+
+    assert frame1 == ": ping\n\n"
+    assert frame2 == ": ping\n\n"
+    # With EVERY=2 the ping lands on the 2nd iteration: exactly one idle poll
+    # precedes the first heartbeat (0 would be an off-by-one low, 2 too late).
+    assert n1 == 1
+    # ...and every subsequent heartbeat is exactly EVERY iterations later.
+    assert n2 - n1 == 2
 
 
 # --- (d) unknown run id keeps the stream open with heartbeats -----------------
