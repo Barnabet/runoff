@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from fake_client import make_fake_client
 
 from runoff_api.core.reducer import reduce_run
+from runoff_api.engine import run as run_module
 from runoff_api.engine.run import execute_run
 
 HERE = os.path.dirname(__file__)
@@ -332,3 +333,81 @@ def test_skips_a_sql_less_assert_at_run_time_while_still_running_sql_asserts():
     assert not any(e["type"] == "check_failed" for e in events)
     assert not any(e["type"] == "retry_started" for e in events)
     assert queries == ["SELECT SUM(amount) FROM ledger"]
+
+
+# --- executeRun — pause/resume loop (probe_pause promotion) -------------------
+
+
+def test_pins_the_pause_loop_and_delivers_a_pause_time_steer_to_the_next_draft(monkeypatch):
+    """Promotes the reviewer's throwaway probe_pause.py to a standing test: while
+    paused the loop sleeps 200ms before every poll, `paused`/`resumed` bracket the
+    pause in order, and a steer posted during the pause reaches the NEXT
+    draft_section's `steers` argument. (The engine emits `paused`/`resumed`, not
+    `run_paused`/`run_resumed` — this pins the engine's actual event names.)"""
+    pause_content = {
+        "title": "P", "clientName": "Acme", "eyebrow": "E", "dateline": "D",
+        "sections": [
+            {"key": "intro", "number": 1, "heading": "Intro", "mode": "fixed", "instruction": "",
+             "fixedText": "Hi.", "familyIds": [], "queries": [], "rules": []},
+            {"key": "body", "number": 2, "heading": "Body", "mode": "auto",
+             "instruction": "Write the body.", "familyIds": [], "queries": [], "rules": []},
+        ],
+        "globalRules": [], "delivery": {"recipient": "", "autoDeliverOnClear": False},
+    }
+
+    # Scripted io: pause at the body boundary (poll 1), then — while paused — a
+    # steer (poll 2) and a resume (poll 3). A single timeline ledger records every
+    # sleep and poll so we can prove sleep(200) precedes every pause-loop poll.
+    timeline: list = []
+    poll_scripts = [
+        [],                                                    # poll 0: intro boundary
+        [{"kind": "pause"}],                                   # poll 1: body boundary -> pause
+        [{"kind": "steer", "text": "Lead with Q2 revenue."}],  # poll 2: posted while paused
+        [{"kind": "resume"}],                                  # poll 3: resumes the run
+    ]
+    polls = {"n": 0}
+
+    def poll_inputs():
+        i = polls["n"]
+        polls["n"] += 1
+        msgs = poll_scripts[i] if i < len(poll_scripts) else []
+        timeline.append(("poll", i, [m["kind"] for m in msgs]))
+        return msgs
+
+    def sleep(ms):
+        timeline.append(("sleep", ms))
+
+    events: list = []
+    io = SimpleNamespace(emit=events.append, poll_inputs=poll_inputs, sleep=sleep)
+
+    # Snapshot the steers list at each draft_section call — the engine mutates the
+    # same list in place, so a live reference would not prove pause-time delivery.
+    draft_calls: list = []
+    real_draft = run_module.draft_section
+
+    def spy_draft(**kwargs):
+        draft_calls.append({"key": kwargs["section"]["key"], "steers": list(kwargs["steers"])})
+        return real_draft(**kwargs)
+
+    monkeypatch.setattr(run_module, "draft_section", spy_draft)
+
+    client = make_fake_client([[{"text": "Body text."}]])
+    execute_run(client=client, content=pause_content, files=[], data=data, io=io, blueprint_rev=1)
+
+    # paused -> steer_received -> resumed, in order.
+    types = [e["type"] for e in events]
+    expect_ordered_subsequence(types, ["paused", "steer_received", "resumed"])
+
+    # Every pause-loop poll (polls 2 and 3) is immediately preceded by sleep(200).
+    pause_poll_positions = [
+        pos for pos, entry in enumerate(timeline) if entry[0] == "poll" and entry[1] >= 2
+    ]
+    assert pause_poll_positions, "expected polls inside the pause loop"
+    for pos in pause_poll_positions:
+        assert timeline[pos - 1] == ("sleep", 200), f"poll not preceded by sleep(200): {timeline}"
+    # The loop sleeps only 200ms, exactly once per poll it makes (no other sleeps).
+    assert [e for e in timeline if e[0] == "sleep"] == [("sleep", 200), ("sleep", 200)]
+
+    # The steer posted during the pause reaches the body draft (the next draft call).
+    assert draft_calls[-1]["key"] == "body"
+    assert draft_calls[-1]["steers"] == ["Lead with Q2 revenue."]
