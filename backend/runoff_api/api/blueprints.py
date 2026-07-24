@@ -145,7 +145,11 @@ async def post_blueprint_copilot(id: str, request: Request, db: RunoffDb = Depen
         parsed = BlueprintContent.model_validate(body.get("draft"))
     except ValidationError:
         return err(400, "invalid draft")
-    draft = parsed.model_dump(by_alias=True)
+    # exclude_unset reproduces TS `JSON.stringify(parsed.data)`: BlueprintContentSchema
+    # has only .optional() (no .default()) fields, so absent keys must stay absent —
+    # a plain dump would materialize `fixedText: null` etc., diverging the system-prompt
+    # bytes and defeating edit_section's before-dict guard (sticky explicit nulls).
+    draft = parsed.model_dump(by_alias=True, exclude_unset=True)
 
     selected_key = body["selectedKey"] if isinstance(body.get("selectedKey"), str) else None
 

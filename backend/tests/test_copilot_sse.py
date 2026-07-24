@@ -182,6 +182,26 @@ def test_invalid_draft_400_before_engine(client, monkeypatch):
     assert called == []
 
 
+def test_draft_reaches_engine_exactly_as_posted(client, monkeypatch):
+    """The engine seam must receive the raw posted draft byte-for-byte —
+    exclude_unset keeps absent optional keys (fixedText) absent, reproducing TS
+    `JSON.stringify(parsed.data)`. A plain model_dump would inject `fixedText: null`
+    (and null query/rule fields), diverging the system-prompt bytes from TS."""
+    c, _ = client
+    # DRAFT's sections deliberately omit the optional `fixedText` key.
+    assert all("fixedText" not in s for s in DRAFT["sections"])
+
+    seen: dict = {}
+    monkeypatch.setattr(
+        bp_route, "copilot_turn",
+        lambda **o: (seen.update(o), {"reply": "ok", "actions": [], "draft": DRAFT})[1],
+    )
+
+    _post_stream(c, "/api/v1/blueprints/bp_1/copilot", {"message": "hi", "draft": DRAFT})
+
+    assert seen["draft"] == DRAFT
+
+
 # --- (3) selectedKey / thread loaded before the user insert ------------------
 
 
