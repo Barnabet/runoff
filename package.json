@@ -17,6 +17,8 @@
     "backend:test": "uv --directory backend run pytest -q",
     "backend:lint": "uv --directory backend run ruff check .",
     "backend:fixtures": "set -a; [ -f .env ] && . ./.env; set +a; tsx scripts/dump-parity-fixtures.ts",
+    "backend:prompt-fixtures": "tsx scripts/dump-prompt-fixtures.ts",
+    "backend:ingest-fixtures": "tsx scripts/dump-ingest-fixtures.ts",
     "backend:parity": "RUNOFF_PARITY=1 RUNOFF_WAREHOUSE_DIR=$PWD/data/warehouses uv --directory backend run pytest -q -k parity",
     "backend:diff": "tsx scripts/diff-api.ts"
   },

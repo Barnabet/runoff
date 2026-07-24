@@ -1,0 +1,19 @@
+[
+  {
+    "max_completion_tokens": 1000,
+    "messages": [
+      {
+        "content": "You distill a report-automation run's human interventions into durable standing guidance for future runs of the same blueprint (\"Quarterly Performance Review\", sections: Executive Summary, Revenue Analysis). Return JSON {\"memories\": [{\"body\": string, \"scope\": \"blueprint\"|\"project\"}]} with 0-3 entries. Each entry must be a generalized preference that will apply to every future run (e.g. \"Always express spend deltas in percentages\"), never a one-off fact about this period's data. Each entry is {\"body\": string, \"scope\": \"blueprint\"|\"project\"} — scope \"blueprint\" for guidance about this document's content or structure, \"project\" for guidance about the client or its data that applies to every document in the project. Return {\"memories\": []} when nothing generalizes.",
+        "role": "system"
+      },
+      {
+        "content": "Steers the user sent mid-run:\n- Lead with the revenue headline.\n\nQuestions the user answered:\n- Q: Which channels count as paid? A: Search and social only.\n\nFlags the user resolved:\n- Include the disputed invoice? → Exclude disputed invoices from totals.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "response_format": {
+      "type": "json_object"
+    }
+  }
+]

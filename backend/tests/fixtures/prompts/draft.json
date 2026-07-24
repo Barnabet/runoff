@@ -1,0 +1,160 @@
+[
+  {
+    "max_completion_tokens": 16000,
+    "messages": [
+      {
+        "content": "You are drafting one section of a formal business report for Northwind Trading Co.. Write in the report's dialect exactly as specified below. Ground every claim in the sources bound to this section; never invent figures.\n\nDialect contract: write plain paragraphs separated by blank lines; NO markdown headings/bold/lists; tables as GitHub markdown tables; every figure sourced from data must be written as [[numeral|familyId|locator]] — the first field is the exact text the reader sees, so it must be the actual number (e.g. [[220,500|fam_ab12|sum(fam_ar_transactions.amount)]]), never the word \"figure\" or any other placeholder; locator is agg(tableName.column) — agg one of sum|avg|min|max|count, tableName one of the warehouse tables shown in this section's data (each belongs to the family you cite) — adding a row filter when the figure covers only matching rows, e.g. sum(fam_ar_transactions.amount where channel=search); for document sources, a short quote reference; only cite familyIds bound to this section.\n\nTools: use ask_user only for genuine ambiguity in the data or its business framing — never about the dialect, citation markers, or locator grammar, which the reader never sees; resolve mechanics yourself and raise_flag if precision suffers. Use raise_flag for judgment calls the rules mark as needing review.\n\nGlobal rules for this report:\n- Round all currency to whole dollars.\n- Write in the past tense.\n\nStanding guidance for this project (applies to every document in this project — follow unless blueprint guidance or a section instruction contradicts it):\n- Northwind's fiscal year starts in April.\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n- Always express spend deltas in percentages.",
+        "role": "system"
+      },
+      {
+        "content": "Section 2: Revenue Analysis\nInstruction: Analyze revenue by channel and call out the largest mover.\n\nSources bound to this section:\nfam_marketing_spend (periodic, quarter 2026-Q2)\nschema: date TEXT, channel TEXT, amount REAL\nsum(amount)=190900 across 12 rows\n\nRules for this section:\n- [style] Lead with the total before the breakdown.\n- [assert] Total spend equals the sum of channel spend. (sql: SELECT sum(amount) FROM fam_marketing_spend WHERE _period = :period)\n(assert rules are verified deterministically after drafting; style rules shape your writing; judgment rules should prompt raise_flag when triggered.)\n\nSections already written (for continuity — do not repeat their content):\nExecutive Summary\nRevenue rose across every paid channel this quarter.\n\nUser steers:\n1. Lead with the revenue headline.\n\nAnswered questions:\nQ: Which channels count as paid?\nA: Search and social only.\n\nWrite the section now.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "stream": true,
+    "tools": [
+      {
+        "function": {
+          "description": "Ask the user a blocking-with-fallback question when the source data or its business framing is genuinely ambiguous. Never ask about report mechanics (the dialect, citation markers, locator grammar) — the user never sees those; resolve them yourself and raise_flag if precision suffers. Continue drafting using the fallback unless an answer arrives.",
+          "name": "ask_user",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "deadlineSection": {
+                "type": "string"
+              },
+              "fallback": {
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "question",
+              "options",
+              "fallback",
+              "deadlineSection"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Flag a passage that needs the user's judgment before the report can be released. Does not stop drafting.",
+          "name": "raise_flag",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "options": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "question",
+              "options"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      }
+    ]
+  },
+  {
+    "max_completion_tokens": 16000,
+    "messages": [
+      {
+        "content": "You are drafting one section of a formal business report for Northwind Trading Co.. Write in the report's dialect exactly as specified below. Ground every claim in the sources bound to this section; never invent figures.\n\nDialect contract: write plain paragraphs separated by blank lines; NO markdown headings/bold/lists; tables as GitHub markdown tables; every figure sourced from data must be written as [[numeral|familyId|locator]] — the first field is the exact text the reader sees, so it must be the actual number (e.g. [[220,500|fam_ab12|sum(fam_ar_transactions.amount)]]), never the word \"figure\" or any other placeholder; locator is agg(tableName.column) — agg one of sum|avg|min|max|count, tableName one of the warehouse tables shown in this section's data (each belongs to the family you cite) — adding a row filter when the figure covers only matching rows, e.g. sum(fam_ar_transactions.amount where channel=search); for document sources, a short quote reference; only cite familyIds bound to this section.\n\nTools: use ask_user only for genuine ambiguity in the data or its business framing — never about the dialect, citation markers, or locator grammar, which the reader never sees; resolve mechanics yourself and raise_flag if precision suffers. Use raise_flag for judgment calls the rules mark as needing review.\n\nGlobal rules for this report:\n- Round all currency to whole dollars.\n- Write in the past tense.\n\nStanding guidance for this project (applies to every document in this project — follow unless blueprint guidance or a section instruction contradicts it):\n- Northwind's fiscal year starts in April.\n\nStanding guidance for this blueprint (learned from the builder and past runs — follow unless a section instruction contradicts it):\n- Always express spend deltas in percentages.",
+        "role": "system"
+      },
+      {
+        "content": "Section 2: Revenue Analysis\nInstruction: Analyze revenue by channel and call out the largest mover.\n\nSources bound to this section:\nfam_marketing_spend (periodic, quarter 2026-Q2)\nschema: date TEXT, channel TEXT, amount REAL\nsum(amount)=190900 across 12 rows\n\nRules for this section:\n- [style] Lead with the total before the breakdown.\n- [assert] Total spend equals the sum of channel spend. (sql: SELECT sum(amount) FROM fam_marketing_spend WHERE _period = :period)\n(assert rules are verified deterministically after drafting; style rules shape your writing; judgment rules should prompt raise_flag when triggered.)\n\nSections already written (for continuity — do not repeat their content):\nExecutive Summary\nRevenue rose across every paid channel this quarter.\n\nLast run's version of this section (keep its structure and wording where the\nunderlying data is unchanged; update figures and note material changes):\nLast quarter total spend was 175000, led by paid search.\n\nUser steers:\n1. Lead with the revenue headline.\n\nAnswered questions:\nQ: Which channels count as paid?\nA: Search and social only.\n\nA previous draft failed checks: assert failed: total spend 190900 did not match the sum of the cited channel figures.\nFix and redraft the full section. Cite a figure by wrapping the numeral itself in the marker — [[220,500|sourceId|locator]] — the visible text must be the actual number, never the word \"figure\".\n\nWrite the section now.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "stream": true,
+    "tools": [
+      {
+        "function": {
+          "description": "Ask the user a blocking-with-fallback question when the source data or its business framing is genuinely ambiguous. Never ask about report mechanics (the dialect, citation markers, locator grammar) — the user never sees those; resolve them yourself and raise_flag if precision suffers. Continue drafting using the fallback unless an answer arrives.",
+          "name": "ask_user",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "deadlineSection": {
+                "type": "string"
+              },
+              "fallback": {
+                "type": "string"
+              },
+              "options": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "question",
+              "options",
+              "fallback",
+              "deadlineSection"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      },
+      {
+        "function": {
+          "description": "Flag a passage that needs the user's judgment before the report can be released. Does not stop drafting.",
+          "name": "raise_flag",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "options": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "question": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "question",
+              "options"
+            ],
+            "type": "object"
+          },
+          "strict": true
+        },
+        "type": "function"
+      }
+    ]
+  }
+]

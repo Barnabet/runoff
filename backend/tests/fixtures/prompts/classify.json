@@ -1,0 +1,19 @@
+[
+  {
+    "max_completion_tokens": 500,
+    "messages": [
+      {
+        "content": "You file uploaded data files into a project's source taxonomy: families of one kind (\"periodic\" = one file per period, or \"constant\" = reference material with no period), each periodic family having ONE fixed granularity. Existing families:\n- marketing_spend (\"Marketing spend\"): periodic, one file per quarter\n- ga4_analytics (\"GA4 analytics\"): periodic, one file per quarter\n- brand_guidelines (\"Brand guidelines\"): constant\n\nStrongly prefer filing into an existing family. Propose a new family only when nothing fits; propose \"constant\" only for clearly non-periodic reference material. Periods MUST be canonical: quarter \"2026-Q1\", month \"2026-06\", year \"2026\" — matching the family's granularity; null for constant. Return JSON {\"familyKey\": string, \"newFamily\"?: {\"key\",\"label\",\"kind\",\"granularity\"|null}, \"period\": string|null, \"confidence\": \"high\"|\"medium\"|\"low\"}. New-family keys are short snake_case slugs.",
+        "role": "system"
+      },
+      {
+        "content": "Filename: ga4_export_q3.csv\n\nContent sample:\nchannel,sessions,conversions\npaid_search,48200,1240\npaid_social,31500,720\ndisplay,22800,410\n",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "response_format": {
+      "type": "json_object"
+    }
+  }
+]

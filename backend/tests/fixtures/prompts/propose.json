@@ -1,0 +1,36 @@
+[
+  {
+    "max_completion_tokens": 2000,
+    "messages": [
+      {
+        "content": "You write parse plans that turn one uploaded spreadsheet/CSV into clean database tables. A deterministic engine executes your plan; anchors locate each table's header row by cell-text signature, so plans survive moved/renamed sheets. Return JSON matching: {\"version\":1,\"tables\":[{\"name\":snake_case,\"anchor\":{\"sheet\"?:slug,\"headerSignature\":[normalized header cell texts],\"minMatch\":int},\"headerRows\":1-3,\"exclude\":[{\"column\":canonical|null,\"pattern\":regex}],\"columns\":[{\"from\":normalized merged header,\"name\":snake_case,\"type\":\"TEXT\"|\"INTEGER\"|\"REAL\",\"parse\"?:\"number\"|\"currency\"|\"percent\"|\"date\"}],\"unpivot\"?:{\"keep\":[canonical],\"valuePattern\":regex,\"keyColumn\":snake_case,\"valueColumn\":snake_case,\"valueType\":\"INTEGER\"|\"REAL\"|\"TEXT\",\"valueParse\"?:\"number\"|\"currency\"|\"percent\"},\"periodColumn\"?:canonical (its column MUST have parse \"date\"),\"onPeriodMismatch\"?:\"keep\"|\"exclude\"}]}. Header/from texts are lowercase, whitespace-collapsed. One entry per REAL data table; title rows, notes and total rows are NOT tables. Exclude total/subtotal rows with an exclude rule on a key column. Set minMatch ≈ two-thirds of the signature length. Unpivot wide period-like column layouts. Use parse for formatted values (\"$1,234\"→currency, \"12%\"→percent, dates→date). Patterns are ECMAScript regex — no PCRE inline flags like (?i); matching is already case-insensitive.",
+        "role": "system"
+      },
+      {
+        "content": "Filename: spend_june.csv\n\nFile sample:\n## sheet: spend_june (13×3)\nR1: date | channel | amount\nR2: 2026-06-02 | search | 42000\nR3: 2026-06-05 | social | 28500\n\n## detector hints\nsingle table; header row 1",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "response_format": {
+      "type": "json_object"
+    }
+  },
+  {
+    "max_completion_tokens": 2000,
+    "messages": [
+      {
+        "content": "You write parse plans that turn one uploaded spreadsheet/CSV into clean database tables. A deterministic engine executes your plan; anchors locate each table's header row by cell-text signature, so plans survive moved/renamed sheets. Return JSON matching: {\"version\":1,\"tables\":[{\"name\":snake_case,\"anchor\":{\"sheet\"?:slug,\"headerSignature\":[normalized header cell texts],\"minMatch\":int},\"headerRows\":1-3,\"exclude\":[{\"column\":canonical|null,\"pattern\":regex}],\"columns\":[{\"from\":normalized merged header,\"name\":snake_case,\"type\":\"TEXT\"|\"INTEGER\"|\"REAL\",\"parse\"?:\"number\"|\"currency\"|\"percent\"|\"date\"}],\"unpivot\"?:{\"keep\":[canonical],\"valuePattern\":regex,\"keyColumn\":snake_case,\"valueColumn\":snake_case,\"valueType\":\"INTEGER\"|\"REAL\"|\"TEXT\",\"valueParse\"?:\"number\"|\"currency\"|\"percent\"},\"periodColumn\"?:canonical (its column MUST have parse \"date\"),\"onPeriodMismatch\"?:\"keep\"|\"exclude\"}]}. Header/from texts are lowercase, whitespace-collapsed. One entry per REAL data table; title rows, notes and total rows are NOT tables. Exclude total/subtotal rows with an exclude rule on a key column. Set minMatch ≈ two-thirds of the signature length. Unpivot wide period-like column layouts. Use parse for formatted values (\"$1,234\"→currency, \"12%\"→percent, dates→date). Patterns are ECMAScript regex — no PCRE inline flags like (?i); matching is already case-insensitive. You are AMENDING a working plan. You MUST keep every existing logical table name and canonical column name; re-anchor and re-map \"from\" texts onto them. You may ADD new columns; never remove or rename existing ones.",
+        "role": "system"
+      },
+      {
+        "content": "Filename: spend_june.csv\n\nFile sample:\n## sheet: spend_june (13×3)\nR1: date | channel | amount\nR2: 2026-06-02 | search | 42000\nR3: 2026-06-05 | social | 28500\n\n## detector hints\nsingle table; header row 1\n\nExisting plan:\n{\"version\":1,\"tables\":[{\"name\":\"spend\",\"anchor\":{\"headerSignature\":[\"date\",\"channel\",\"amount\"],\"minMatch\":2},\"headerRows\":1,\"exclude\":[],\"columns\":[{\"from\":\"date\",\"name\":\"date\",\"type\":\"TEXT\",\"parse\":\"date\"},{\"from\":\"channel\",\"name\":\"channel\",\"type\":\"TEXT\"},{\"from\":\"amount\",\"name\":\"amount\",\"type\":\"REAL\",\"parse\":\"currency\"}],\"periodColumn\":\"date\",\"onPeriodMismatch\":\"keep\"}]}\n\nFit problems:\nunknown column: notes\n\nExecution report of the previous attempt:\n{\"tables\":[{\"name\":\"spend\",\"anchor\":{\"sheet\":\"spend_june\",\"row\":0},\"problems\":[],\"rowsKept\":11,\"rowsExcluded\":[],\"coercionFailures\":[{\"column\":\"amount\",\"count\":1,\"samples\":[\"n/a\"]}],\"periodMismatches\":{\"count\":0,\"samples\":[]},\"unknownColumns\":[\"notes\"]}]}\n\nUser feedback:\nTreat the notes column as free text; keep it out of the numeric tables.",
+        "role": "user"
+      }
+    ],
+    "model": "gpt-5.6-sol",
+    "response_format": {
+      "type": "json_object"
+    }
+  }
+]
